@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afribook Mini Feed</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f0f2f5; }
+    h1, h2 { color: #333; }
+    input, textarea, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .section { background: #fff; padding: 15px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .post { background: #e9ecef; padding: 10px; margin-bottom: 10px; border-radius: 6px; }
+    .post-header { display: flex; align-items: center; font-weight: bold; color: #007bff; }
+    .post-header img { width: 30px; height: 30px; border-radius: 50%; margin-right: 10px; }
+    .post-content { margin-top: 5px; }
+    .post-date { font-size: 12px; color: #555; margin-top: 5px; }
+    .post-actions { margin-top: 5px; }
+    .post-actions button { background: #28a745; margin-right: 5px; }
+    .comments { margin-top: 10px; font-size: 14px; }
+    .comment { background: #d6d8db; padding: 5px; border-radius: 5px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+<h1>Afribook Mini Feed</h1>
+
+<div class="section">
+  <h2>Register</h2>
+  <input type="text" id="regName" placeholder="Name" />
+  <input type="email" id="regEmail" placeholder="Email" />
+  <input type="password" id="regPass" placeholder="Password" />
+  <button onclick="register()">Register</button>
+  <pre id="regResult"></pre>
+</div>
+
+<div class="section">
+  <h2>Login</h2>
+  <input type="email" id="loginEmail" placeholder="Email" />
+  <input type="password" id="loginPass" placeholder="Password" />
+  <button onclick="login()">Login</button>
+  <pre id="loginResult"></pre>
+</div>
+
+<div class="section">
+  <h2>Create Post</h2>
+  <textarea id="postContent" placeholder="What's on your mind?" rows="3"></textarea>
+  <button onclick="createPost()">Post</button>
+  <pre id="postResult"></pre>
+</div>
+
+<div class="section">
+  <h2>Feed</h2>
+  <div id="postsList"></div>
+</div>
+
+<script>
+let token = "";
+let userId = "";
+
+// Register function
+async function register() {
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: document.getElementById("regName").value,
+      email: document.getElementById("regEmail").value,
+      password: document.getElementById("regPass").value
+    })
+  });
+  const data = await res.json();
+  document.getElementById("regResult").textContent = JSON.stringify(data, null, 2);
+}
+
+// Login function
+async function login() {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: document.getElementById("loginEmail").value,
+      password: document.getElementById("loginPass").value
+    })
+  });
+  const data = await res.json();
+  document.getElementById("loginResult").textContent = JSON.stringify(data, null, 2);
+  if (data.token) {
+    token = data.token;
+    userId = data.user._id;
+  }
+}
+
+// Create post
+async function createPost() {
+  if (!token) return alert("Please login first!");
+  const res = await fetch("/api/posts", {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({
+      content: document.getElementById("postContent").value
+    })
+  });
+  const data = await res.json();
+  document.getElementById("postResult").textContent = JSON.stringify(data, null, 2);
+  document.getElementById("postContent").value = "";
+  getPosts(); // refresh feed
+}
+
+// Like a post
+async function likePost(postId) {
+  if (!token) return alert("Login first to like posts!");
+  await fetch(`/api/posts/${postId}/like`, {
+    method: "PUT",
+    headers: { "Authorization": "Bearer " + token }
+  });
+  getPosts();
+}
+
+// Add comment
+async function addComment(postId) {
+  if (!token) return alert("Login first to comment!");
+  const commentText = prompt("Enter your comment:");
+  if (!commentText) return;
+  await fetch(`/api/posts/${postId}/comment`, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ text: commentText })
+  });
+  getPosts();
+}
+
+// Get all posts
+async function getPosts() {
+  const res = await fetch("/api/posts");
+  const posts = await res.json();
+  const postsDiv = document.getElementById("postsList");
+  postsDiv.innerHTML = "";
+  if (!posts.length) {
+    postsDiv.innerHTML = "<p>No posts yet.</p>";
+    return;
+  }
+
+  posts.reverse().forEach(post => {
+    const postEl = document.createElement("div");
+    postEl.className = "post";
+    postEl.innerHTML = `
+      <div class="post-header">
+        <img src="${post.user?.profilePic || 'https://via.placeholder.com/30'}" alt="Profile Pic" />
+        ${post.user?.name || "Unknown"}
+      </div>
+      <div class="post-content">${post.content}</div>
+      <div class="post-date">${new Date(post.createdAt).toLocaleString()}</div>
+      <div class="post-actions">
+        <button onclick="likePost('${post._id}')">Like (${post.likes?.length || 0})</button>
+        <button onclick="addComment('${post._id}')">Comment (${post.comments?.length || 0})</button>
+      </div>
+      <div class="comments">
+        ${(post.comments || []).map(c => `<div class="comment"><b>${c.userName || 'Anon'}:</b> ${c.text}</div>`).join('')}
+      </div>
+    `;
+    postsDiv.appendChild(postEl);
+  });
+}
+
+// Auto-refresh feed every 5s
+setInterval(getPosts, 5000);
+getPosts();
+</script>
+
+</body>
+</html>

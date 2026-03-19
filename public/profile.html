@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Afribook Profile</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .profile { margin-bottom: 20px; }
+    img { max-width: 150px; display: block; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Profile Page</h1>
+
+  <div class="profile">
+    <h2>User Info</h2>
+    <p><strong>Name:</strong> <span id="name">Loading...</span></p>
+    <p><strong>Email:</strong> <span id="email">Loading...</span></p>
+    <p><strong>Profile Picture:</strong></p>
+    <img id="profilePic" src="" alt="Profile Picture" />
+  </div>
+
+  <div class="upload">
+    <h2>Upload New Profile Picture</h2>
+    <input type="file" id="profilePicInput" />
+    <button onclick="uploadPic()">Upload</button>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000"; // your backend URL
+    const token = localStorage.getItem("token"); // JWT token from login
+
+    // Load user info
+    async function loadUser() {
+      if (!token) {
+        alert("You must log in first!");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/users/me`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        document.getElementById("name").textContent = data.name;
+        document.getElementById("email").textContent = data.email;
+
+        if (data.profilePic) {
+          document.getElementById("profilePic").src = `${API_BASE}/${data.profilePic}`;
+        } else {
+          document.getElementById("profilePic").alt = "No profile picture yet";
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to load user info");
+      }
+    }
+
+    // Upload profile picture
+    async function uploadPic() {
+      const fileInput = document.getElementById("profilePicInput");
+      if (!fileInput.files[0]) {
+        alert("Select a file first");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("profilePic", fileInput.files[0]);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/users/profile-pic`, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.profilePic) {
+          document.getElementById("profilePic").src = `${API_BASE}/${data.profilePic}`;
+          alert("Profile picture updated!");
+        } else {
+          alert(data.message || "Upload failed");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Upload failed");
+      }
+    }
+
+    // Load user info on page load
+    window.onload = loadUser;
+  </script>
+</body>
+</html>
