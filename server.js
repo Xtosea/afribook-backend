@@ -36,8 +36,8 @@ export const upload = multer({ storage });
 
 /* ================= STATIC FILES ================= */
 // Serve profile pics and media
-app.use("/uploads/profiles", express.static(path.join(process.cwd(), "public/uploads/profiles")));
-app.use("/uploads/media", express.static(path.join(process.cwd(), "public/uploads/media")));
+app.use("/uploads/profiles", express.static("public/uploads/profiles"));
+app.use("/uploads/media", express.static("public/uploads/media"));
 
 /* ================= CORS ================= */
 const allowedOrigins = [
