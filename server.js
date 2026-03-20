@@ -41,7 +41,7 @@ app.use("/uploads/media", express.static("public/uploads/media"));
 
 /* ================= CORS ================= */
 const allowedOrigins = [
-  https://afribook.globelynks.com/
+  "https://afribook.globelynks.com"
 ];
 
 app.use(
