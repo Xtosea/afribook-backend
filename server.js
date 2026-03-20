@@ -16,6 +16,9 @@ import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import storyRoutes from "./routes/storyRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
+import imagekitRoutes from "./routes/imagekitRoutes.js";
+import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
+import videoRoutes from "./routes/videoRoutes.js";
 
 const app = express();
 
@@ -81,6 +84,9 @@ app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/stories", storyRoutes);
 app.use("/api", searchRoutes);
+app.use("/api/imagekit", imagekitRoutes);
+app.use("/api/cloudinary", cloudinaryRoutes);
+app.use("/api/videos", videoRoutes);
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
