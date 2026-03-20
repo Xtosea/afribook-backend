@@ -11,7 +11,9 @@ const router = express.Router();
 const mediaDir = path.join(process.cwd(), "public/uploads/media");
 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
 
-const getAbsoluteUrl = (relativePath) => `${process.env.API_BASE}${relativePath}`;
+const getAbsoluteUrl = (req, relativePath) => {
+  return `${req.protocol}://${req.get("host")}${relativePath}`;
+};
 
 /* CREATE POST */
 router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) => {
@@ -32,11 +34,19 @@ router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) =>
             .resize(800, 450, { fit: "cover" })
             .toFile(outputPath);
 
-          fs.unlinkSync(file.path);
+          fs.unlink(file.path, (err) => {
+  if (err) console.warn("File delete failed:", err.message);
+});
 
-          processedMedia.push({ url: getAbsoluteUrl(`/uploads/media/${filename}`), type: file.mimetype });
+          processedMedia.push({
+  url: getAbsoluteUrl(req, `/uploads/media/${filename}`),
+  type: file.mimetype
+});
         } else {
-          processedMedia.push({ url: getAbsoluteUrl(`/uploads/media/${file.filename}`), type: file.mimetype });
+          processedMedia.push({
+  url: getAbsoluteUrl(req, `/uploads/media/${file.filename}`),
+  type: file.mimetype
+});
         }
       }
     }
@@ -58,6 +68,23 @@ router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) =>
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
+/* ================= GET USER POSTS ================= */
+router.get("/user/:userId", verifyToken, async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic");
+
+    res.json(posts);
+  } catch (err) {
+    console.error("GET USER POSTS ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 
 /* GET ALL POSTS */
 router.get("/", verifyToken, async (req, res) => {
