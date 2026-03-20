@@ -2,7 +2,7 @@ import express from "express";
 import Post from "../models/Post.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { uploadMedia } from "../middleware/upload.js";
-import Comment from "../models/Comment.js"; // assume you have a Comment model
+import Comment from "../models/Comment.js";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
