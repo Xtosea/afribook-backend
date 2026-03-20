@@ -8,8 +8,12 @@ import sharp from "sharp";
 
 const router = express.Router();
 
-const uploadDir = "public/uploads/profiles";
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+/* ================= PATH SETUP ================= */
+const uploadDir = path.join(process.cwd(), "public/uploads/profiles");
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 /* ================= MULTER SETUP ================= */
 const storage = multer.diskStorage({
@@ -22,7 +26,9 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (!file.mimetype.startsWith("image/")) return cb(new Error("Only image files allowed"), false);
+  if (!file.mimetype.startsWith("image/")) {
+    return cb(new Error("Only image files allowed"), false);
+  }
   cb(null, true);
 };
 
@@ -32,7 +38,7 @@ const upload = multer({
   fileFilter,
 });
 
-/* ================= UPDATE PROFILE (TEXT + PROFILE + COVER) ================= */
+/* ================= UPDATE PROFILE ================= */
 router.put(
   "/:userId",
   verifyToken,
@@ -42,17 +48,18 @@ router.put(
   ]),
   async (req, res) => {
     try {
-      if (req.user.id !== req.params.userId)
+      if (req.user.id !== req.params.userId) {
         return res.status(403).json({ error: "Unauthorized" });
+      }
 
       const user = await User.findById(req.params.userId);
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      // Update text fields
+      /* ================= TEXT UPDATE ================= */
       if (req.body.bio !== undefined) user.bio = req.body.bio;
       if (req.body.intro !== undefined) user.intro = req.body.intro;
 
-      // Helper to resize image with sharp
+      /* ================= IMAGE PROCESS FUNCTION ================= */
       const processImage = async (file, width, height) => {
         const ext = path.extname(file.originalname);
         const filename = `${req.user.id}-${file.fieldname}-${Date.now()}${ext}`;
@@ -62,36 +69,149 @@ router.put(
           .resize(width, height, { fit: "cover" })
           .toFile(outputPath);
 
-        fs.unlinkSync(file.path); // delete original
+        // delete temp/original file safely
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+
         return `/uploads/profiles/${filename}`;
       };
 
-      // Update profilePic
+      /* ================= PROFILE PIC ================= */
       if (req.files?.profilePic) {
-        if (user.profilePic) {
-          const oldPath = path.join(uploadDir, path.basename(user.profilePic));
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        try {
+          // delete old
+          if (user.profilePic) {
+            const oldFile = path.join(uploadDir, path.basename(user.profilePic));
+            if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+          }
+
+          user.profilePic = await processImage(
+            req.files.profilePic[0],
+            400,
+            400
+          );
+        } catch (err) {
+          console.log("ProfilePic processing error:", err.message);
         }
-        user.profilePic = await processImage(req.files.profilePic[0], 400, 400); // square
       }
 
-      // Update coverPhoto
+      /* ================= COVER PHOTO ================= */
       if (req.files?.coverPhoto) {
-        if (user.coverPhoto) {
-          const oldPath = path.join(uploadDir, path.basename(user.coverPhoto));
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        try {
+          if (user.coverPhoto) {
+            const oldFile = path.join(uploadDir, path.basename(user.coverPhoto));
+            if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+          }
+
+          user.coverPhoto = await processImage(
+            req.files.coverPhoto[0],
+            1200,
+            400
+          );
+        } catch (err) {
+          console.log("CoverPhoto processing error:", err.message);
         }
-        user.coverPhoto = await processImage(req.files.coverPhoto[0], 1200, 400); // landscape
       }
 
+      /* ================= SAVE ================= */
       await user.save();
+
       const updatedUser = await User.findById(user._id).select("-password");
-      res.json({ message: "Profile updated successfully", user: updatedUser });
+
+      res.json({
+        message: "Profile updated successfully",
+        user: updatedUser,
+      });
     } catch (err) {
       console.error("UPDATE PROFILE ERROR:", err);
       res.status(500).json({ error: "Server error" });
     }
   }
 );
+
+/* ================= GET USER ================= */
+router.get("/:userId", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .select("-password")
+      .populate("followers", "name profilePic")
+      .populate("following", "name profilePic");
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.json(user);
+  } catch (err) {
+    console.error("GET USER ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= FOLLOW / UNFOLLOW ================= */
+router.put("/:id/follow", verifyToken, async (req, res) => {
+  try {
+    const userToFollow = await User.findById(req.params.id);
+    const currentUser = await User.findById(req.user.id);
+
+    if (!userToFollow) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (currentUser.following.includes(userToFollow._id)) {
+      // UNFOLLOW
+      currentUser.following = currentUser.following.filter(
+        (id) => !id.equals(userToFollow._id)
+      );
+      userToFollow.followers = userToFollow.followers.filter(
+        (id) => !id.equals(currentUser._id)
+      );
+      currentUser.points -= 5;
+    } else {
+      // FOLLOW
+      currentUser.following.push(userToFollow._id);
+      userToFollow.followers.push(currentUser._id);
+      currentUser.points += 10;
+    }
+
+    await currentUser.save();
+    await userToFollow.save();
+
+    res.json({
+      message: "Action successful",
+      points: currentUser.points,
+    });
+  } catch (err) {
+    console.error("FOLLOW ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= FOLLOWERS ================= */
+router.get("/:id/followers", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate(
+      "followers",
+      "name profilePic"
+    );
+
+    res.json({ followers: user?.followers || [] });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= FOLLOWING ================= */
+router.get("/:id/following", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate(
+      "following",
+      "name profilePic"
+    );
+
+    res.json({ following: user?.following || [] });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 export default router;
