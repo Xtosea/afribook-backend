@@ -1,7 +1,10 @@
 import express from "express";
 import Post from "../models/Post.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { uploadMedia } from "../middleware/upload.js"; // centralized multer for media
+import { uploadMedia } from "../middleware/upload.js"; // centralized multer
+import sharp from "sharp";
+import path from "path";
+import fs from "fs";
 
 const router = express.Router();
 
@@ -10,18 +13,37 @@ router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) =>
   try {
     const { content, feeling, location, taggedFriends } = req.body;
 
-    // Map uploaded files to media array
-    const media = req.files
-      ? req.files.map((file) => ({
-          url: `/uploads/media/${file.filename}`, // relative URL
-          type: file.mimetype,
-        }))
-      : [];
+    const processedMedia = [];
+
+    if (req.files) {
+      for (const file of req.files) {
+        const ext = path.extname(file.originalname).toLowerCase();
+        const isImage = file.mimetype.startsWith("image/");
+
+        if (isImage) {
+          // Landscape resizing with sharp
+          const filename = `resized-${Date.now()}-${file.originalname}`;
+          const outputPath = path.join("public/uploads/media", filename);
+
+          await sharp(file.path)
+            .resize(800, 450, { fit: "cover" }) // 16:9 landscape
+            .toFile(outputPath);
+
+          // Delete original upload
+          fs.unlinkSync(file.path);
+
+          processedMedia.push({ url: `/uploads/media/${filename}`, type: file.mimetype });
+        } else {
+          // Keep videos as is
+          processedMedia.push({ url: `/uploads/media/${file.filename}`, type: file.mimetype });
+        }
+      }
+    }
 
     const post = new Post({
       user: req.user.id,
       content: content || "",
-      media,
+      media: processedMedia,
       feeling: feeling || "",
       location: location || "",
       taggedFriends: taggedFriends ? JSON.parse(taggedFriends) : [],
@@ -29,7 +51,6 @@ router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) =>
 
     await post.save();
 
-    // Populate user and tagged friends
     await post.populate([
       { path: "user", select: "name profilePic" },
       { path: "taggedFriends", select: "name profilePic" },
@@ -79,7 +100,6 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
     if (!post) return res.status(404).json({ error: "Post not found" });
 
     const liked = post.likes.includes(req.user.id);
-
     if (liked) {
       post.likes = post.likes.filter((id) => id.toString() !== req.user.id);
     } else {
