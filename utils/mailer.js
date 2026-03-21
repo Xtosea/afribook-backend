@@ -15,7 +15,11 @@ import { sendMailrelay } from "../services/email/mailrelay.js";
  * @param {string} [data.text] - email plain text body (optional)
  */
 export async function sendEmail({ to, subject, html, text }) {
+  // ✅ Always include the verified from address
+  const FROM_ADDRESS = "Afribook <noreply@globelynks.com>";
+
   const emailData = {
+    from: FROM_ADDRESS,  // <- added this line
     to,
     subject,
     html,
