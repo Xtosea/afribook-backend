@@ -7,12 +7,6 @@ import { sendEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 
-/* ================= FRONTEND URLS ================= */
-const FRONTEND_URLS = [
-  "https://afribook.globelynks.com",   // main
-  "https://africbook.globelynks.com"   // backup
-];
-
 /* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
@@ -23,11 +17,13 @@ router.post("/register", async (req, res) => {
 
   try {
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
     const user = await User.create({
@@ -38,27 +34,24 @@ router.post("/register", async (req, res) => {
       verifyTokenExpiry: Date.now() + 3600000,
     });
 
-    // ✅ Create verification links for both domains
-    const verifyUrlMain = `${FRONTEND_URLS[0]}/verify-email/${verifyToken}?email=${user.email}`;
-    const verifyUrlBackup = `${FRONTEND_URLS[1]}/verify-email/${verifyToken}?email=${user.email}`;
+    console.log("Generated token:", verifyToken);
+    console.log("Saved user token:", user.verifyToken);
 
-    await sendEmail({
-      to: user.email,
-      subject: "Verify your Afribook account",
-      html: `
-        <h2>Welcome to Afribook, ${user.name}</h2>
-        <p>Please verify your email:</p>
+    // ✅ safer during debugging
+    // Inside router.post("/register", ...)
+const verifyUrl = `https://africbook.globelynks.com/verify-email/${verifyToken}?email=${user.email}`;
 
-        <p><strong>Main Link:</strong></p>
-        <a href="${verifyUrlMain}" target="_blank">${verifyUrlMain}</a>
-
-        <br/><br/>
-
-        <p><strong>Backup Link:</strong></p>
-        <a href="${verifyUrlBackup}" target="_blank">${verifyUrlBackup}</a>
-      `,
-      from: "Afribook <noreply@globelynks.com>", // ✅ must be included
-    });
+await sendEmail({
+  to: user.email,
+  subject: "Verify your Afribook account",
+  html: `
+    <h2>Welcome to Afribook, ${user.name}</h2>
+    <p>Please verify your email:</p>
+    <a href="${verifyUrl}" target="_blank">Click here to verify your email</a>
+    <p>OR copy & paste this link:</p>
+    <p>${verifyUrl}</p>
+  `
+});
 
     res.status(201).json({
       message: "Registration successful. Please verify your email.",
@@ -74,32 +67,48 @@ router.post("/register", async (req, res) => {
 router.get("/verify/:token", async (req, res) => {
   try {
     const { token } = req.params;
-    const { email } = req.query;
+    const { email } = req.query; // get email from query string
 
-    const user = await User.findOne({ verifyToken: token });
+    let user = await User.findOne({ verifyToken: token });
 
     if (!user) {
-      const alreadyVerifiedUser = await User.findOne({ email, isVerified: true });
+      const alreadyVerifiedUser = await User.findOne({
+        email,
+        isVerified: true,
+      });
+
       if (alreadyVerifiedUser) {
-        return res.redirect(`${FRONTEND_URLS[0]}/login?verified=already`);
+        return res.json({ message: "User already verified" });
       }
-      return res.redirect(`${FRONTEND_URLS[0]}/login?error=invalid`);
+
+      return res.status(400).json({ error: "Invalid token" });
     }
 
     if (user.verifyTokenExpiry < Date.now()) {
-      return res.redirect(`${FRONTEND_URLS[0]}/login?error=expired`);
+      return res.status(400).json({ error: "Token expired" });
     }
 
     user.isVerified = true;
     user.verifyToken = null;
     user.verifyTokenExpiry = null;
+
     await user.save();
 
-    return res.redirect(`${FRONTEND_URLS[0]}/login?verified=true`);
+    const authToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      message: "Verified successfully",
+      token: authToken,
+      user: { _id: user._id, email: user.email },
+    });
 
   } catch (err) {
     console.error(err);
-    return res.redirect(`${FRONTEND_URLS[0]}/login?error=server`);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -114,17 +123,36 @@ router.post("/login", async (req, res) => {
   try {
     const user = await User.findOne({ email });
 
-    if (!user) return res.status(400).json({ error: "Invalid credentials" });
-    if (!user.isVerified) return res.status(403).json({ error: "Please verify your email before logging in" });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({
+        error: "Please verify your email before logging in",
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
 
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ CLEAN RESPONSE
     res.json({
       token,
-      user: { _id: user._id, name: user.name, email: user.email },
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
     });
 
   } catch (err) {
@@ -139,26 +167,32 @@ router.post("/resend-verification", async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
-    if (user.isVerified) return res.status(400).json({ error: "Email already verified" });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ error: "Email already verified" });
+    }
 
     const verifyToken = crypto.randomBytes(32).toString("hex");
+
     user.verifyToken = verifyToken;
     user.verifyTokenExpiry = Date.now() + 3600000;
+
     await user.save();
 
-    const verifyUrlMain = `${FRONTEND_URLS[0]}/verify-email/${verifyToken}`;
-    const verifyUrlBackup = `${FRONTEND_URLS[1]}/verify-email/${verifyToken}`;
+    const verifyUrl = `https://africbook.globelynks.com//verify-email/${verifyToken}`;
 
     await sendEmail({
       to: user.email,
       subject: "Verify your Afribook account",
       html: `
         <h2>Email Verification</h2>
-        <p>Main Link: <a href="${verifyUrlMain}">${verifyUrlMain}</a></p>
-        <p>Backup Link: <a href="${verifyUrlBackup}">${verifyUrlBackup}</a></p>
+        <p>Click the link below to verify your account:</p>
+        <a href="${verifyUrl}">${verifyUrl}</a>
       `,
-      from: "Afribook <noreply@globelynks.com>",
     });
 
     res.json({ message: "Verification email resent" });
@@ -175,25 +209,28 @@ router.post("/forgot-password", async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     const token = crypto.randomBytes(32).toString("hex");
+
     user.resetToken = token;
     user.resetTokenExpiry = Date.now() + 3600000;
+
     await user.save();
 
-    const resetUrlMain = `${FRONTEND_URLS[0]}/reset-password/${token}`;
-    const resetUrlBackup = `${FRONTEND_URLS[1]}/reset-password/${token}`;
+    const resetUrl = `https://africbook.globelynks.com//reset-password/${token}`;
 
     await sendEmail({
       to: user.email,
       subject: "Afribook Password Reset",
       html: `
         <h2>Password Reset</h2>
-        <p>Main Link: <a href="${resetUrlMain}">${resetUrlMain}</a></p>
-        <p>Backup Link: <a href="${resetUrlBackup}">${resetUrlBackup}</a></p>
+        <p>Click the link below:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
       `,
-      from: "Afribook <noreply@globelynks.com>",
     });
 
     res.json({ message: "Password reset email sent!" });
@@ -202,6 +239,12 @@ router.post("/forgot-password", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+
+router.get("/delete-all-users", async (req, res) => {
+  await User.deleteMany({});
+  res.json({ message: "All users deleted" });
 });
 
 /* ================= RESET PASSWORD ================= */
@@ -215,12 +258,16 @@ router.post("/reset-password/:token", async (req, res) => {
       resetTokenExpiry: { $gt: Date.now() },
     });
 
-    if (!user) return res.status(400).json({ error: "Invalid or expired token" });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired token" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
     user.password = hashedPassword;
     user.resetToken = null;
     user.resetTokenExpiry = null;
+
     await user.save();
 
     res.json({ message: "Password reset successful!" });
