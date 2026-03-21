@@ -7,6 +7,17 @@ import { sendEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 
+/* ================= HELPER: GET FRONTEND URL ================= */
+const getFrontendUrl = (req) => {
+  const origin = req.headers.origin;
+
+  if (origin === process.env.FRONTEND_BACKUP_URL) {
+    return process.env.FRONTEND_BACKUP_URL;
+  }
+
+  return process.env.FRONTEND_URL;
+};
+
 /* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
@@ -23,7 +34,6 @@ router.post("/register", async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
     const user = await User.create({
@@ -34,24 +44,21 @@ router.post("/register", async (req, res) => {
       verifyTokenExpiry: Date.now() + 3600000,
     });
 
-    console.log("Generated token:", verifyToken);
-    console.log("Saved user token:", user.verifyToken);
+    const FRONTEND_URL = getFrontendUrl(req);
 
-    // ✅ safer during debugging
-    // Inside router.post("/register", ...)
-const verifyUrl = `http://localhost:3000/verify-email/${verifyToken}?email=${user.email}`;
+    const verifyUrl = `${FRONTEND_URL}/verify-email/${verifyToken}?email=${user.email}`;
 
-await sendEmail({
-  to: user.email,
-  subject: "Verify your Afribook account",
-  html: `
-    <h2>Welcome to Afribook, ${user.name}</h2>
-    <p>Please verify your email:</p>
-    <a href="${verifyUrl}" target="_blank">Click here to verify your email</a>
-    <p>OR copy & paste this link:</p>
-    <p>${verifyUrl}</p>
-  `
-});
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your Afribook account",
+      html: `
+        <h2>Welcome to Afribook, ${user.name}</h2>
+        <p>Please verify your email:</p>
+        <a href="${verifyUrl}" target="_blank">Click here to verify your email</a>
+        <p>OR copy & paste this link:</p>
+        <p>${verifyUrl}</p>
+      `,
+    });
 
     res.status(201).json({
       message: "Registration successful. Please verify your email.",
@@ -67,7 +74,7 @@ await sendEmail({
 router.get("/verify/:token", async (req, res) => {
   try {
     const { token } = req.params;
-    const { email } = req.query; // get email from query string
+    const { email } = req.query;
 
     let user = await User.findOne({ verifyToken: token });
 
@@ -145,7 +152,6 @@ router.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // ✅ CLEAN RESPONSE
     res.json({
       token,
       user: {
@@ -183,14 +189,16 @@ router.post("/resend-verification", async (req, res) => {
 
     await user.save();
 
-    const verifyUrl = `http://localhost:3000/verify-email/${verifyToken}`;
+    const FRONTEND_URL = getFrontendUrl(req);
+
+    const verifyUrl = `${FRONTEND_URL}/verify-email/${verifyToken}`;
 
     await sendEmail({
       to: user.email,
       subject: "Verify your Afribook account",
       html: `
         <h2>Email Verification</h2>
-        <p>Click the link below to verify your account:</p>
+        <p>Click the link below:</p>
         <a href="${verifyUrl}">${verifyUrl}</a>
       `,
     });
@@ -221,7 +229,9 @@ router.post("/forgot-password", async (req, res) => {
 
     await user.save();
 
-    const resetUrl = `http://localhost:3000/reset-password/${token}`;
+    const FRONTEND_URL = getFrontendUrl(req);
+
+    const resetUrl = `${FRONTEND_URL}/reset-password/${token}`;
 
     await sendEmail({
       to: user.email,
@@ -239,12 +249,6 @@ router.post("/forgot-password", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
-});
-
-
-router.get("/delete-all-users", async (req, res) => {
-  await User.deleteMany({});
-  res.json({ message: "All users deleted" });
 });
 
 /* ================= RESET PASSWORD ================= */
@@ -276,6 +280,12 @@ router.post("/reset-password/:token", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+/* ================= DEBUG (REMOVE IN PROD) ================= */
+router.get("/delete-all-users", async (req, res) => {
+  await User.deleteMany({});
+  res.json({ message: "All users deleted" });
 });
 
 export default router;
