@@ -42,15 +42,16 @@ export const upload = multer({ storage });
 app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
-/* ================= CORS ================= */
+/*/* ================= CORS ================= */
 const allowedOrigins = [
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_BACKUP_URL
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // Allow non-browser requests (like Postman)
       if (!allowedOrigins.includes(origin)) return callback(new Error("CORS not allowed"), false);
       return callback(null, true);
     },
@@ -60,6 +61,7 @@ app.use(
   })
 );
 
+app.options("*", cors());
 app.options("*", cors());
 
 /* ================= BODY PARSER ================= */
