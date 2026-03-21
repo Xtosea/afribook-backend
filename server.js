@@ -42,16 +42,17 @@ export const upload = multer({ storage });
 app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
-/*/* ================= CORS ================= */
+/* ================= CORS ================= */
+// Allow both frontends (main + backup)
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.FRONTEND_BACKUP_URL
+  process.env.FRONTEND_URL,         // Vercel frontend
+  process.env.FRONTEND_BACKUP_URL   // Cloudflare Pages frontend
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow non-browser requests (like Postman)
+      if (!origin) return callback(null, true); // Allow non-browser requests like Postman
       if (!allowedOrigins.includes(origin)) return callback(new Error("CORS not allowed"), false);
       return callback(null, true);
     },
@@ -61,7 +62,6 @@ app.use(
   })
 );
 
-app.options("*", cors());
 app.options("*", cors());
 
 /* ================= BODY PARSER ================= */
@@ -79,7 +79,7 @@ app.use("/api/auth/resend-verification", emailLimiter);
 app.use("/api/auth/forgot-password", emailLimiter);
 
 /* ================= ROUTES ================= */
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRoutes);           // register & login
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
@@ -151,5 +151,11 @@ export const broadcast = (data) => {
 /* ================= TEST UPLOAD ================= */
 app.post("/test-upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-  res.json({ message: "File uploaded!", url: `/uploads/${req.file.filename}` });
+
+  // Send full URL for frontend
+  const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  res.json({ 
+    message: "File uploaded!", 
+    url: `${baseUrl}/uploads/${req.file.filename}` 
+  });
 });
