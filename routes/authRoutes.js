@@ -7,16 +7,11 @@ import { sendEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 
-/* ================= HELPER: GET FRONTEND URL ================= */
-const getFrontendUrl = (req) => {
-  const origin = req.headers.origin;
-
-  if (origin === process.env.FRONTEND_BACKUP_URL) {
-    return process.env.FRONTEND_BACKUP_URL;
-  }
-
-  return process.env.FRONTEND_URL;
-};
+/* ================= FRONTEND URLS ================= */
+const FRONTEND_URLS = [
+  "https://afribook.globelynks.com",   // main
+  "https://africbook.globelynks.com"   // backup
+];
 
 /* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
@@ -28,7 +23,6 @@ router.post("/register", async (req, res) => {
 
   try {
     const existingUser = await User.findOne({ email });
-
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
@@ -44,9 +38,9 @@ router.post("/register", async (req, res) => {
       verifyTokenExpiry: Date.now() + 3600000,
     });
 
-    const FRONTEND_URL = getFrontendUrl(req);
-
-    const verifyUrl = `${FRONTEND_URL}/verify-email/${verifyToken}?email=${user.email}`;
+    // ✅ Create BOTH links
+    const verifyUrlMain = `${FRONTEND_URLS[0]}/verify-email/${verifyToken}?email=${user.email}`;
+    const verifyUrlBackup = `${FRONTEND_URLS[1]}/verify-email/${verifyToken}?email=${user.email}`;
 
     await sendEmail({
       to: user.email,
@@ -54,9 +48,14 @@ router.post("/register", async (req, res) => {
       html: `
         <h2>Welcome to Afribook, ${user.name}</h2>
         <p>Please verify your email:</p>
-        <a href="${verifyUrl}" target="_blank">Click here to verify your email</a>
-        <p>OR copy & paste this link:</p>
-        <p>${verifyUrl}</p>
+
+        <p><strong>Main Link:</strong></p>
+        <a href="${verifyUrlMain}" target="_blank">${verifyUrlMain}</a>
+
+        <br/><br/>
+
+        <p><strong>Backup Link:</strong></p>
+        <a href="${verifyUrlBackup}" target="_blank">${verifyUrlBackup}</a>
       `,
     });
 
@@ -85,14 +84,14 @@ router.get("/verify/:token", async (req, res) => {
       });
 
       if (alreadyVerifiedUser) {
-        return res.json({ message: "User already verified" });
+        return res.redirect(`${FRONTEND_URLS[0]}/login?verified=already`);
       }
 
-      return res.status(400).json({ error: "Invalid token" });
+      return res.redirect(`${FRONTEND_URLS[0]}/login?error=invalid`);
     }
 
     if (user.verifyTokenExpiry < Date.now()) {
-      return res.status(400).json({ error: "Token expired" });
+      return res.redirect(`${FRONTEND_URLS[0]}/login?error=expired`);
     }
 
     user.isVerified = true;
@@ -101,21 +100,12 @@ router.get("/verify/:token", async (req, res) => {
 
     await user.save();
 
-    const authToken = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({
-      message: "Verified successfully",
-      token: authToken,
-      user: { _id: user._id, email: user.email },
-    });
+    // ✅ Redirect to login page after verification
+    return res.redirect(`${FRONTEND_URLS[0]}/login?verified=true`);
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    return res.redirect(`${FRONTEND_URLS[0]}/login?error=server`);
   }
 });
 
@@ -189,16 +179,14 @@ router.post("/resend-verification", async (req, res) => {
 
     await user.save();
 
-    const FRONTEND_URL = getFrontendUrl(req);
-
-    const verifyUrl = `${FRONTEND_URL}/verify-email/${verifyToken}`;
+    const verifyUrl = `${FRONTEND_URLS[0]}/verify-email/${verifyToken}`;
 
     await sendEmail({
       to: user.email,
       subject: "Verify your Afribook account",
       html: `
         <h2>Email Verification</h2>
-        <p>Click the link below:</p>
+        <p>Click below:</p>
         <a href="${verifyUrl}">${verifyUrl}</a>
       `,
     });
@@ -229,16 +217,13 @@ router.post("/forgot-password", async (req, res) => {
 
     await user.save();
 
-    const FRONTEND_URL = getFrontendUrl(req);
-
-    const resetUrl = `${FRONTEND_URL}/reset-password/${token}`;
+    const resetUrl = `${FRONTEND_URLS[0]}/reset-password/${token}`;
 
     await sendEmail({
       to: user.email,
       subject: "Afribook Password Reset",
       html: `
         <h2>Password Reset</h2>
-        <p>Click the link below:</p>
         <a href="${resetUrl}">${resetUrl}</a>
       `,
     });
@@ -280,12 +265,6 @@ router.post("/reset-password/:token", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
-});
-
-/* ================= DEBUG (REMOVE IN PROD) ================= */
-router.get("/delete-all-users", async (req, res) => {
-  await User.deleteMany({});
-  res.json({ message: "All users deleted" });
 });
 
 export default router;
