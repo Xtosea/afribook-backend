@@ -21,6 +21,7 @@ import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 /* ================= MULTER SETUP ================= */
 const storage = multer.diskStorage({
@@ -148,10 +149,12 @@ export const broadcast = (data) => {
 
 /* ================= TEST UPLOAD ================= */
 app.post("/test-upload", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
 
-  // Send full URL for frontend
-  const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const baseUrl = process.env.BACKEND_URL;
+
   res.json({ 
     message: "File uploaded!", 
     url: `${baseUrl}/uploads/${req.file.filename}` 
