@@ -1,53 +1,28 @@
+// routes/postRoutes.js
 import express from "express";
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { uploadMedia } from "../middleware/upload.js";
-import sharp from "sharp";
-import path from "path";
+import { uploadMediaCloudinaryR2 } from "../middleware/upload.js"; // NEW unified middleware
 import fs from "fs";
+import path from "path";
 
 const router = express.Router();
-const mediaDir = path.join(process.cwd(), "public/uploads/media");
-if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
 
-const getAbsoluteUrl = (req, relativePath) => {
-  return `${req.protocol}://${req.get("host")}${relativePath}`;
-};
-
-/* CREATE POST */
-router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) => {
+/* ================= CREATE POST ================= */
+// middleware handles Cloudinary (images) + R2 (videos) upload
+router.post("/", verifyToken, uploadMediaCloudinaryR2.array("media", 5), async (req, res) => {
   try {
     const { content, feeling, location, taggedFriends } = req.body;
     const processedMedia = [];
 
     if (req.files) {
       for (const file of req.files) {
-        const ext = path.extname(file.originalname).toLowerCase();
-        const isImage = file.mimetype.startsWith("image/");
-
-        if (isImage) {
-          const filename = `resized-${Date.now()}-${file.originalname}`;
-          const outputPath = path.join(mediaDir, filename);
-
-          await sharp(file.path)
-            .resize(800, 450, { fit: "cover" })
-            .toFile(outputPath);
-
-          fs.unlink(file.path, (err) => {
-  if (err) console.warn("File delete failed:", err.message);
-});
-
-          processedMedia.push({
-  url: getAbsoluteUrl(req, `/uploads/media/${filename}`),
-  type: file.mimetype
-});
-        } else {
-          processedMedia.push({
-  url: getAbsoluteUrl(req, `/uploads/media/${file.filename}`),
-  type: file.mimetype
-});
-        }
+        // Each file already has a .url and .type from middleware
+        processedMedia.push({
+          url: file.url,
+          type: file.type,
+        });
       }
     }
 
@@ -61,7 +36,11 @@ router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) =>
     });
 
     await post.save();
-    await post.populate([{ path: "user", select: "name profilePic" }, { path: "taggedFriends", select: "name profilePic" }]);
+    await post.populate([
+      { path: "user", select: "name profilePic" },
+      { path: "taggedFriends", select: "name profilePic" },
+    ]);
+
     res.status(201).json({ message: "Post created", post });
   } catch (err) {
     console.error(err);
@@ -69,8 +48,7 @@ router.post("/", verifyToken, uploadMedia.array("media", 5), async (req, res) =>
   }
 });
 
-
-/* ================= GET USER POSTS ================= */
+/* ================= GET POSTS ================= */
 router.get("/user/:userId", verifyToken, async (req, res) => {
   try {
     const posts = await Post.find({ user: req.params.userId })
@@ -85,11 +63,13 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
   }
 });
 
-
-/* GET ALL POSTS */
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 }).populate("user", "name profilePic").populate("taggedFriends", "name profilePic");
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic");
+
     res.json(posts);
   } catch (err) {
     console.error(err);
@@ -97,15 +77,16 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-/* LIKE / UNLIKE POST */
+/* ================= LIKE / UNLIKE ================= */
 router.put("/:postId/like", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
     const liked = post.likes.includes(req.user.id);
-    if (liked) post.likes = post.likes.filter((id) => id.toString() !== req.user.id);
-    else post.likes.push(req.user.id);
+    post.likes = liked
+      ? post.likes.filter((id) => id.toString() !== req.user.id)
+      : [...post.likes, req.user.id];
 
     await post.save();
     res.json({ likesCount: post.likes.length });
@@ -115,7 +96,7 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
   }
 });
 
-/* ADD COMMENT */
+/* ================= ADD COMMENT ================= */
 router.post("/:postId/comment", verifyToken, async (req, res) => {
   try {
     const { text } = req.body;
@@ -125,6 +106,7 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
     const comment = new Comment({ post: post._id, user: req.user.id, text });
     await comment.save();
     await comment.populate("user", "name profilePic");
+
     res.status(201).json({ comment });
   } catch (err) {
     console.error(err);
@@ -132,7 +114,7 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
   }
 });
 
-/* SHARE POST */
+/* ================= SHARE POST ================= */
 router.put("/:postId/share", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -140,6 +122,7 @@ router.put("/:postId/share", verifyToken, async (req, res) => {
 
     post.shares = (post.shares || 0) + 1;
     await post.save();
+
     res.json({ sharesCount: post.shares });
   } catch (err) {
     console.error(err);
