@@ -17,10 +17,8 @@ router.post(
     try {
       const { content, feeling, location, taggedFriends } = req.body;
 
-      // ✅ Safe content
       const contentText = content?.trim() || "";
 
-      // ✅ Safe taggedFriends
       let parsedTaggedFriends = [];
       try {
         parsedTaggedFriends = taggedFriends
@@ -30,18 +28,10 @@ router.post(
         console.log("Invalid taggedFriends JSON");
       }
 
-      // ✅ 🚨 IMPORTANT: Prevent empty post
-      if (!contentText && (!req.files || req.files.length === 0)) {
-        return res.status(400).json({
-          error: "Post must have text or media",
-        });
-      }
-
-      // ✅ Create post
       const post = new Post({
         user: req.user.id,
-        content: contentText,
-        media: req.files || [],
+        content: contentText, // can be empty ✅
+        media: req.files || [], // can be empty ✅
         feeling: feeling || "",
         location: location || "",
         taggedFriends: parsedTaggedFriends,
