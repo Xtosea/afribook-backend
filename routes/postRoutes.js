@@ -3,14 +3,12 @@ import express from "express";
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { uploadMediaCloudinaryR2 } from "../middleware/upload.js"; // NEW unified middleware
-import fs from "fs";
-import path from "path";
+import { uploadMediaCloudinaryR2 } from "../middleware/upload.js";
 
 const router = express.Router();
 
 /* ================= CREATE POST ================= */
-// middleware handles Cloudinary (images) + R2 (videos) upload
+// Handles images (Cloudinary) and videos (R2)
 router.post("/", verifyToken, uploadMediaCloudinaryR2.array("media", 5), async (req, res) => {
   try {
     const { content, feeling, location, taggedFriends } = req.body;
@@ -18,7 +16,7 @@ router.post("/", verifyToken, uploadMediaCloudinaryR2.array("media", 5), async (
 
     if (req.files) {
       for (const file of req.files) {
-        // Each file already has a .url and .type from middleware
+        // Each file should have .url and .type from middleware
         processedMedia.push({
           url: file.url,
           type: file.type,
@@ -43,7 +41,7 @@ router.post("/", verifyToken, uploadMediaCloudinaryR2.array("media", 5), async (
 
     res.status(201).json({ message: "Post created", post });
   } catch (err) {
-    console.error(err);
+    console.error("CREATE POST ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -72,7 +70,7 @@ router.get("/", verifyToken, async (req, res) => {
 
     res.json(posts);
   } catch (err) {
-    console.error(err);
+    console.error("GET ALL POSTS ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -91,7 +89,7 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
     await post.save();
     res.json({ likesCount: post.likes.length });
   } catch (err) {
-    console.error(err);
+    console.error("LIKE POST ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -109,7 +107,7 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
 
     res.status(201).json({ comment });
   } catch (err) {
-    console.error(err);
+    console.error("ADD COMMENT ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -125,7 +123,7 @@ router.put("/:postId/share", verifyToken, async (req, res) => {
 
     res.json({ sharesCount: post.shares });
   } catch (err) {
-    console.error(err);
+    console.error("SHARE POST ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
