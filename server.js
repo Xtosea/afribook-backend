@@ -19,6 +19,7 @@ import searchRoutes from "./routes/searchRoutes.js";
 import imagekitRoutes from "./routes/imagekitRoutes.js";
 import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
+import r2Routes from "./routes/r2Routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -88,6 +89,7 @@ app.use("/api", searchRoutes);
 app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
+app.use("/api/r2", r2Routes);
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
