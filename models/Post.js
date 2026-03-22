@@ -14,7 +14,7 @@ const mediaSchema = new mongoose.Schema({
 
 const postSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  content: { type: String, required: true },
+  content: { type: String, default: "", },
   media: [mediaSchema],              // images/videos
   feeling: { type: String, default: "" },
   location: { type: String, default: "" },
