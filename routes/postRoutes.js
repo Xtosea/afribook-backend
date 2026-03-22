@@ -8,21 +8,37 @@ import { uploadMediaCloudinaryR2, mediaHandler } from "../middleware/upload.js";
 const router = express.Router();
 
 /* ================= CREATE POST ================= */
-// Handles images (Cloudinary) and videos (R2)
 router.post("/", verifyToken, uploadMediaCloudinaryR2, mediaHandler, async (req, res) => {
   try {
     const { content, feeling, location, taggedFriends } = req.body;
 
+    // Safely parse taggedFriends
+    let parsedTaggedFriends = [];
+    if (taggedFriends) {
+      try {
+        parsedTaggedFriends = typeof taggedFriends === "string"
+          ? JSON.parse(taggedFriends)
+          : taggedFriends;
+      } catch (err) {
+        console.warn("Failed to parse taggedFriends, using empty array");
+        parsedTaggedFriends = [];
+      }
+    }
+
+    // Ensure media is an array
+    const media = req.files || [];
+
     const post = new Post({
       user: req.user.id,
       content: content || "",
-      media: req.files, // now contains URLs from Cloudinary / R2
+      media,
       feeling: feeling || "",
       location: location || "",
-      taggedFriends: taggedFriends ? JSON.parse(taggedFriends) : [],
+      taggedFriends: parsedTaggedFriends,
     });
 
     await post.save();
+
     await post.populate([
       { path: "user", select: "name profilePic" },
       { path: "taggedFriends", select: "name profilePic" },
