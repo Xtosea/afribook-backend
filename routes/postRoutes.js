@@ -8,48 +8,51 @@ import { uploadMediaCloudinaryR2, mediaHandler } from "../middleware/upload.js";
 const router = express.Router();
 
 /* ================= CREATE POST ================= */
-router.post("/", verifyToken, uploadMediaCloudinaryR2, mediaHandler, async (req, res) => {
-  try {
-    const { content, feeling, location, taggedFriends } = req.body;
+router.post(
+  "/",
+  verifyToken,
+  uploadMediaCloudinaryR2,
+  mediaHandler,
+  async (req, res) => {
+    try {
+      const { content, feeling, location, taggedFriends } = req.body;
 
-    // Safely parse taggedFriends
-    let parsedTaggedFriends = [];
-    if (taggedFriends) {
+      let parsedTaggedFriends = [];
+
       try {
-        parsedTaggedFriends = typeof taggedFriends === "string"
+        parsedTaggedFriends = taggedFriends
           ? JSON.parse(taggedFriends)
-          : taggedFriends;
-      } catch (err) {
-        console.warn("Failed to parse taggedFriends, using empty array");
-        parsedTaggedFriends = [];
+          : [];
+      } catch {
+        console.log("Invalid taggedFriends JSON");
       }
+
+      const post = new Post({
+        user: req.user.id,
+        content: content || "",
+        media: req.files || [],
+        feeling: feeling || "",
+        location: location || "",
+        taggedFriends: parsedTaggedFriends,
+      });
+
+      await post.save();
+
+      await post.populate([
+        { path: "user", select: "name profilePic" },
+        { path: "taggedFriends", select: "name profilePic" },
+      ]);
+
+      res.status(201).json({
+        message: "Post created",
+        post,
+      });
+    } catch (err) {
+      console.error("CREATE POST ERROR:", err);
+      res.status(500).json({ error: "Server error" });
     }
-
-    // Ensure media is an array
-    const media = req.files || [];
-
-    const post = new Post({
-      user: req.user.id,
-      content: content || "",
-      media,
-      feeling: feeling || "",
-      location: location || "",
-      taggedFriends: parsedTaggedFriends,
-    });
-
-    await post.save();
-
-    await post.populate([
-      { path: "user", select: "name profilePic" },
-      { path: "taggedFriends", select: "name profilePic" },
-    ]);
-
-    res.status(201).json({ message: "Post created", post });
-  } catch (err) {
-    console.error("CREATE POST ERROR:", err);
-    res.status(500).json({ error: "Server error" });
   }
-});
+);
 
 /* ================= GET POSTS ================= */
 router.get("/user/:userId", verifyToken, async (req, res) => {
