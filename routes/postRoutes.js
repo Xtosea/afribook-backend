@@ -3,7 +3,9 @@ import express from "express";
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { uploadMediaCloudinaryR2 } from "../middleware/upload.js";
+// update to include mediaHandler
+import { uploadMediaCloudinaryR2, mediaHandler } from "../middleware/upload.js";
+
 
 const router = express.Router();
 
