@@ -1,25 +1,21 @@
+// controllers/cloudinaryController.js
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
 export const uploadPostImage = async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No image provided" });
-
   try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
     const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "posts",
+      folder: "afribook/posts",
       resource_type: "image",
     });
 
-    // Remove temp file
+    // Delete local temp file
     fs.unlinkSync(req.file.path);
 
-    res.json({
-      message: "Image uploaded to Cloudinary",
-      url: result.secure_url,
-      public_id: result.public_id,
-    });
+    res.json({ url: result.secure_url });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Cloudinary upload failed" });
+    res.status(500).json({ error: err.message });
   }
 };
