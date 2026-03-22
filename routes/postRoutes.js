@@ -8,52 +8,31 @@ import { uploadMediaCloudinaryR2, mediaHandler } from "../middleware/upload.js";
 const router = express.Router();
 
 /* ================= CREATE POST ================= */
-router.post(
-  "/",
-  verifyToken,
-  uploadMediaCloudinaryR2,
-  mediaHandler,
-  async (req, res) => {
-    try {
-      const { content, feeling, location, taggedFriends } = req.body;
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const { content, feeling, location, taggedFriends, media } = req.body;
 
-      const contentText = content?.trim() || "";
+    const post = new Post({
+      user: req.user.id,
+      content: content || "",
+      media: media || [],
+      feeling: feeling || "",
+      location: location || "",
+      taggedFriends: taggedFriends || [],
+    });
 
-      let parsedTaggedFriends = [];
-      try {
-        parsedTaggedFriends = taggedFriends
-          ? JSON.parse(taggedFriends)
-          : [];
-      } catch {
-        console.log("Invalid taggedFriends JSON");
-      }
+    await post.save();
+    await post.populate([
+      { path: "user", select: "name profilePic" },
+      { path: "taggedFriends", select: "name profilePic" },
+    ]);
 
-      const post = new Post({
-        user: req.user.id,
-        content: contentText, // can be empty ✅
-        media: req.files || [], // can be empty ✅
-        feeling: feeling || "",
-        location: location || "",
-        taggedFriends: parsedTaggedFriends,
-      });
-
-      await post.save();
-
-      await post.populate([
-        { path: "user", select: "name profilePic" },
-        { path: "taggedFriends", select: "name profilePic" },
-      ]);
-
-      res.status(201).json({
-        message: "Post created",
-        post,
-      });
-    } catch (err) {
-      console.error("CREATE POST ERROR:", err);
-      res.status(500).json({ error: "Server error" });
-    }
+    res.status(201).json({ message: "Post created", post });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
-);
+});
 
 /* ================= GET POSTS ================= */
 router.get("/user/:userId", verifyToken, async (req, res) => {
