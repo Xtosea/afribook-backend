@@ -1,12 +1,11 @@
 import express from "express";
 import multer from "multer";
 import fs from "fs";
-import fetch from "node-fetch";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const router = express.Router();
-const upload = multer({ dest: "/tmp" }); // Temp folder for Multer
+const upload = multer({ dest: "/tmp" });
 
-// Env variables
 const {
   R2_BUCKET_NAME,
   R2_ENDPOINT,
@@ -15,9 +14,18 @@ const {
   R2_CUSTOM_DOMAIN,
 } = process.env;
 
-/* ================= UPLOAD VIDEO(S) TO R2 ================= */
+/* ================= R2 CLIENT ================= */
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: R2_ENDPOINT,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
+
+/* ================= UPLOAD ================= */
 router.post("/upload-video", upload.array("video", 5), async (req, res) => {
-  // "video" matches frontend field name, max 5 files
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "No video files uploaded" });
@@ -26,27 +34,19 @@ router.post("/upload-video", upload.array("video", 5), async (req, res) => {
     const uploadedFiles = [];
 
     for (const file of req.files) {
-      const filePath = file.path;
+      const fileBuffer = fs.readFileSync(file.path);
       const fileName = `${Date.now()}-${file.originalname}`;
-      const fileBuffer = fs.readFileSync(filePath);
 
-      const uploadUrl = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${fileName}`;
-
-      const r2Response = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.mimetype,
-          "Authorization": "Basic " + Buffer.from(`${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}`).toString("base64"),
-        },
-        body: fileBuffer,
+      const command = new PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: fileName,
+        Body: fileBuffer,
+        ContentType: file.mimetype,
       });
 
-      // Delete temp file
-      fs.unlinkSync(filePath);
+      await s3.send(command);
 
-      if (!r2Response.ok) {
-        throw new Error(`R2 upload failed for ${file.originalname}`);
-      }
+      fs.unlinkSync(file.path);
 
       uploadedFiles.push({
         url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
@@ -55,8 +55,9 @@ router.post("/upload-video", upload.array("video", 5), async (req, res) => {
     }
 
     res.json({ uploaded: uploadedFiles });
+
   } catch (err) {
-    console.error("R2 UPLOAD ERROR:", err);
+    console.error("R2 UPLOAD ERROR FULL:", err); // 🔥 IMPORTANT
     res.status(500).json({ error: "Failed to upload videos" });
   }
 });
