@@ -1,30 +1,26 @@
-import fetch from "node-fetch";
+import SibApiV3Sdk from "sib-api-v3-sdk";
+
+const defaultClient = SibApiV3Sdk.ApiClient.instance;
+const apiKey = defaultClient.authentications["api-key"];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 export const sendBrevo = async ({ to, subject, html, text }) => {
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": process.env.BREVO_API_KEY,
-    },
-    body: JSON.stringify({
-      sender: {
-        email: process.env.EMAIL_FROM, // noreply@globelynks.com
-        name: "Afribook",
-      },
+  try {
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail({
       to: [{ email: to }],
+      sender: { name: process.env.EMAIL_NAME, email: process.env.EMAIL_FROM },
       subject,
       htmlContent: html,
       textContent: text,
-    }),
-  });
+    });
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Brevo failed");
+    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log("Brevo success:", response);
+    return response;
+  } catch (err) {
+    console.error("Brevo failed:", err.message);
+    throw err;
   }
-
-  console.log("Brevo success:", data);
-  return data;
 };
