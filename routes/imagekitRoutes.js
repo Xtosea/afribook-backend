@@ -1,12 +1,10 @@
-// /routes/imagekitRoutes.js
 import express from "express";
-import imagekit from "../config/imagekit.js";
+import multer from "multer";
+import { uploadImageKit } from "../controllers/imagekitController.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
-router.get("/auth", (req, res) => {
-  const authParams = imagekit.getAuthenticationParameters();
-  res.json(authParams);
-});
+router.post("/upload", upload.single("file"), uploadImageKit);
 
 export default router;
