@@ -9,51 +9,31 @@ const router = express.Router();
 
 /* ================= CREATE POST ================= */
 // Handles images (Cloudinary) and videos (R2)
-router.post(
-  "/",
-  verifyToken,
-  uploadMediaCloudinaryR2, // multer middleware
-  mediaHandler,            // custom middleware to upload media
-  async (req, res) => {
-    try {
-      const { content, feeling, location, taggedFriends } = req.body;
+router.post("/", verifyToken, uploadMediaCloudinaryR2, mediaHandler, async (req, res) => {
+  try {
+    const { content, feeling, location, taggedFriends } = req.body;
 
-      // Safe parse taggedFriends
-      let parsedTaggedFriends = [];
-      if (taggedFriends) {
-        try {
-          parsedTaggedFriends = JSON.parse(taggedFriends);
-        } catch (err) {
-          console.warn("Failed to parse taggedFriends, using empty array");
-          parsedTaggedFriends = [];
-        }
-      }
+    const post = new Post({
+      user: req.user.id,
+      content: content || "",
+      media: req.files, // now contains URLs from Cloudinary / R2
+      feeling: feeling || "",
+      location: location || "",
+      taggedFriends: taggedFriends ? JSON.parse(taggedFriends) : [],
+    });
 
-      // req.files now contains [{ url, type }] from mediaHandler
-      const processedMedia = req.files || [];
+    await post.save();
+    await post.populate([
+      { path: "user", select: "name profilePic" },
+      { path: "taggedFriends", select: "name profilePic" },
+    ]);
 
-      const post = new Post({
-        user: req.user.id,
-        content: content || "",
-        media: processedMedia,
-        feeling: feeling || "",
-        location: location || "",
-        taggedFriends: parsedTaggedFriends,
-      });
-
-      await post.save();
-      await post.populate([
-        { path: "user", select: "name profilePic" },
-        { path: "taggedFriends", select: "name profilePic" },
-      ]);
-
-      res.status(201).json({ message: "Post created", post });
-    } catch (err) {
-      console.error("CREATE POST ERROR:", err);
-      res.status(500).json({ error: "Server error" });
-    }
+    res.status(201).json({ message: "Post created", post });
+  } catch (err) {
+    console.error("CREATE POST ERROR:", err);
+    res.status(500).json({ error: "Server error" });
   }
-);
+});
 
 /* ================= GET POSTS ================= */
 router.get("/user/:userId", verifyToken, async (req, res) => {
