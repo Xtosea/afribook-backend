@@ -11,7 +11,7 @@ export const sendResend = async ({ to, subject, html, text }) => {
     text,
   });
 
-  // ✅ THIS IS THE FIX
+  // ✅ IMPORTANT FIX
   if (response.error) {
     console.error("Resend error:", response.error.message);
     throw new Error(response.error.message);
