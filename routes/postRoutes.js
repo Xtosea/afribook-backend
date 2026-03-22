@@ -9,20 +9,10 @@ const router = express.Router();
 
 /* ================= CREATE POST ================= */
 // Handles images (Cloudinary) and videos (R2)
-router.post("/", verifyToken, uploadMediaCloudinaryR2.array("media", 5), async (req, res) => {
+router.post("/", verifyToken, uploadMediaCloudinaryR2, mediaHandler, async (req, res) => {
   try {
     const { content, feeling, location, taggedFriends } = req.body;
-    const processedMedia = [];
-
-    if (req.files) {
-      for (const file of req.files) {
-        // Each file should have .url and .type from middleware
-        processedMedia.push({
-          url: file.url,
-          type: file.type,
-        });
-      }
-    }
+    const processedMedia = req.files || [];
 
     const post = new Post({
       user: req.user.id,
