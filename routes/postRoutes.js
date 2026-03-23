@@ -3,6 +3,8 @@ import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import { redisClient } from "../server.js";
+import { io } from "../server.js";
 
 const router = express.Router();
 
@@ -26,6 +28,10 @@ router.post("/", verifyToken, async (req, res) => {
       { path: "taggedFriends", select: "name profilePic" },
     ]);
 
+    // 🚀 Invalidate cache
+    await redisClient.del("posts:*");
+    await redisClient.del("reels:*");
+
     res.status(201).json({ message: "Post created", post });
   } catch (err) {
     console.error(err);
@@ -33,32 +39,15 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= GET USER POSTS ================= */
-router.get("/user/:userId", verifyToken, async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-
-    const posts = await Post.find({ user: req.params.userId })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate("user", "name profilePic")
-      .populate("taggedFriends", "name profilePic")
-      .lean();
-
-    res.json(posts);
-  } catch (err) {
-    console.error("GET USER POSTS ERROR:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/* ================= GET ALL POSTS ================= */
+/* ================= GET ALL POSTS (with Redis) ================= */
 router.get("/", verifyToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const page = parseInt(req.query.page) || 1;
+    const cacheKey = `posts:page:${page}:limit:${limit}`;
+
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
 
     const posts = await Post.find()
       .sort({ createdAt: -1 })
@@ -68,9 +57,11 @@ router.get("/", verifyToken, async (req, res) => {
       .populate("taggedFriends", "name profilePic")
       .lean();
 
+    await redisClient.set(cacheKey, JSON.stringify(posts), "EX", 30); // cache 30s
+
     res.json(posts);
   } catch (err) {
-    console.error("GET ALL POSTS ERROR:", err);
+    console.error("GET POSTS ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -89,16 +80,22 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
 
     await post.save();
 
-    // 🔔 CREATE NOTIFICATION
-    if (!liked && post.user.toString() !== req.user.id) {
-      const notification = await Notification.create({
+    // Cache invalidation
+    await redisClient.del("posts:*");
+
+    // Live notification for like
+    if (!liked) {
+      const notification = new Notification({
         recipient: post.user,
         sender: req.user.id,
         type: "LIKE",
         post: post._id,
-        text: "liked your post",
+        text: `${req.user.name} liked your post!`,
       });
-      global.io.to(post.user.toString()).emit("notification", notification);
+      await notification.save();
+      await notification.populate("sender", "name profilePic");
+
+      io.to(post.user.toString()).emit("new-notification", notification);
     }
 
     res.json({ likesCount: post.likes.length });
@@ -125,17 +122,21 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
     await comment.save();
     await comment.populate("user", "name profilePic");
 
-    // 🔔 NOTIFICATION
-    if (post.user.toString() !== req.user.id) {
-      const notification = await Notification.create({
-        recipient: post.user,
-        sender: req.user.id,
-        type: "COMMENT",
-        post: post._id,
-        text: "commented on your post",
-      });
-      global.io.to(post.user.toString()).emit("notification", notification);
-    }
+    // Invalidate cache
+    await redisClient.del("posts:*");
+
+    // Live notification for comment
+    const notification = new Notification({
+      recipient: post.user,
+      sender: req.user.id,
+      type: "COMMENT",
+      post: post._id,
+      text: `${req.user.name} commented on your post!`,
+    });
+    await notification.save();
+    await notification.populate("sender", "name profilePic");
+
+    io.to(post.user.toString()).emit("new-notification", notification);
 
     res.status(201).json({ comment });
   } catch (err) {
@@ -152,6 +153,9 @@ router.put("/:postId/share", verifyToken, async (req, res) => {
 
     post.shares = (post.shares || 0) + 1;
     await post.save();
+
+    // Invalidate cache
+    await redisClient.del("posts:*");
 
     res.json({ sharesCount: post.shares });
   } catch (err) {
