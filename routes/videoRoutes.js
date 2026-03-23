@@ -1,5 +1,5 @@
 import express from "express";
-import Video from "../models/Video.js";
+
 import Comment from "../models/Comment.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { redisClient } from "../server.js";
