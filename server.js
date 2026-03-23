@@ -8,7 +8,6 @@ import fs from "fs";
 import multer from "multer";
 import http from "http";
 import { Server } from "socket.io";
-import { WebSocketServer } from "ws";
 import redis from "ioredis";
 
 /* ================= ROUTES ================= */
@@ -37,8 +36,17 @@ const server = http.createServer(app);
 
 /* ================= SOCKET.IO ================= */
 const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: {
+    origin: [
+      process.env.FRONTEND_URL,
+      process.env.FRONTEND_BACKUP_URL,
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"], // VERY IMPORTANT
 });
+
 global.io = io;
 
 io.on("connection", (socket) => {
@@ -48,48 +56,24 @@ io.on("connection", (socket) => {
     socket.join(userId);
   });
 
+  socket.on("like-video", ({ videoId, userId }) => {
+    io.emit("video-liked", { videoId, userId });
+  });
+
+  socket.on("comment-video", ({ videoId, comment }) => {
+    io.emit("new-video-comment", { videoId, comment });
+  });
+
+  socket.on("new-video", (post) => {
+    io.emit("new-video", post);
+  });
+
+  socket.on("follow-user", ({ userId, followerId }) => {
+    io.emit("user-followed", { userId, followerId });
+  });
+
   socket.on("disconnect", () => {
     console.log("🔴 Socket disconnected");
-  });
-});
-
-/* ================= WEBSOCKET ================= */
-const wss = new WebSocketServer({ server });
-
-let clients = [];
-let users = {}; // userId -> ws
-
-wss.on("connection", (ws) => {
-  console.log("🔌 WebSocket connected");
-  clients.push(ws);
-
-  ws.on("message", (msg) => {
-    try {
-      const data = JSON.parse(msg);
-
-      if (data.type === "REGISTER") {
-        users[data.userId] = ws;
-        ws.userId = data.userId;
-      }
-
-      if (data.type === "SEND_MESSAGE") {
-        const target = users[data.to];
-        if (target && target.readyState === 1) {
-          target.send(JSON.stringify({
-            type: "RECEIVE_MESSAGE",
-            message: data.message,
-            from: data.from,
-          }));
-        }
-      }
-    } catch (err) {
-      console.log("WS ERROR:", err.message);
-    }
-  });
-
-  ws.on("close", () => {
-    clients = clients.filter((c) => c !== ws);
-    if (ws.userId) delete users[ws.userId];
   });
 });
 
@@ -119,15 +103,9 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("CORS not allowed"));
-  },
+  origin: allowedOrigins,
   credentials: true,
 }));
-
-app.options("*", cors());
 
 /* ================= BODY ================= */
 app.use(express.json({ limit: "10mb" }));
@@ -171,22 +149,4 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
-});
-
-/* ================= BROADCAST ================= */
-export const broadcast = (data) => {
-  clients.forEach((client) => {
-    if (client.readyState === 1) {
-      client.send(JSON.stringify(data));
-    }
-  });
-};
-
-/* ================= TEST UPLOAD ================= */
-app.post("/test-upload", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file" });
-
-  res.json({
-    url: `${process.env.BACKEND_URL}/uploads/${req.file.filename}`,
-  });
 });
