@@ -39,7 +39,11 @@ const server = http.createServer(app);
 /* ================= SOCKET.IO ================= */
 export const io = new Server(server, {
   cors: {
-    origin: [process.env.FRONTEND_URL, process.env.FRONTEND_BACKUP_URL],
+    origin: [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_BACKUP_URL,
+  "https://africbook.globelynks.com", // include your Cloudflare frontend domain
+],
     methods: ["GET", "POST"],
     credentials: true,
   },
