@@ -24,6 +24,13 @@ const UserSchema = new mongoose.Schema(
       default: "", // e.g., "/uploads/default.png"
     },
 
+ dob: { type: String, default: "" },
+phone: { type: String, default: "" },
+education: { type: String, default: "" },
+origin: { type: String, default: "" },
+maritalStatus: { type: String, default: "" },
+coverPhoto: { type: String, default: "" }, // already added
+
    coverPhoto: {
   type: String,
   default: "",
