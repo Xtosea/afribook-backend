@@ -31,10 +31,7 @@ origin: { type: String, default: "" },
 maritalStatus: { type: String, default: "" },
 coverPhoto: { type: String, default: "" }, // already added
 
-   coverPhoto: {
-  type: String,
-  default: "",
-},
+   
     bio: {
       type: String,
       default: "",
