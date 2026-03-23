@@ -1,3 +1,4 @@
+// server.js
 import "./config/env.js";
 import express from "express";
 import mongoose from "mongoose";
@@ -8,7 +9,7 @@ import fs from "fs";
 import multer from "multer";
 import http from "http";
 import { Server } from "socket.io";
-import redis from "ioredis";
+import Redis from "ioredis";
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -27,7 +28,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* ================= REDIS ================= */
-export const redisClient = new redis(process.env.REDIS_URL);
+export const redisClient = new Redis(process.env.REDIS_URL);
 
 redisClient.on("connect", () => console.log("✅ Redis Connected"));
 redisClient.on("error", (err) => console.log("❌ Redis Error:", err));
@@ -36,16 +37,13 @@ redisClient.on("error", (err) => console.log("❌ Redis Error:", err));
 const server = http.createServer(app);
 
 /* ================= SOCKET.IO ================= */
-const io = new Server(server, {
+export const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.FRONTEND_URL,
-      process.env.FRONTEND_BACKUP_URL,
-    ],
+    origin: [process.env.FRONTEND_URL, process.env.FRONTEND_BACKUP_URL],
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"], // VERY IMPORTANT
+  transports: ["websocket", "polling"], // important
 });
 
 global.io = io;
@@ -53,55 +51,33 @@ global.io = io;
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
-  /* ================= JOIN USER ROOM ================= */
+  // Join user room
   socket.on("join", (userId) => {
     socket.join(userId);
     console.log(`👤 User ${userId} joined room`);
   });
 
-  /* ================= MESSAGING ================= */
+  // Messaging
   socket.on("send-message", ({ senderId, receiverId, text }) => {
-    const message = {
-      senderId,
-      receiverId,
-      text,
-      createdAt: new Date(),
-    };
-
-    // Send to receiver
+    const message = { senderId, receiverId, text, createdAt: new Date() };
     io.to(receiverId).emit("receive-message", message);
-
-    // Send back to sender (for instant UI update)
     io.to(senderId).emit("receive-message", message);
   });
 
-  /* ================= TYPING INDICATOR ================= */
+  // Typing indicator
   socket.on("typing", ({ senderId, receiverId }) => {
     io.to(receiverId).emit("user-typing", senderId);
   });
 
-  /* ================= VIDEO FEATURES ================= */
-  socket.on("like-video", ({ videoId, userId }) => {
-    io.emit("video-liked", { videoId, userId });
-  });
+  // Video features
+  socket.on("like-video", ({ videoId, userId }) => io.emit("video-liked", { videoId, userId }));
+  socket.on("comment-video", ({ videoId, comment }) => io.emit("new-video-comment", { videoId, comment }));
+  socket.on("new-video", (post) => io.emit("new-video", post));
 
-  socket.on("comment-video", ({ videoId, comment }) => {
-    io.emit("new-video-comment", { videoId, comment });
-  });
+  // Follow system
+  socket.on("follow-user", ({ userId, followerId }) => io.emit("user-followed", { userId, followerId }));
 
-  socket.on("new-video", (post) => {
-    io.emit("new-video", post);
-  });
-
-  /* ================= FOLLOW SYSTEM ================= */
-  socket.on("follow-user", ({ userId, followerId }) => {
-    io.emit("user-followed", { userId, followerId });
-  });
-
-  /* ================= DISCONNECT ================= */
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected:", socket.id);
-  });
+  socket.on("disconnect", () => console.log("🔴 Socket disconnected:", socket.id));
 });
 
 /* ================= MULTER ================= */
@@ -124,28 +100,15 @@ app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
 /* ================= CORS ================= */
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.FRONTEND_BACKUP_URL,
-];
+const allowedOrigins = [process.env.FRONTEND_URL, process.env.FRONTEND_BACKUP_URL];
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  })
-);
-
-/* ================= BODY ================= */
+/* ================= BODY PARSER ================= */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* ================= RATE LIMIT ================= */
-const emailLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-});
-
+const emailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 app.use("/api/auth/resend-verification", emailLimiter);
 app.use("/api/auth/forgot-password", emailLimiter);
 
@@ -162,20 +125,14 @@ app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/r2", r2Routes);
 
-/* ================= TEST ================= */
-app.get("/", (req, res) => {
-  res.send("Afribook API running 🚀");
-});
+/* ================= TEST ROUTE ================= */
+app.get("/", (req, res) => res.send("Afribook API running 🚀"));
 
 /* ================= MONGODB ================= */
-mongoose
-  .connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ Mongo Error:", err));
 
 /* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+server.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
