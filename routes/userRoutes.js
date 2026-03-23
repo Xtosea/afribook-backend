@@ -1,3 +1,4 @@
+// routes/userRoutes.js
 import express from "express";
 import User from "../models/User.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
@@ -5,8 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import sharp from "sharp";
-import { redisClient } from "../server.js";
-import { io } from "../server.js";
+import { redisClient, io } from "../server.js";
 import Notification from "../models/Notification.js";
 
 const router = express.Router();
@@ -20,8 +20,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const field = file.fieldname;
-    cb(null, `${req.user.id}-${field}-${Date.now()}${ext}`);
+    cb(null, `${req.user.id}-${file.fieldname}-${Date.now()}${ext}`);
   },
 });
 
@@ -39,14 +38,29 @@ router.put(
   upload.fields([{ name: "profilePic", maxCount: 1 }, { name: "coverPhoto", maxCount: 1 }]),
   async (req, res) => {
     try {
-      if (req.user.id !== req.params.userId) return res.status(403).json({ error: "Unauthorized" });
+      if (req.user.id !== req.params.userId)
+        return res.status(403).json({ error: "Unauthorized" });
 
       const user = await User.findById(req.params.userId);
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      if (req.body.bio !== undefined) user.bio = req.body.bio;
-      if (req.body.intro !== undefined) user.intro = req.body.intro;
+      // Update basic text fields
+      const fields = [
+        "name",
+        "bio",
+        "intro",
+        "dob",
+        "email",
+        "phone",
+        "education",
+        "origin",
+        "maritalStatus",
+      ];
+      fields.forEach(f => {
+        if (req.body[f] !== undefined) user[f] = req.body[f];
+      });
 
+      // Helper to process images
       const processImage = async (file, width, height) => {
         const ext = path.extname(file.originalname);
         const filename = `${req.user.id}-${file.fieldname}-${Date.now()}${ext}`;
@@ -57,6 +71,7 @@ router.put(
         return `/uploads/profiles/${filename}`;
       };
 
+      // Profile picture
       if (req.files?.profilePic) {
         if (user.profilePic) {
           const oldFile = path.join(uploadDir, path.basename(user.profilePic));
@@ -65,6 +80,7 @@ router.put(
         user.profilePic = await processImage(req.files.profilePic[0], 400, 400);
       }
 
+      // Cover photo
       if (req.files?.coverPhoto) {
         if (user.coverPhoto) {
           const oldFile = path.join(uploadDir, path.basename(user.coverPhoto));
@@ -89,7 +105,6 @@ router.put("/:id/follow", verifyToken, async (req, res) => {
   try {
     const userToFollow = await User.findById(req.params.id);
     const currentUser = await User.findById(req.user.id);
-
     if (!userToFollow) return res.status(404).json({ error: "User not found" });
 
     let action = "";
@@ -142,26 +157,6 @@ router.get("/:userId", async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("GET USER ERROR:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/* ================= FOLLOWERS ================= */
-router.get("/:id/followers", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).populate("followers", "name profilePic");
-    res.json({ followers: user?.followers || [] });
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/* ================= FOLLOWING ================= */
-router.get("/:id/following", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).populate("following", "name profilePic");
-    res.json({ following: user?.following || [] });
-  } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
