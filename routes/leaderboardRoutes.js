@@ -3,10 +3,8 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// GET /api/leaderboard - top users by points
 router.get("/", async (req, res) => {
   try {
-    // Find all users, sort by points descending, limit top 10
     const topUsers = await User.find()
       .select("name profilePic points")
       .sort({ points: -1 })
@@ -14,6 +12,7 @@ router.get("/", async (req, res) => {
 
     res.json(topUsers);
   } catch (err) {
+    console.error("LEADERBOARD ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
