@@ -9,10 +9,7 @@ import multer from "multer";
 import http from "http";
 import { Server } from "socket.io";
 import { WebSocketServer } from "ws";
-import Redis from "ioredis";
-
-/* ================= REDIS ================= */
-const redis = new Redis(process.env.REDIS_URL); // For caching
+import redis from "ioredis";
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -30,6 +27,11 @@ import r2Routes from "./routes/r2Routes.js";
 const app = express();
 app.set("trust proxy", 1);
 
+/* ================= REDIS ================= */
+export const redisClient = new redis(process.env.REDIS_URL);
+redisClient.on("connect", () => console.log("✅ Redis Connected"));
+redisClient.on("error", (err) => console.log("❌ Redis Error:", err));
+
 /* ================= CREATE SERVER ================= */
 const server = http.createServer(app);
 
@@ -37,7 +39,6 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
 });
-
 global.io = io;
 
 io.on("connection", (socket) => {
@@ -47,10 +48,6 @@ io.on("connection", (socket) => {
     socket.join(userId);
   });
 
-  socket.on("new-comment", ({ postId, comment }) => {
-    io.to(postId).emit("receive-comment", comment); // Live comments
-  });
-
   socket.on("disconnect", () => {
     console.log("🔴 Socket disconnected");
   });
@@ -58,8 +55,9 @@ io.on("connection", (socket) => {
 
 /* ================= WEBSOCKET ================= */
 const wss = new WebSocketServer({ server });
+
 let clients = [];
-let users = {};
+let users = {}; // userId -> ws
 
 wss.on("connection", (ws) => {
   console.log("🔌 WebSocket connected");
@@ -107,6 +105,7 @@ const storage = multer.diskStorage({
     cb(null, unique);
   },
 });
+
 export const upload = multer({ storage });
 
 /* ================= STATIC ================= */
@@ -127,6 +126,7 @@ app.use(cors({
   },
   credentials: true,
 }));
+
 app.options("*", cors());
 
 /* ================= BODY ================= */
@@ -138,6 +138,7 @@ const emailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
 });
+
 app.use("/api/auth/resend-verification", emailLimiter);
 app.use("/api/auth/forgot-password", emailLimiter);
 
@@ -154,31 +155,6 @@ app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/r2", r2Routes);
 
-/* ================= TIKTOK-STYLE REELS ================= */
-app.get("/api/reels", async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const cacheKey = `reels:${page}:${limit}`;
-
-    const cached = await redis.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
-
-    const posts = await (await import("./models/Post.js")).default.find({ media: { $exists: true, $ne: [] } })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate("user", "name profilePic")
-      .lean();
-
-    await redis.set(cacheKey, JSON.stringify(posts), "EX", 60); // cache 60s
-    res.json(posts);
-  } catch (err) {
-    console.error("GET REELS ERROR:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 /* ================= TEST ================= */
 app.get("/", (req, res) => {
   res.send("Afribook API running 🚀");
@@ -192,6 +168,7 @@ mongoose
 
 /* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
@@ -199,7 +176,9 @@ server.listen(PORT, "0.0.0.0", () => {
 /* ================= BROADCAST ================= */
 export const broadcast = (data) => {
   clients.forEach((client) => {
-    if (client.readyState === 1) client.send(JSON.stringify(data));
+    if (client.readyState === 1) {
+      client.send(JSON.stringify(data));
+    }
   });
 };
 
