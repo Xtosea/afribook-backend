@@ -28,6 +28,7 @@ app.set("trust proxy", 1);
 
 /* ================= REDIS ================= */
 export const redisClient = new redis(process.env.REDIS_URL);
+
 redisClient.on("connect", () => console.log("✅ Redis Connected"));
 redisClient.on("error", (err) => console.log("❌ Redis Error:", err));
 
@@ -52,10 +53,34 @@ global.io = io;
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
+  /* ================= JOIN USER ROOM ================= */
   socket.on("join", (userId) => {
     socket.join(userId);
+    console.log(`👤 User ${userId} joined room`);
   });
 
+  /* ================= MESSAGING ================= */
+  socket.on("send-message", ({ senderId, receiverId, text }) => {
+    const message = {
+      senderId,
+      receiverId,
+      text,
+      createdAt: new Date(),
+    };
+
+    // Send to receiver
+    io.to(receiverId).emit("receive-message", message);
+
+    // Send back to sender (for instant UI update)
+    io.to(senderId).emit("receive-message", message);
+  });
+
+  /* ================= TYPING INDICATOR ================= */
+  socket.on("typing", ({ senderId, receiverId }) => {
+    io.to(receiverId).emit("user-typing", senderId);
+  });
+
+  /* ================= VIDEO FEATURES ================= */
   socket.on("like-video", ({ videoId, userId }) => {
     io.emit("video-liked", { videoId, userId });
   });
@@ -68,12 +93,14 @@ io.on("connection", (socket) => {
     io.emit("new-video", post);
   });
 
+  /* ================= FOLLOW SYSTEM ================= */
   socket.on("follow-user", ({ userId, followerId }) => {
     io.emit("user-followed", { userId, followerId });
   });
 
+  /* ================= DISCONNECT ================= */
   socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected");
+    console.log("🔴 Socket disconnected:", socket.id);
   });
 });
 
@@ -92,7 +119,7 @@ const storage = multer.diskStorage({
 
 export const upload = multer({ storage });
 
-/* ================= STATIC ================= */
+/* ================= STATIC FILES ================= */
 app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
@@ -102,10 +129,12 @@ const allowedOrigins = [
   process.env.FRONTEND_BACKUP_URL,
 ];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 
 /* ================= BODY ================= */
 app.use(express.json({ limit: "10mb" }));
