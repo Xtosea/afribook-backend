@@ -1,7 +1,7 @@
-// routes/postRoutes.js
 import express from "express";
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
+import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -21,7 +21,6 @@ router.post("/", verifyToken, async (req, res) => {
     });
 
     await post.save();
-
     await post.populate([
       { path: "user", select: "name profilePic" },
       { path: "taggedFriends", select: "name profilePic" },
@@ -34,7 +33,7 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= GET USER POSTS (OPTIMIZED) ================= */
+/* ================= GET USER POSTS ================= */
 router.get("/user/:userId", verifyToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
@@ -42,11 +41,11 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
 
     const posts = await Post.find({ user: req.params.userId })
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit) // ✅ pagination
-      .limit(limit) // ✅ limit results
+      .skip((page - 1) * limit)
+      .limit(limit)
       .populate("user", "name profilePic")
       .populate("taggedFriends", "name profilePic")
-      .lean(); // ✅ faster
+      .lean();
 
     res.json(posts);
   } catch (err) {
@@ -55,7 +54,7 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= GET ALL POSTS (OPTIMIZED) ================= */
+/* ================= GET ALL POSTS ================= */
 router.get("/", verifyToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
@@ -63,11 +62,11 @@ router.get("/", verifyToken, async (req, res) => {
 
     const posts = await Post.find()
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit) // ✅ pagination
-      .limit(limit) // ✅ limit results
+      .skip((page - 1) * limit)
+      .limit(limit)
       .populate("user", "name profilePic")
       .populate("taggedFriends", "name profilePic")
-      .lean(); // ✅ faster
+      .lean();
 
     res.json(posts);
   } catch (err) {
@@ -89,6 +88,18 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
       : [...post.likes, req.user.id];
 
     await post.save();
+
+    // 🔔 CREATE NOTIFICATION
+    if (!liked && post.user.toString() !== req.user.id) {
+      const notification = await Notification.create({
+        recipient: post.user,
+        sender: req.user.id,
+        type: "LIKE",
+        post: post._id,
+        text: "liked your post",
+      });
+      global.io.to(post.user.toString()).emit("notification", notification);
+    }
 
     res.json({ likesCount: post.likes.length });
   } catch (err) {
@@ -113,6 +124,18 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
 
     await comment.save();
     await comment.populate("user", "name profilePic");
+
+    // 🔔 NOTIFICATION
+    if (post.user.toString() !== req.user.id) {
+      const notification = await Notification.create({
+        recipient: post.user,
+        sender: req.user.id,
+        type: "COMMENT",
+        post: post._id,
+        text: "commented on your post",
+      });
+      global.io.to(post.user.toString()).emit("notification", notification);
+    }
 
     res.status(201).json({ comment });
   } catch (err) {
