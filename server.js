@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
+import fileUpload from "express-fileupload";
 import http from "http";
 import { Server } from "socket.io";
 import Redis from "ioredis";
@@ -43,6 +44,14 @@ app.use(cors({ origin: allowedOrigins, credentials: true }));
 /* ================= BODY PARSER ================= */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+/* ================= FILEUPLOAD ================= */
+app.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+  })
+);
 
 /* ================= RATE LIMIT ================= */
 const emailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
@@ -121,7 +130,6 @@ io.on("connection", (socket) => {
 });
 
 /* ================= START SERVER ================= */
-
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
