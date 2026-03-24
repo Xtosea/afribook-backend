@@ -23,45 +23,26 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "", // e.g., "/uploads/default.png"
     },
-
- dob: { type: String, default: "" },
-phone: { type: String, default: "" },
-education: { type: String, default: "" },
-origin: { type: String, default: "" },
-maritalStatus: { type: String, default: "" },
-coverPhoto: { type: String, default: "" },
-"spouse: { type: String, default: "" },
-gender: { type: String, default: "" },
-hybby: { type: String, default: "" },
-gender: { type: String, default: "" }, // already added
-
-   
-    bio: {
-      type: String,
-      default: "",
-    },
-    intro: {
-      type: String,
-      default: "",
-    },
+    coverPhoto: { type: String, default: "" },
+    dob: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    education: { type: String, default: "" },
+    origin: { type: String, default: "" },
+    maritalStatus: { type: String, default: "" },
+    spouse: { type: String, default: "" },  // ✅ fixed
+    gender: { type: String, default: "" },  // ✅ fixed
+    hubby: { type: String, default: "" },   // ✅ fixed typo
+    bio: { type: String, default: "" },
+    intro: { type: String, default: "" },
 
     // Email verification
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
+    isVerified: { type: Boolean, default: false },
     verifyToken: String,
     verifyTokenExpiry: Date,
 
     // Password reset
-    resetToken: {
-      type: String,
-      default: null,
-    },
-    resetTokenExpiry: {
-      type: Date,
-      default: null,
-    },
+    resetToken: { type: String, default: null },
+    resetTokenExpiry: { type: Date, default: null },
 
     // Social connections
     followers: [
@@ -78,10 +59,7 @@ gender: { type: String, default: "" }, // already added
     ],
 
     // Points system
-    points: {
-      type: Number,
-      default: 0,
-    },
+    points: { type: Number, default: 0 },
   },
   {
     timestamps: true, // adds createdAt and updatedAt
