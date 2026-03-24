@@ -2,8 +2,10 @@ import express from "express";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import ImageKitPkg from "imagekit";
+import ImageKitPkg from "imagekit"; // ✅ default import
 import { io, redisClient } from "../server.js";
+
+const { IKClient } = ImageKitPkg; // ✅ destructure IKClient
 
 const router = express.Router();
 
@@ -29,7 +31,7 @@ router.put("/:userId", verifyToken, async (req, res) => {
     if (req.files?.profilePic) {
       const file = req.files.profilePic;
       const upload = await imagekit.upload({
-        file: file.data,
+        file: fs.readFileSync(file.tempFilePath), // ✅ use tempFilePath
         fileName: file.name,
         folder: "/profile_uploads",
       });
@@ -40,7 +42,7 @@ router.put("/:userId", verifyToken, async (req, res) => {
     if (req.files?.coverPhoto) {
       const file = req.files.coverPhoto;
       const upload = await imagekit.upload({
-        file: file.data,
+        file: fs.readFileSync(file.tempFilePath),
         fileName: file.name,
         folder: "/cover_uploads",
       });
@@ -48,7 +50,6 @@ router.put("/:userId", verifyToken, async (req, res) => {
     }
 
     const updatedUser = await User.findByIdAndUpdate(user._id, updates, { new: true });
-
     res.json({ message: "Profile updated successfully", user: updatedUser });
   } catch (err) {
     console.error("UPDATE PROFILE ERROR:", err);
