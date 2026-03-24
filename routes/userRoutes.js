@@ -2,7 +2,7 @@ import express from "express";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { IKClient } from "imagekit";
+import ImageKitPkg from "imagekit";
 import { io, redisClient } from "../server.js";
 
 const router = express.Router();
