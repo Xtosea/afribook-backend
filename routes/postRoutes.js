@@ -23,18 +23,138 @@ router.post("/", verifyToken, async (req, res) => {
     });
 
     await post.save();
+
     await post.populate([
       { path: "user", select: "name profilePic" },
       { path: "taggedFriends", select: "name profilePic" },
     ]);
 
-    // 🚀 Invalidate cache
+    // ✅ CLEAR CACHE (VERY IMPORTANT)
     await redisClient.del("posts:*");
-    await redisClient.del("reels:*");
 
     res.status(201).json({ message: "Post created", post });
   } catch (err) {
-    console.error(err);
+    console.error("CREATE POST ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= GET USER POSTS ================= */
+router.get("/user/:userId", verifyToken, async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic");
+
+    res.json(posts);
+  } catch (err) {
+    console.error("GET USER POSTS ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= GET ALL POSTS (WITH CACHE) ================= */
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    const cacheKey = "posts:all";
+
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
+
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic")
+      .lean();
+
+    await redisClient.set(cacheKey, JSON.stringify(posts), "EX", 30);
+
+    res.json(posts);
+  } catch (err) {
+    console.error("GET POSTS ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= LIKE ================= */
+router.put("/:postId/like", verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    const liked = post.likes.includes(req.user.id);
+
+    post.likes = liked
+      ? post.likes.filter((id) => id.toString() !== req.user.id)
+      : [...post.likes, req.user.id];
+
+    await post.save();
+
+    await redisClient.del("posts:*");
+
+    if (!liked) {
+      const notification = new Notification({
+        recipient: post.user,
+        sender: req.user.id,
+        type: "LIKE",
+        post: post._id,
+        text: `${req.user.name} liked your post!`,
+      });
+
+      await notification.save();
+      await notification.populate("sender", "name profilePic");
+
+      io.to(post.user.toString()).emit("new-notification", notification);
+    }
+
+    res.json({ likesCount: post.likes.length });
+  } catch (err) {
+    console.error("LIKE ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= COMMENT ================= */
+router.post("/:postId/comment", verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    const comment = new Comment({
+      post: post._id,
+      user: req.user.id,
+      text,
+    });
+
+    await comment.save();
+    await comment.populate("user", "name profilePic");
+
+    await redisClient.del("posts:*");
+
+    const notification = new Notification({
+      recipient: post.user,
+      sender: req.user.id,
+      type: "COMMENT",
+      post: post._id,
+      text: `${req.user.name} commented on your post!`,
+    });
+
+    await notification.save();
+    await notification.populate("sender", "name profilePic");
+
+    io.to(post.user.toString()).emit("new-notification", notification);
+
+    res.status(201).json({ comment });
+  } catch (err) {
+    console.error("COMMENT ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+export default router;    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
