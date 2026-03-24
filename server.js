@@ -10,6 +10,7 @@ import multer from "multer";
 import http from "http";
 import { Server } from "socket.io";
 import Redis from "ioredis";
+import { createAdapter } from "@socket.io/redis-adapter";
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -40,17 +41,31 @@ const server = http.createServer(app);
 export const io = new Server(server, {
   cors: {
     origin: [
-  process.env.FRONTEND_URL,
-  process.env.FRONTEND_BACKUP_URL,
-  "https://africbook.globelynks.com", // include your Cloudflare frontend domain
-],
+      process.env.FRONTEND_URL,
+      process.env.FRONTEND_BACKUP_URL,
+      "https://africbook.globelynks.com",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["polling", "websocket"]
+  transports: ["websocket", "polling"],
+  allowEIO3: true, // optional for older clients
 });
 
+// ✅ Redis adapter for multiple Render instances
+io.adapter(createAdapter(redisClient, redisClient.duplicate()));
+
 global.io = io;
+
+io.use((socket, next) => {
+  // Token authentication
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error("No token provided"));
+  }
+  // Optional: verify JWT here if needed
+  next();
+});
 
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
@@ -81,7 +96,7 @@ io.on("connection", (socket) => {
   // Follow system
   socket.on("follow-user", ({ userId, followerId }) => io.emit("user-followed", { userId, followerId }));
 
-  socket.on("disconnect", () => console.log("🔴 Socket disconnected:", socket.id));
+  socket.on("disconnect", (reason) => console.log("🔴 Socket disconnected:", socket.id, reason));
 });
 
 /* ================= MULTER ================= */
@@ -96,7 +111,6 @@ const storage = multer.diskStorage({
     cb(null, unique);
   },
 });
-
 export const upload = multer({ storage });
 
 /* ================= STATIC FILES ================= */
