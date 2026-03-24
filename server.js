@@ -9,6 +9,8 @@ import fs from "fs";
 import multer from "multer";
 import http from "http";
 import { Server } from "socket.io";
+import Redis from "ioredis";
+import jwt from "jsonwebtoken";
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -26,38 +28,70 @@ import r2Routes from "./routes/r2Routes.js";
 const app = express();
 app.set("trust proxy", 1);
 
-/* ================= REDIS (Optional for later) ================= */
-// import Redis from "ioredis";
-// export const redisClient = new Redis(process.env.REDIS_URL);
-// redisClient.on("connect", () => console.log("✅ Redis Connected"));
-// redisClient.on("error", (err) => console.log("❌ Redis Error:", err));
+/* ================= REDIS ================= */
+export const redisClient = new Redis(process.env.REDIS_URL);
+redisClient.on("connect", () => console.log("✅ Redis Connected"));
+redisClient.on("error", (err) => console.log("❌ Redis Error:", err));
 
 /* ================= CREATE SERVER ================= */
 const server = http.createServer(app);
 
-/* ================= CORS ================= */
-const allowedOrigins = [
-  process.env.FRONTEND_URL || "https://africbook.globelynks.com",
-  process.env.FRONTEND_BACKUP_URL,
-];
+/* ================= SOCKET.IO ================= */
+export const io = new Server(server, {
+  cors: {
+    origin: [
+      process.env.FRONTEND_URL,
+      process.env.FRONTEND_BACKUP_URL,
+      "https://africbook.globelynks.com",
+    ],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ["polling", "websocket"], // Socket.IO handles fallback automatically
+});
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+/* ================= SOCKET.IO AUTH ================= */
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error("No token provided"));
 
-/* ================= BODY PARSER ================= */
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+  try {
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = user.id; // attach userId to socket
+    next();
+  } catch (err) {
+    next(new Error("Invalid token"));
+  }
+});
 
-/* ================= RATE LIMIT ================= */
-const emailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
-app.use("/api/auth/resend-verification", emailLimiter);
-app.use("/api/auth/forgot-password", emailLimiter);
+io.on("connection", (socket) => {
+  console.log("🟢 Socket connected:", socket.userId);
 
-/* ================= STATIC FILES ================= */
-app.use("/uploads/profiles", express.static("public/uploads/profiles"));
-app.use("/uploads/media", express.static("public/uploads/media"));
+  // Join a private room per user
+  socket.join(socket.userId);
+
+  // Messaging
+  socket.on("send-message", ({ receiverId, text }) => {
+    const message = { senderId: socket.userId, receiverId, text, createdAt: new Date() };
+    io.to(receiverId).emit("receive-message", message);
+    io.to(socket.userId).emit("receive-message", message);
+  });
+
+  // Typing indicator
+  socket.on("typing", ({ receiverId }) => {
+    io.to(receiverId).emit("user-typing", socket.userId);
+  });
+
+  // Video features
+  socket.on("like-video", ({ videoId }) => io.emit("video-liked", { videoId, userId: socket.userId }));
+  socket.on("comment-video", ({ videoId, comment }) => io.emit("new-video-comment", { videoId, comment }));
+  socket.on("new-video", (post) => io.emit("new-video", post));
+
+  // Follow system
+  socket.on("follow-user", ({ userId }) => io.emit("user-followed", { userId, followerId: socket.userId }));
+
+  socket.on("disconnect", () => console.log("🔴 Socket disconnected:", socket.userId));
+});
 
 /* ================= MULTER ================= */
 const storage = multer.diskStorage({
@@ -72,6 +106,23 @@ const storage = multer.diskStorage({
   },
 });
 export const upload = multer({ storage });
+
+/* ================= STATIC FILES ================= */
+app.use("/uploads/profiles", express.static("public/uploads/profiles"));
+app.use("/uploads/media", express.static("public/uploads/media"));
+
+/* ================= CORS ================= */
+const allowedOrigins = [process.env.FRONTEND_URL, process.env.FRONTEND_BACKUP_URL];
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+
+/* ================= BODY PARSER ================= */
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+/* ================= RATE LIMIT ================= */
+const emailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
+app.use("/api/auth/resend-verification", emailLimiter);
+app.use("/api/auth/forgot-password", emailLimiter);
 
 /* ================= ROUTES ================= */
 app.use("/api/auth", authRoutes);
@@ -93,44 +144,6 @@ app.get("/", (req, res) => res.send("Afribook API running 🚀"));
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ Mongo Error:", err));
-
-/* ================= SOCKET.IO ================= */
-export const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  transports: ["polling", "websocket"],
-});
-
-global.io = io;
-
-io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
-
-  socket.on("join", (userId) => {
-    socket.join(userId);
-    console.log(`👤 User ${userId} joined room`);
-  });
-
-  socket.on("send-message", ({ senderId, receiverId, text }) => {
-    const message = { senderId, receiverId, text, createdAt: new Date() };
-    io.to(receiverId).emit("receive-message", message);
-    io.to(senderId).emit("receive-message", message);
-  });
-
-  socket.on("typing", ({ senderId, receiverId }) => {
-    io.to(receiverId).emit("user-typing", senderId);
-  });
-
-  socket.on("like-video", ({ videoId, userId }) => io.emit("video-liked", { videoId, userId }));
-  socket.on("comment-video", ({ videoId, comment }) => io.emit("new-video-comment", { videoId, comment }));
-  socket.on("new-video", (post) => io.emit("new-video", post));
-  socket.on("follow-user", ({ userId, followerId }) => io.emit("user-followed", { userId, followerId }));
-
-  socket.on("disconnect", (reason) => console.log("🔴 Socket disconnected:", reason));
-});
 
 /* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
