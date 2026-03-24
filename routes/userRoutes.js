@@ -55,7 +55,6 @@ router.put(
         "origin",
         "maritalStatus",
         "email",
-        "status",
         "gender",
         "hubby",
         "spouse",
