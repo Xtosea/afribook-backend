@@ -4,13 +4,10 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import path from "path";
-import fs from "fs";
-import multer from "multer";
-import fileUpload from "express-fileupload";
 import http from "http";
 import { Server } from "socket.io";
 import Redis from "ioredis";
+import fileUpload from "express-fileupload";
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -46,10 +43,11 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* ================= FILEUPLOAD ================= */
+// express-fileupload handles all uploads in memory/buffers
 app.use(
   fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/",
+    useTempFiles: false, // store in memory
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   })
 );
 
@@ -61,20 +59,6 @@ app.use("/api/auth/forgot-password", emailLimiter);
 /* ================= STATIC FILES ================= */
 app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
-
-/* ================= MULTER ================= */
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join("uploads");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.random()}${path.extname(file.originalname)}`;
-    cb(null, unique);
-  },
-});
-export const upload = multer({ storage });
 
 /* ================= ROUTES ================= */
 app.use("/api/auth", authRoutes);
@@ -140,11 +124,8 @@ const startServer = async () => {
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-
   } catch (err) {
     console.error("❌ Startup error:", err);
-
-    // ⚠️ STILL START SERVER (important for Render)
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`⚠️ Server running WITHOUT DB on port ${PORT}`);
     });
