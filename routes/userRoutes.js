@@ -1,16 +1,15 @@
 import express from "express";
+import fs from "fs";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import ImageKitPkg from "imagekit"; // ✅ default import
+import ImageKit from "imagekit"; // ✅ default import for CommonJS package
 import { io, redisClient } from "../server.js";
-
-const { IKClient } = ImageKitPkg; // ✅ destructure IKClient
 
 const router = express.Router();
 
 /* ================= IMAGEKIT CONFIG ================= */
-const imagekit = new IKClient({
+const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
   urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
