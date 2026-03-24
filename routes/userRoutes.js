@@ -5,11 +5,18 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import sharp from "sharp";
-import { redisClient } from "../server.js";
-import { io } from "../server.js";
+import { redisClient, io } from "../server.js";
 import Notification from "../models/Notification.js";
+import { IKClient } from "imagekit";
 
 const router = express.Router();
+
+/* ================= IMAGEKIT CONFIG ================= */
+const imagekit = new IKClient({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+});
 
 /* ================= PATH SETUP ================= */
 const uploadDir = path.join(process.cwd(), "public/uploads/profiles");
@@ -36,7 +43,10 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilt
 router.put(
   "/:userId",
   verifyToken,
-  upload.fields([{ name: "profilePic", maxCount: 1 }, { name: "coverPhoto", maxCount: 1 }]),
+  upload.fields([
+    { name: "profilePic", maxCount: 1 },
+    { name: "coverPhoto", maxCount: 1 },
+  ]),
   async (req, res) => {
     try {
       if (req.user.id !== req.params.userId) return res.status(403).json({ error: "Unauthorized" });
@@ -64,8 +74,8 @@ router.put(
         if (req.body[f] !== undefined) user[f] = req.body[f];
       });
 
-      // ====== IMAGE PROCESSING ======
-      const processImage = async (file, width, height) => {
+      // ====== IMAGE PROCESSING FUNCTION ======
+      const processLocalImage = async (file, width, height) => {
         const ext = path.extname(file.originalname);
         const filename = `${req.user.id}-${file.fieldname}-${Date.now()}${ext}`;
         const outputPath = path.join(uploadDir, filename);
@@ -75,20 +85,44 @@ router.put(
         return `/uploads/profiles/${filename}`;
       };
 
+      const processImageKitUpload = async (file, folder) => {
+        const upload = await imagekit.upload({
+          file: fs.readFileSync(file.path),
+          fileName: file.originalname,
+          folder,
+        });
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return upload.url;
+      };
+
+      // ====== PROFILE PICTURE ======
       if (req.files?.profilePic) {
-        if (user.profilePic) {
+        const file = req.files.profilePic[0];
+
+        // Delete old local file if exists
+        if (user.profilePic && user.profilePic.startsWith("/uploads")) {
           const oldFile = path.join(uploadDir, path.basename(user.profilePic));
           if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
         }
-        user.profilePic = await processImage(req.files.profilePic[0], 400, 400);
+
+        // Choose ImageKit upload if IMAGEKIT_PUBLIC_KEY exists
+        user.profilePic = process.env.IMAGEKIT_PUBLIC_KEY
+          ? await processImageKitUpload(file, "/profile_uploads")
+          : await processLocalImage(file, 400, 400);
       }
 
+      // ====== COVER PHOTO ======
       if (req.files?.coverPhoto) {
-        if (user.coverPhoto) {
+        const file = req.files.coverPhoto[0];
+
+        if (user.coverPhoto && user.coverPhoto.startsWith("/uploads")) {
           const oldFile = path.join(uploadDir, path.basename(user.coverPhoto));
           if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
         }
-        user.coverPhoto = await processImage(req.files.coverPhoto[0], 1200, 400);
+
+        user.coverPhoto = process.env.IMAGEKIT_PUBLIC_KEY
+          ? await processImageKitUpload(file, "/cover_uploads")
+          : await processLocalImage(file, 1200, 400);
       }
 
       await user.save();
@@ -112,19 +146,16 @@ router.put("/:id/follow", verifyToken, async (req, res) => {
 
     let action = "";
     if (currentUser.following.includes(userToFollow._id)) {
-      // UNFOLLOW
-      currentUser.following = currentUser.following.filter(id => !id.equals(userToFollow._id));
-      userToFollow.followers = userToFollow.followers.filter(id => !id.equals(currentUser._id));
+      currentUser.following = currentUser.following.filter((id) => !id.equals(userToFollow._id));
+      userToFollow.followers = userToFollow.followers.filter((id) => !id.equals(currentUser._id));
       currentUser.points -= 5;
       action = "UNFOLLOW";
     } else {
-      // FOLLOW
       currentUser.following.push(userToFollow._id);
       userToFollow.followers.push(currentUser._id);
       currentUser.points += 10;
       action = "FOLLOW";
 
-      // Live notification
       const notification = new Notification({
         recipient: userToFollow._id,
         sender: currentUser._id,
@@ -139,7 +170,6 @@ router.put("/:id/follow", verifyToken, async (req, res) => {
     await currentUser.save();
     await userToFollow.save();
 
-    // Invalidate leaderboard cache
     await redisClient.del("leaderboard:top");
 
     res.json({ message: "Action successful", points: currentUser.points, action });
@@ -156,6 +186,7 @@ router.get("/:userId", async (req, res) => {
       .select("-password")
       .populate("followers", "name profilePic")
       .populate("following", "name profilePic");
+
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);
   } catch (err) {
