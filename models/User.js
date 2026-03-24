@@ -29,7 +29,11 @@ phone: { type: String, default: "" },
 education: { type: String, default: "" },
 origin: { type: String, default: "" },
 maritalStatus: { type: String, default: "" },
-coverPhoto: { type: String, default: "" }, // already added
+coverPhoto: { type: String, default: "" },
+"spouse: { type: String, default: "" },
+gender: { type: String, default: "" },
+hybby: { type: String, default: "" },
+gender: { type: String, default: "" }, // already added
 
    
     bio: {
