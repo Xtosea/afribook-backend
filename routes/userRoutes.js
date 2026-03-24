@@ -3,7 +3,7 @@ import fs from "fs";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import ImageKit from "imagekit"; // ✅ default import for CommonJS package
+import ImageKit from "imagekit";
 import { io, redisClient } from "../server.js";
 
 const router = express.Router();
@@ -26,18 +26,18 @@ router.put("/:userId", verifyToken, async (req, res) => {
 
     const updates = { ...req.body };
 
-    // Upload Profile Picture
+    // Upload profilePic
     if (req.files?.profilePic) {
       const file = req.files.profilePic;
       const upload = await imagekit.upload({
-        file: fs.readFileSync(file.tempFilePath), // ✅ use tempFilePath
+        file: fs.readFileSync(file.tempFilePath),
         fileName: file.name,
         folder: "/profile_uploads",
       });
       updates.profilePic = upload.url;
     }
 
-    // Upload Cover Photo
+    // Upload coverPhoto
     if (req.files?.coverPhoto) {
       const file = req.files.coverPhoto;
       const upload = await imagekit.upload({
@@ -49,6 +49,7 @@ router.put("/:userId", verifyToken, async (req, res) => {
     }
 
     const updatedUser = await User.findByIdAndUpdate(user._id, updates, { new: true });
+
     res.json({ message: "Profile updated successfully", user: updatedUser });
   } catch (err) {
     console.error("UPDATE PROFILE ERROR:", err);
