@@ -24,6 +24,7 @@ import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import r2StoryRoutes from "./routes/r2StoryRoutes.js";
 
 
 const app = express();
@@ -76,6 +77,7 @@ app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/r2", r2Routes);
+app.use("/api/r2", r2StoryRoutes);
 
 
 /* ================= TEST ROUTE ================= */
