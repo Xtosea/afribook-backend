@@ -9,6 +9,21 @@ const storySchema = new mongoose.Schema({
       type: { type: String, enum: ["image", "video"], default: "image" },
     },
   ],
+
+replies: [
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    text: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }
+],
+
   type: { type: String, enum: ["image", "video"], default: "image" },
   views: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   reactions: [{ user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, type: String }],
