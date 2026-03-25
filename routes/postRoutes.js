@@ -56,18 +56,11 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
 /* ================= GET ALL POSTS ================= */
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const cacheKey = "posts:all";
-
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
-
     const posts = await Post.find()
       .sort({ createdAt: -1 })
       .populate("user", "name profilePic")
       .populate("taggedFriends", "name profilePic")
       .lean();
-
-    await redisClient.set(cacheKey, JSON.stringify(posts), "EX", 30);
 
     res.json(posts);
   } catch (err) {
