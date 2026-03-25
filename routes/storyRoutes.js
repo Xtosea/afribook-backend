@@ -112,3 +112,5 @@ router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, 
     res.status(500).json({ error: "Failed to upload story" });
   }
 });
+
+export default router; // ✅ add this
