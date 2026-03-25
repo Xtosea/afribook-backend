@@ -24,7 +24,7 @@ import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
 import messageRoutes from "./routes/messageRoutes.js";
-import storyRoutes from "./routes/storyRoutes.js"; 
+import r2StoryRoutes from "./routes/r2StoryRoutes.js"; 
 
 
 const app = express();
