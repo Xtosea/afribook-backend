@@ -27,6 +27,43 @@ const s3 = new S3Client({
   },
 });
 
+// Reply to story
+router.post("/reply/:id", auth, async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    const story = await Story.findById(req.params.id).populate("user");
+
+    if (!story) {
+      return res.status(404).json({ error: "Story not found" });
+    }
+
+    const reply = {
+      user: req.user._id,
+      text,
+      createdAt: new Date(),
+    };
+
+    story.replies = story.replies || [];
+    story.replies.push(reply);
+
+    await story.save();
+
+    // Real-time notify story owner
+    global.io.to(story.user._id.toString()).emit("story-reply", {
+      storyId: story._id,
+      from: req.user,
+      text,
+    });
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("Story reply error:", err);
+    res.status(500).json({ error: "Failed to reply story" });
+  }
+});
+
 /* ================= UPLOAD STORY ================= */
 router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, res) => {
   try {
