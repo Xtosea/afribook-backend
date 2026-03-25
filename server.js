@@ -26,7 +26,6 @@ import r2Routes from "./routes/r2Routes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import r2StoryRoutes from "./routes/r2StoryRoutes.js"; 
 
-
 const app = express();
 app.set("trust proxy", 1);
 
@@ -76,9 +75,8 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
-app.use("/api/r2", r2Routes);
-app.use("/api/r2", r2StoryRoutes);
-
+app.use("/api/r2", r2Routes);               // keep original
+app.use("/api/r2/story", r2StoryRoutes);    // mounted on a different subpath
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
@@ -86,7 +84,6 @@ app.get("/", (req, res) => {
 });
 
 /* ================= SOCKET.IO ================= */
-
 const server = http.createServer(app);
 
 export const io = new Server(server, {
@@ -95,11 +92,10 @@ export const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["polling"], // Render safe
+  transports: ["polling"],
 });
 
 /* ================= SOCKET AUTH ================= */
-
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
 
@@ -112,24 +108,20 @@ io.use((socket, next) => {
 });
 
 /* ================= SOCKET EVENTS ================= */
-
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
-  /* JOIN USER ROOM */
   socket.on("join", (userId) => {
     socket.join(userId);
     console.log(`👤 User ${userId} joined`);
   });
 
-  /* SEND MESSAGE */
   socket.on("send-message", async (data) => {
     try {
       const message = await Message.create(data);
 
       io.to(data.receiverId).emit("receive-message", message);
       io.to(data.senderId).emit("receive-message", message);
-
     } catch (error) {
       console.error("Message error:", error);
     }
@@ -141,19 +133,16 @@ io.on("connection", (socket) => {
 });
 
 /* ================= START SERVER ================= */
-
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-
     console.log("✅ MongoDB Connected");
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-
   } catch (err) {
     console.error("❌ Startup error:", err);
 
