@@ -1,8 +1,8 @@
+// routes/storyRoutes.js
 import express from "express";
 import Story from "../models/Story.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { redisClient } from "../server.js";
-import { io } from "../server.js";
+import { io } from "../server.js"; // Redis removed
 
 const router = express.Router();
 
@@ -16,8 +16,8 @@ router.post("/", verifyToken, async (req, res) => {
 
     await story.populate("user", "name profilePic");
 
-    // Invalidate cached stories
-    await redisClient.del("stories:all");
+    // Redis removed
+    // await redisClient.del("stories:all");
 
     // Broadcast new story in real-time (optional)
     io.emit("new-story", story);
@@ -32,16 +32,17 @@ router.post("/", verifyToken, async (req, res) => {
 /* ================= GET ALL STORIES ================= */
 router.get("/", async (req, res) => {
   try {
-    const cacheKey = "stories:all";
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    // Redis removed
+    // const cacheKey = "stories:all";
+    // const cached = await redisClient.get(cacheKey);
+    // if (cached) return res.json(JSON.parse(cached));
 
     const stories = await Story.find()
       .populate("user", "name profilePic")
       .sort({ createdAt: -1 });
 
-    // Cache stories for 30 seconds
-    await redisClient.set(cacheKey, JSON.stringify(stories), "EX", 30);
+    // Redis removed
+    // await redisClient.set(cacheKey, JSON.stringify(stories), "EX", 30);
 
     res.json(stories);
   } catch (err) {
