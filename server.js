@@ -6,7 +6,6 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
-import Redis from "ioredis";
 import fileUpload from "express-fileupload";
 
 /* ================= ROUTES ================= */
@@ -25,50 +24,19 @@ import r2Routes from "./routes/r2Routes.js";
 const app = express();
 app.set("trust proxy", 1);
 
-/* ================= REDIS (OPTIONAL) ================= */
-
-export let redisClient;
-
-if (process.env.REDIS_URL) {
-  redisClient = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 3,
-    reconnectOnError: () => true,
-  });
-
-  redisClient.on("connect", () =>
-    console.log("✅ Redis Connected")
-  );
-
-  redisClient.on("error", (err) =>
-    console.log("❌ Redis Error:", err.message)
-  );
-
-} else {
-  console.log("⚠️ Redis Disabled (No REDIS_URL provided)");
-}
-
 /* ================= CORS ================= */
-
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_BACKUP_URL,
   "https://africbook.globelynks.com",
 ];
-
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  })
-);
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
 /* ================= BODY PARSER ================= */
-
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 /* ================= FILEUPLOAD ================= */
-
 app.use(
   fileUpload({
     useTempFiles: false,
@@ -77,22 +45,15 @@ app.use(
 );
 
 /* ================= RATE LIMIT ================= */
-
-const emailLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-});
-
+const emailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 app.use("/api/auth/resend-verification", emailLimiter);
 app.use("/api/auth/forgot-password", emailLimiter);
 
 /* ================= STATIC FILES ================= */
-
 app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
 /* ================= ROUTES ================= */
-
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
@@ -106,80 +67,58 @@ app.use("/api/videos", videoRoutes);
 app.use("/api/r2", r2Routes);
 
 /* ================= TEST ROUTE ================= */
+app.get("/", (req, res) => res.send("Afribook API running 🚀"));
 
-app.get("/", (req, res) => {
-  res.send("Afribook API running 🚀");
-});
+/* ================= MONGODB ================= */
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.log("❌ Mongo Error:", err));
 
 /* ================= SOCKET.IO ================= */
-
 const server = http.createServer(app);
-
 export const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  transports: ["polling"], // safer for Render
+  cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true },
+  transports: ["polling"], // ✅ Polling only for Render
 });
 
-/* ================= SOCKET AUTH ================= */
-
+// Protected Socket.IO events
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-
-  if (!token) {
-    return next(new Error("No token provided"));
-  }
-
+  if (!token) return next(new Error("No token provided"));
+  // Optionally validate JWT here
   next();
 });
-
-/* ================= SOCKET EVENTS ================= */
 
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
   socket.on("join", (userId) => {
     socket.join(userId);
-    console.log(`👤 User ${userId} joined`);
+    console.log(`👤 User ${userId} joined room`);
   });
 
   socket.on("send-message", ({ senderId, receiverId, text }) => {
-    const message = {
-      senderId,
-      receiverId,
-      text,
-      createdAt: new Date(),
-    };
-
+    const message = { senderId, receiverId, text, createdAt: new Date() };
     io.to(receiverId).emit("receive-message", message);
     io.to(senderId).emit("receive-message", message);
   });
 
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected:", socket.id);
-  });
+  socket.on("disconnect", () => console.log("🔴 Socket disconnected:", socket.id));
 });
 
 /* ================= START SERVER ================= */
-
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-
     console.log("✅ MongoDB Connected");
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-
   } catch (err) {
     console.error("❌ Startup error:", err);
-
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`⚠️ Server running WITHOUT DB on port ${PORT}`);
     });
