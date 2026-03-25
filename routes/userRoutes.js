@@ -1,10 +1,11 @@
+// routes/userRoutes.js
 import express from "express";
 import fs from "fs";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import ImageKit from "imagekit";
-import { io, redisClient } from "../server.js";
+import { io } from "../server.js"; // removed redisClient
 
 const router = express.Router();
 
@@ -89,7 +90,9 @@ router.put("/:id/follow", verifyToken, async (req, res) => {
 
     await currentUser.save();
     await userToFollow.save();
-    await redisClient.del("leaderboard:top");
+
+    // Redis removed
+    // await redisClient.del("leaderboard:top");
 
     res.json({ message: "Action successful", points: currentUser.points, action });
   } catch (err) {
