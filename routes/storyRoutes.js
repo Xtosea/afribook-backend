@@ -4,7 +4,7 @@ import multer from "multer";
 import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import Story from "../models/Story.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js"; // use verifyToken
 import { io } from "../server.js";
 
 const router = express.Router();
@@ -28,7 +28,7 @@ const s3 = new S3Client({
 });
 
 // Reply to story
-router.post("/reply/:id", auth, async (req, res) => {
+router.post("/reply/:id", verifyToken, async (req, res) => { // <- fixed middleware
   try {
     const { text } = req.body;
 
@@ -50,7 +50,7 @@ router.post("/reply/:id", auth, async (req, res) => {
     await story.save();
 
     // Real-time notify story owner
-    global.io.to(story.user._id.toString()).emit("story-reply", {
+    io.to(story.user._id.toString()).emit("story-reply", {
       storyId: story._id,
       from: req.user,
       text,
@@ -95,7 +95,7 @@ router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, 
 
     // Save story in DB
     const story = await Story.create({
-      user: req.user.id,
+      user: req.user._id,
       media: uploadedFiles,
       type: uploadedFiles[0].type,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -113,4 +113,4 @@ router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, 
   }
 });
 
-export default router; // ✅ add this
+export default router;
