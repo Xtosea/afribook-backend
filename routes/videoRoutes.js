@@ -1,9 +1,9 @@
+// routes/videoRoutes.js
 import express from "express";
-
+import Video from "../models/Video.js";
 import Comment from "../models/Comment.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { redisClient } from "../server.js";
-import { io } from "../server.js";
+import { io } from "../server.js"; // removed redisClient
 
 const router = express.Router();
 
@@ -20,8 +20,8 @@ router.post("/", verifyToken, async (req, res) => {
 
     await video.populate("user", "name profilePic");
 
-    // Invalidate cached videos
-    await redisClient.del("videos:all");
+    // Redis removed
+    // await redisClient.del("videos:all");
 
     // Broadcast new video for TikTok-style feed
     io.emit("new-video", video);
@@ -36,16 +36,17 @@ router.post("/", verifyToken, async (req, res) => {
 /* ================= GET ALL VIDEOS (TikTok feed) ================= */
 router.get("/", async (req, res) => {
   try {
-    const cacheKey = "videos:all";
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    // Redis removed
+    // const cacheKey = "videos:all";
+    // const cached = await redisClient.get(cacheKey);
+    // if (cached) return res.json(JSON.parse(cached));
 
     const videos = await Video.find()
       .populate("user", "name profilePic")
       .sort({ createdAt: -1 });
 
-    // Cache videos for 30 seconds
-    await redisClient.set(cacheKey, JSON.stringify(videos), "EX", 30);
+    // Redis removed
+    // await redisClient.set(cacheKey, JSON.stringify(videos), "EX", 30);
 
     res.json(videos);
   } catch (err) {
@@ -74,8 +75,8 @@ router.post("/:videoId/comment", verifyToken, async (req, res) => {
     // Broadcast live comment to feed
     io.emit("new-video-comment", { videoId: video._id, comment });
 
-    // Optional: invalidate cached videos (if comment count is displayed)
-    await redisClient.del("videos:all");
+    // Redis removed
+    // await redisClient.del("videos:all");
 
     res.status(201).json({ comment });
   } catch (err) {
