@@ -56,13 +56,15 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
 /* ================= GET ALL POSTS ================= */
 router.get("/", verifyToken, async (req, res) => {
   try {
+
     const posts = await Post.find()
       .sort({ createdAt: -1 })
       .populate("user", "name profilePic")
       .populate("taggedFriends", "name profilePic")
-      .lean();
+      .populate("comments.user", "name profilePic")   // 🔥 IMPORTANT
 
     res.json(posts);
+
   } catch (err) {
     console.error("GET POSTS ERROR:", err);
     res.status(500).json({ error: "Server error" });
