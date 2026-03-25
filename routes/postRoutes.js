@@ -67,6 +67,36 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+/* ================= Reactions ================= */
+router.put("/:postId/reaction", verifyToken, async (req, res) => {
+try {
+
+const { type } = req.body;
+
+const post = await Post.findById(req.params.postId);
+
+const existing = post.reactions.find(
+r => r.user.toString() === req.user.id
+);
+
+if(existing){
+existing.type = type;
+}else{
+post.reactions.push({
+user: req.user.id,
+type
+});
+}
+
+await post.save();
+
+res.json(post.reactions);
+
+} catch (err) {
+res.status(500).json({ error: "Server error" });
+}
+});
+
 /* ================= LIKE ================= */
 router.put("/:postId/like", verifyToken, async (req, res) => {
   try {
