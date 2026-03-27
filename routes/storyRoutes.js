@@ -1,62 +1,18 @@
-// src/routes/storyRoutes.js
-import express from "express";
-import Story from "../models/Story.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
-import { io } from "../server.js";
-
-const router = express.Router();
-
-// ================= UPLOAD STORY (R2-only) =================
-router.post("/upload-video", verifyToken, async (req, res) => {
+// ================= GET STORIES =================
+router.get("/", verifyToken, async (req, res) => {
   try {
-    const { url, type } = req.body;
+    const limit = parseInt(req.query.limit || "20");
 
-    if (!url || !type) {
-      return res.status(400).json({ error: "Missing url or type" });
-    }
+    const stories = await Story.find({
+      expiresAt: { $gt: new Date() } // only active stories
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("user", "name profilePic");
 
-    const story = await Story.create({
-      user: req.user._id,
-      media: [{ url, type }],
-      type,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h expiration
-    });
-
-    await story.populate("user", "name profilePic");
-
-    io.emit("new-story", story);
-
-    res.status(201).json(story);
+    res.json({ stories });
   } catch (err) {
-    console.error("Story upload error:", err);
-    res.status(500).json({ error: "Failed to upload story" });
+    console.error("Fetch stories error:", err);
+    res.status(500).json({ error: "Failed to fetch stories" });
   }
 });
-
-// ================= REPLY TO STORY =================
-router.post("/reply/:id", verifyToken, async (req, res) => {
-  try {
-    const { text } = req.body;
-    const story = await Story.findById(req.params.id).populate("user");
-
-    if (!story) return res.status(404).json({ error: "Story not found" });
-
-    story.replies = story.replies || [];
-    story.replies.push({ user: req.user._id, text, createdAt: new Date() });
-
-    await story.save();
-
-    io.to(story.user._id.toString()).emit("story-reply", {
-      storyId: story._id,
-      from: req.user,
-      text,
-    });
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Story reply error:", err);
-    res.status(500).json({ error: "Failed to reply story" });
-  }
-});
-
-export default router;
