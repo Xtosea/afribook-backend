@@ -51,6 +51,23 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
   }
 });
 
+/* ================= GET SINGLE POST ================= */
+router.get("/:postId", verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId)
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic")
+      .populate("comments.user", "name profilePic");
+
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    res.json(post);
+  } catch (err) {
+    console.error("GET SINGLE POST ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 /* ================= GET ALL POSTS ================= */
 router.get("/", verifyToken, async (req, res) => {
   try {
