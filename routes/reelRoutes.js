@@ -26,6 +26,17 @@ const s3 = new S3Client({
   },
 });
 
+router.post("/view/:id", async (req, res) => {
+
+  await Post.findByIdAndUpdate(
+    req.params.id,
+    { $inc: { views: 1 } }
+  );
+
+  res.json({ success: true });
+
+});
+
 /* Upload Reel */
 router.post("/upload", verifyToken, upload.single("video"), async (req, res) => {
   try {
