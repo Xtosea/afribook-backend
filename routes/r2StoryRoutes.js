@@ -1,30 +1,54 @@
-// src/routes/r2StoryRoutes.js
 import express from "express";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import dotenv from "dotenv";
-dotenv.config();
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+const {
+  R2_BUCKET_NAME,
+  R2_ENDPOINT,
+  R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY,
+  R2_CUSTOM_DOMAIN,
+} = process.env;
+
 const s3 = new S3Client({
   region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
+  endpoint: R2_ENDPOINT,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
 });
 
-// Generate signed URL for story upload
-router.post("/story-upload-url", async (req, res) => {
-  const { filename, contentType } = req.body;
-  if (!filename || !contentType) return res.status(400).json({ error: "Missing filename or contentType" });
+// Get signed upload URL
+router.post("/upload-url", verifyToken, async (req, res) => {
+  try {
+    const { fileType } = req.body;
 
-  const key = `stories/${Date.now()}-${filename}`;
-  const url = `https://${process.env.R2_BUCKET_NAME}.r2.cloudflarestorage.com/${key}`;
-  const publicUrl = `${process.env.R2_CUSTOM_DOMAIN}/${key}`;
+    const fileName = `stories/${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 8)}`;
 
-  res.json({ url, publicUrl });
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: fileName,
+      ContentType: fileType,
+    });
+
+    const signedUrl = await getSignedUrl(s3, command, {
+      expiresIn: 60,
+    });
+
+    res.json({
+      uploadUrl: signedUrl,
+      fileUrl: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+    });
+  } catch (err) {
+    console.error("R2 signed URL error:", err);
+    res.status(500).json({ error: "Failed to get upload URL" });
+  }
 });
 
 export default router;
