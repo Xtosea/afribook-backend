@@ -97,4 +97,17 @@ const reel = await Post.create({
   }
 });
 
+// GET all reels
+router.get("/", async (req, res) => {
+  try {
+    const reels = await Post.find({ isReel: true })
+      .populate("user", "name profilePic")
+      .sort({ createdAt: -1 }); // latest first
+    res.json(reels);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch reels" });
+  }
+});
+
 export default router;
