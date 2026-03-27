@@ -84,6 +84,22 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+posts.sort((a, b) => {
+
+  const scoreA =
+    (a.likes?.length || 0) * 3 +
+    (a.comments?.length || 0) * 2 +
+    (a.views || 0) * 1;
+
+  const scoreB =
+    (b.likes?.length || 0) * 3 +
+    (b.comments?.length || 0) * 2 +
+    (b.views || 0) * 1;
+
+  return scoreB - scoreA;
+
+});
+
 /* ================= Reactions ================= */
 router.put("/:postId/reaction", verifyToken, async (req, res) => {
 try {
