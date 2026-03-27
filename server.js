@@ -77,8 +77,8 @@ app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/reels", reelRoutes);
-app.use("/api/r2", r2Routes);               // keep original
-app.use("/api/r2/story", r2StoryRoutes);    // mounted on a different subpath
+              
+app.use("/api/r2", r2StoryRoutes);
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
