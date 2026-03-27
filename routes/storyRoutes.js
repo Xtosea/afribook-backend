@@ -4,11 +4,11 @@ import multer from "multer";
 import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import Story from "../models/Story.js";
-import { verifyToken } from "../middleware/authMiddleware.js"; // use verifyToken
+import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 
 const router = express.Router();
-const upload = multer({ dest: "/tmp" });
+const upload = multer({ dest: "/tmp" }); // temporary storage
 
 const {
   R2_BUCKET_NAME,
@@ -27,44 +27,7 @@ const s3 = new S3Client({
   },
 });
 
-// Reply to story
-router.post("/reply/:id", verifyToken, async (req, res) => { // <- fixed middleware
-  try {
-    const { text } = req.body;
-
-    const story = await Story.findById(req.params.id).populate("user");
-
-    if (!story) {
-      return res.status(404).json({ error: "Story not found" });
-    }
-
-    const reply = {
-      user: req.user._id,
-      text,
-      createdAt: new Date(),
-    };
-
-    story.replies = story.replies || [];
-    story.replies.push(reply);
-
-    await story.save();
-
-    // Real-time notify story owner
-    io.to(story.user._id.toString()).emit("story-reply", {
-      storyId: story._id,
-      from: req.user,
-      text,
-    });
-
-    res.json({ success: true });
-
-  } catch (err) {
-    console.error("Story reply error:", err);
-    res.status(500).json({ error: "Failed to reply story" });
-  }
-});
-
-/* ================= UPLOAD STORY ================= */
+// ================= UPLOAD STORY =================
 router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -93,7 +56,6 @@ router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, 
       });
     }
 
-    // Save story in DB
     const story = await Story.create({
       user: req.user._id,
       media: uploadedFiles,
@@ -103,13 +65,38 @@ router.post("/upload-video", verifyToken, upload.array("video", 5), async (req, 
 
     await story.populate("user", "name profilePic");
 
-    // Emit to all clients
     io.emit("new-story", story);
 
     res.status(201).json(story);
   } catch (err) {
     console.error("Story upload error:", err);
     res.status(500).json({ error: "Failed to upload story" });
+  }
+});
+
+// ================= REPLY TO STORY =================
+router.post("/reply/:id", verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+    const story = await Story.findById(req.params.id).populate("user");
+
+    if (!story) return res.status(404).json({ error: "Story not found" });
+
+    story.replies = story.replies || [];
+    story.replies.push({ user: req.user._id, text, createdAt: new Date() });
+
+    await story.save();
+
+    io.to(story.user._id.toString()).emit("story-reply", {
+      storyId: story._id,
+      from: req.user,
+      text,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Story reply error:", err);
+    res.status(500).json({ error: "Failed to reply story" });
   }
 });
 
