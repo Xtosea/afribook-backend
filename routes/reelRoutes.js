@@ -50,7 +50,19 @@ router.post("/upload", verifyToken, upload.single("video"), async (req, res) => 
 
     fs.unlinkSync(file.path);
 
-    const reel = await Post.create({
+    const { caption } = req.body;
+
+const reel = await Post.create({
+  user: req.user._id,
+  content: caption || "",
+  media: [
+    {
+      url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+      type: "video",
+    },
+  ],
+  isReel: true,
+});
       user: req.user._id,
       content: "",
       media: [
