@@ -73,4 +73,34 @@ router.post("/upload", verifyToken, upload.single("video"), async (req, res) => 
   }
 });
 
+// Get all reels
+router.get("/", async (req, res) => {
+  try {
+    const reels = await Post.find({ isReel: true })
+      .populate("user", "name profilePic")
+      .sort({ createdAt: -1 });
+
+    if (!reels || reels.length === 0) {
+      return res.json([]); // Return empty array if no reels
+    }
+
+    // Ensure every reel has full media URLs
+    const formattedReels = reels.map(reel => {
+      const media = reel.media.map(m => ({
+        type: m.type,
+        url: m.url.startsWith("http") ? m.url : `${process.env.R2_CUSTOM_DOMAIN}/${m.url}`,
+      }));
+      return {
+        ...reel.toObject(),
+        media,
+      };
+    });
+
+    res.json(formattedReels);
+  } catch (err) {
+    console.error("Failed to fetch reels:", err);
+    res.status(500).json({ error: "Failed to fetch reels" });
+  }
+});
+
 export default router;
