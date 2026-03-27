@@ -5,6 +5,9 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Post from "../models/Post.js";
 import { io } from "../server.js";
+import Comment from "../models/Comment.js";
+import Notification from "../models/Notification.js";
+
 
 const router = express.Router();
 const upload = multer({ dest: "/tmp" });
@@ -107,6 +110,59 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch reels" });
+  }
+});
+
+// ================== COMMENT ==================
+// Add below your existing routes
+router.post("/:id/comment", verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+    const reel = await Post.findById(req.params.id);
+    if (!reel) return res.status(404).json({ error: "Reel not found" });
+
+    const comment = new Comment({
+      post: reel._id,
+      user: req.user._id,
+      text,
+    });
+
+    await comment.save();
+    await comment.populate("user", "name profilePic");
+
+    // Notify reel owner
+    if (reel.user.toString() !== req.user._id.toString()) {
+      const notification = new Notification({
+        recipient: reel.user,
+        sender: req.user._id,
+        type: "COMMENT",
+        post: reel._id,
+        text: `${req.user.name} commented on your reel!`,
+      });
+      await notification.save();
+      io.to(reel.user.toString()).emit("new-notification", notification);
+    }
+
+    res.status(201).json({ comment });
+  } catch (err) {
+    console.error("COMMENT ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ================== SHARE ==================
+router.post("/:id/share", verifyToken, async (req, res) => {
+  try {
+    const reel = await Post.findById(req.params.id);
+    if (!reel) return res.status(404).json({ error: "Reel not found" });
+
+    reel.shares = (reel.shares || 0) + 1;
+    await reel.save();
+
+    res.json({ shares: reel.shares });
+  } catch (err) {
+    console.error("SHARE ERROR:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
