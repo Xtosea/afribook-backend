@@ -1,15 +1,28 @@
-// src/routes/r2StoryRoute.js
+// src/routes/r2StoryRoutes.js
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import fetch from "node-fetch";
-import { R2_BUCKET, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN } from "../config/env.js";
 
 const router = express.Router();
 
+// Load R2 credentials directly from environment variables
+const {
+  R2_BUCKET_NAME,
+  CLOUDFLARE_ACCOUNT_ID,
+  CLOUDFLARE_API_TOKEN,
+} = process.env;
+
+// Route to get signed upload URL for R2 stories
 router.get("/upload-url", verifyToken, async (req, res) => {
   try {
+    if (!R2_BUCKET_NAME || !CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN) {
+      return res.status(500).json({ error: "R2 environment variables are missing" });
+    }
+
+    // Construct a unique file name
     const fileName = `${req.user._id}-${Date.now()}.mp4`;
-    const uploadUrl = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects/${fileName}`;
+
+    // Generate the upload URL
+    const uploadUrl = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${R2_BUCKET_NAME}/objects/${fileName}`;
 
     res.json({
       uploadUrl,
