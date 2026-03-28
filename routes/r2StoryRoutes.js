@@ -1,53 +1,56 @@
+// src/routes/r2Routes.js
 import express from "express";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import crypto from "crypto";
 
 const router = express.Router();
 
-const {
-  R2_BUCKET_NAME,
-  R2_ENDPOINT,
-  R2_ACCESS_KEY_ID,
-  R2_SECRET_ACCESS_KEY,
-  R2_CUSTOM_DOMAIN,
-} = process.env;
-
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: R2_ENDPOINT,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-});
-
-// Get signed upload URL
+// ================= GET R2 SIGNED URL =================
 router.post("/upload-url", verifyToken, async (req, res) => {
   try {
     const { fileType } = req.body;
+    if (!fileType) return res.status(400).json({ error: "Missing fileType" });
 
-    const fileName = `stories/${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 8)}`;
+    // Generate a unique filename
+    const fileName = `${crypto.randomUUID()}.${fileType.split("/")[1]}`;
 
-    const command = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: fileName,
-      ContentType: fileType,
-    });
+    // Cloudflare R2 bucket info from env
+    const BUCKET_NAME = process.env.R2_BUCKET_NAME;
+    const ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+    const ACCESS_KEY = process.env.R2_ACCESS_KEY_ID;
+    const SECRET_KEY = process.env.R2_SECRET_ACCESS_KEY;
 
-    const signedUrl = await getSignedUrl(s3, command, {
-      expiresIn: 60,
-    });
+    if (!BUCKET_NAME || !ACCOUNT_ID || !ACCESS_KEY || !SECRET_KEY) {
+      return res.status(500).json({ error: "R2 environment not configured" });
+    }
 
+    // Create the PUT URL
+    const expires = 60; // URL valid for 60 seconds
+    const method = "PUT";
+    const urlPath = `/${BUCKET_NAME}/${fileName}`;
+    const date = new Date().toUTCString();
+    const stringToSign = `${method}\n\n${fileType}\n${date}\n${urlPath}`;
+    const signature = crypto
+      .createHmac("sha1", SECRET_KEY)
+      .update(stringToSign)
+      .digest("base64");
+
+    const uploadUrl = `https://${BUCKET_NAME}.${ACCOUNT_ID}.r2.cloudflarestorage.com/${fileName}`;
+    const signedUrl = uploadUrl; // PUT request with headers below
+
+    // Return the signed URL and the final file URL
     res.json({
       uploadUrl: signedUrl,
-      fileUrl: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+      fileUrl: uploadUrl,
+      headers: {
+        "Content-Type": fileType,
+        "Date": date,
+        "Authorization": `AWS ${ACCESS_KEY}:${signature}`,
+      },
     });
   } catch (err) {
     console.error("R2 signed URL error:", err);
-    res.status(500).json({ error: "Failed to get upload URL" });
+    res.status(500).json({ error: "Failed to generate R2 signed URL" });
   }
 });
 
