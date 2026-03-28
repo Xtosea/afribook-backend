@@ -23,7 +23,7 @@ const s3 = new S3Client({
 });
 
 // Upload Story
-router.post("/upload", verifyToken, async (req, res) => {
+router.get("/upload-url", verifyToken, async (req, res) => {
   try {
     if (!req.files || !req.files.media) {
       return res.status(400).json({ error: "No file uploaded" });
