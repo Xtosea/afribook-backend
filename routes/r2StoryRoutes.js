@@ -5,6 +5,7 @@ import { useR2Upload } from "./useR2Upload";
 export const useStoryUpload = () => {
   const { uploadVideo } = useR2Upload();
   const [uploading, setUploading] = useState(false);
+console.log("Getting upload URL...");
 
   const uploadStory = async (file) => {
     try {
@@ -15,6 +16,7 @@ export const useStoryUpload = () => {
       if (!mediaUrl) {
         throw new Error("Upload failed");
       }
+    console.log("Upload success:", fileUrl);
 
       const token = localStorage.getItem("token");
 
@@ -35,6 +37,8 @@ export const useStoryUpload = () => {
       }
 
       const data = await res.json();
+      console.log("Upload URL response:", data);
+      
 
       return data;
 
