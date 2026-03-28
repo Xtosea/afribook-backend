@@ -78,4 +78,46 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+/* ================= LIKE STORY ================= */
+
+router.post("/like/:id", verifyToken, async (req, res) => {
+try {
+
+const story = await Story.findById(req.params.id);
+
+if (!story) {
+return res.status(404).json({
+error: "Story not found"
+});
+}
+
+story.likes = story.likes || [];
+
+const liked = story.likes.includes(req.user._id);
+
+story.likes = liked
+? story.likes.filter(
+(id) => id.toString() !== req.user._id.toString()
+)
+: [...story.likes, req.user._id];
+
+await story.save();
+
+io.emit("story-liked", {
+storyId: story._id,
+likes: story.likes.length,
+});
+
+res.json({
+likes: story.likes.length,
+});
+
+} catch (err) {
+console.error("Story like error:", err);
+res.status(500).json({
+error: "Failed to like story"
+});
+}
+});
+
 export default router;
