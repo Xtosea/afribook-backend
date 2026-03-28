@@ -1,22 +1,20 @@
 // src/routes/r2StoryRoutes.js
 import express from "express";
-import { verifyToken } from "../middleware/authMiddleware.js";
 import multer from "multer";
 import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { verifyToken } from "../middleware/authMiddleware.js";
 import Story from "../models/Story.js";
 
 const router = express.Router();
 const upload = multer({ dest: "/tmp" });
 
-// ==== Load env variables safely ====
+// ==== Environment variables ====
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const R2_ENDPOINT = process.env.R2_ENDPOINT;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_CUSTOM_DOMAIN = process.env.R2_CUSTOM_DOMAIN;
-
-console.log("R2_BUCKET_NAME:", R2_BUCKET_NAME); // safe now
 
 // ==== R2 Client ====
 const s3 = new S3Client({
@@ -28,7 +26,7 @@ const s3 = new S3Client({
   },
 });
 
-// ==== Upload Story ====
+// ==== Upload story media ====
 router.post("/upload", verifyToken, upload.array("media", 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -57,6 +55,7 @@ router.post("/upload", verifyToken, upload.array("media", 5), async (req, res) =
       });
     }
 
+    // Save story in MongoDB with 24h expiration
     const story = new Story({
       user: req.user._id,
       media: uploadedMedia,
@@ -72,7 +71,7 @@ router.post("/upload", verifyToken, upload.array("media", 5), async (req, res) =
   }
 });
 
-// ==== Get Active Stories ====
+// ==== Get active stories ====
 router.get("/", verifyToken, async (req, res) => {
   try {
     const stories = await Story.find({ expiresAt: { $gt: new Date() } })
