@@ -1,14 +1,40 @@
-// routes/postRoutes.js
 import express from "express";
+import multer from "multer";
+import fs from "fs";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
 import Notification from "../models/Notification.js";
+
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 
 const router = express.Router();
+const upload = multer({ dest: "/tmp" });
+
+/* ================= R2 CONFIG ================= */
+
+const {
+  R2_BUCKET_NAME,
+  R2_ENDPOINT,
+  R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY,
+  R2_CUSTOM_DOMAIN,
+} = process.env;
+
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: R2_ENDPOINT,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
+
 
 /* ================= CREATE POST ================= */
+
 router.post("/", verifyToken, async (req, res) => {
   try {
     const { content, feeling, location, taggedFriends, media } = req.body;
@@ -35,23 +61,89 @@ router.post("/", verifyToken, async (req, res) => {
       message: "Post created",
       post,
     });
+
   } catch (err) {
     console.error("CREATE POST ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
+/* ================= UPLOAD REEL ================= */
+
+router.post(
+  "/upload",
+  verifyToken,
+  upload.single("video"),
+  async (req, res) => {
+    try {
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({
+          error: "No video uploaded",
+        });
+      }
+
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileName = `reels/${Date.now()}-${file.originalname}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: fileName,
+          Body: fileBuffer,
+          ContentType: file.mimetype,
+        })
+      );
+
+      fs.unlinkSync(file.path);
+
+      const { caption } = req.body;
+
+      const reel = await Post.create({
+        user: req.user._id,
+        content: caption || "",
+        media: [
+          {
+            url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+            type: "video",
+          },
+        ],
+        isReel: true,
+      });
+
+      await reel.populate("user", "name profilePic");
+
+      io.emit("new-reel", reel);
+
+      res.json(reel);
+
+    } catch (err) {
+      console.error("Reel upload error:", err);
+      res.status(500).json({
+        error: "Failed to upload reel",
+      });
+    }
+  }
+);
+
+
 /* ================= GET ALL POSTS ================= */
+
 router.get("/", verifyToken, async (req, res) => {
   try {
+
     let posts = await Post.find()
-      .sort({ createdAt: -1 })
       .populate("user", "name profilePic")
       .populate("taggedFriends", "name profilePic")
-      .populate("comments.user", "name profilePic");
+      .populate("comments.user", "name profilePic")
+      .sort({ createdAt: -1 });
 
     /* Smart Feed Ranking */
+
     posts = posts.sort((a, b) => {
+
       const scoreA =
         (a.likes?.length || 0) * 3 +
         (a.comments?.length || 0) * 2 +
@@ -63,82 +155,64 @@ router.get("/", verifyToken, async (req, res) => {
         (b.views || 0);
 
       return scoreB - scoreA;
+
     });
 
     res.json(posts);
+
   } catch (err) {
     console.error("GET POSTS ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
+/* ================= GET REELS ================= */
+
+router.get("/reels", async (req, res) => {
+  try {
+
+    const reels = await Post.find({
+      isReel: true,
+    })
+      .populate("user", "name profilePic")
+      .sort({ createdAt: -1 });
+
+    res.json(reels);
+
+  } catch (err) {
+    res.status(500).json({
+      error: "Failed to fetch reels",
+    });
+  }
+});
+
+
 /* ================= GET USER POSTS ================= */
+
 router.get("/user/:userId", verifyToken, async (req, res) => {
   try {
+
     const posts = await Post.find({
       user: req.params.userId,
     })
-      .sort({ createdAt: -1 })
-      .populate("user", "name profilePic")
-      .populate("taggedFriends", "name profilePic");
-
-    res.json(posts);
-  } catch (err) {
-    console.error("GET USER POSTS ERROR:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/* ================= GET SINGLE POST ================= */
-router.get("/:postId", verifyToken, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.postId)
       .populate("user", "name profilePic")
       .populate("taggedFriends", "name profilePic")
-      .populate("comments.user", "name profilePic");
+      .sort({ createdAt: -1 });
 
-    if (!post) {
-      return res.status(404).json({ error: "Post not found" });
-    }
+    res.json(posts);
 
-    res.json(post);
-  } catch (err) {
-    console.error("GET SINGLE POST ERROR:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/* ================= REACTION ================= */
-router.put("/:postId/reaction", verifyToken, async (req, res) => {
-  try {
-    const { type } = req.body;
-
-    const post = await Post.findById(req.params.postId);
-
-    const existing = post.reactions.find(
-      (r) => r.user.toString() === req.user.id
-    );
-
-    if (existing) {
-      existing.type = type;
-    } else {
-      post.reactions.push({
-        user: req.user.id,
-        type,
-      });
-    }
-
-    await post.save();
-
-    res.json(post.reactions);
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 /* ================= LIKE ================= */
+
 router.put("/:postId/like", verifyToken, async (req, res) => {
   try {
+
     const post = await Post.findById(req.params.postId);
 
     const liked = post.likes.includes(req.user.id);
@@ -151,8 +225,8 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
 
     await post.save();
 
-    /* Notification */
     if (!liked) {
+
       const notification = new Notification({
         recipient: post.user,
         sender: req.user.id,
@@ -162,34 +236,34 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
       });
 
       await notification.save();
-
       await notification.populate(
         "sender",
         "name profilePic"
       );
 
-      io.to(post.user.toString()).emit(
-        "new-notification",
-        notification
-      );
+      io.to(post.user.toString())
+        .emit("new-notification", notification);
+
     }
 
     res.json({
       likesCount: post.likes.length,
     });
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
 /* ================= COMMENT ================= */
+
 router.post("/:postId/comment", verifyToken, async (req, res) => {
   try {
+
     const { text } = req.body;
 
-    const post = await Post.findById(
-      req.params.postId
-    );
+    const post = await Post.findById(req.params.postId);
 
     const comment = new Comment({
       post: post._id,
@@ -198,47 +272,26 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
     });
 
     await comment.save();
+    await comment.populate("user", "name profilePic");
 
-    await comment.populate(
-      "user",
-      "name profilePic"
-    );
-
-    /* Notification */
-    const notification = new Notification({
-      recipient: post.user,
-      sender: req.user.id,
-      type: "COMMENT",
-      post: post._id,
-      text: `${req.user.name} commented on your post`,
-    });
-
-    await notification.save();
-
-    await notification.populate(
-      "sender",
-      "name profilePic"
-    );
-
-    io.to(post.user.toString()).emit(
-      "new-notification",
-      notification
-    );
+    io.emit("new-comment", comment);
 
     res.status(201).json({
       comment,
     });
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
 /* ================= SHARE ================= */
+
 router.post("/:postId/share", verifyToken, async (req, res) => {
   try {
-    const post = await Post.findById(
-      req.params.postId
-    );
+
+    const post = await Post.findById(req.params.postId);
 
     post.shares = (post.shares || 0) + 1;
 
@@ -247,43 +300,44 @@ router.post("/:postId/share", verifyToken, async (req, res) => {
     res.json({
       shares: post.shares,
     });
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ================= VIEW TRACKING ================= */
-router.put("/:postId/view", async (req, res) => {
+
+/* ================= VIEW ================= */
+
+router.post("/view/:id", async (req, res) => {
   try {
-    const post = await Post.findById(
-      req.params.postId
+
+    await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } }
     );
 
-    post.views = (post.views || 0) + 1;
+    res.json({ success: true });
 
-    await post.save();
-
-    res.json({
-      views: post.views,
-    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      error: "Failed to record view",
+    });
   }
 });
 
-/* ================= DELETE POST ================= */
+
+/* ================= DELETE ================= */
+
 router.delete("/:postId", verifyToken, async (req, res) => {
   try {
-    const post = await Post.findById(
-      req.params.postId
-    );
 
-    if (
-      post.user.toString() !== req.user.id
-    ) {
-      return res
-        .status(403)
-        .json({ error: "Unauthorized" });
+    const post = await Post.findById(req.params.postId);
+
+    if (post.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        error: "Unauthorized",
+      });
     }
 
     await post.deleteOne();
@@ -291,48 +345,40 @@ router.delete("/:postId", verifyToken, async (req, res) => {
     res.json({
       message: "Post deleted",
     });
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ================= EDIT POST ================= */
+
+/* ================= EDIT ================= */
+
 router.put("/:postId", verifyToken, async (req, res) => {
   try {
-    const { content } = req.body;
 
-    const post = await Post.findById(
-      req.params.postId
-    );
+    const post = await Post.findById(req.params.postId);
 
-    if (
-      post.user.toString() !== req.user.id
-    ) {
-      return res
-        .status(403)
-        .json({ error: "Unauthorized" });
-    }
-
-    post.content = content;
+    post.content = req.body.content;
 
     await post.save();
 
     res.json(post);
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
 /* ================= SAVE POST ================= */
+
 router.put("/:postId/save", verifyToken, async (req, res) => {
   try {
-    const post = await Post.findById(
-      req.params.postId
-    );
 
-    const saved = post.savedBy?.includes(
-      req.user.id
-    );
+    const post = await Post.findById(req.params.postId);
+
+    const saved = post.savedBy?.includes(req.user.id);
 
     post.savedBy = saved
       ? post.savedBy.filter(
@@ -346,25 +392,25 @@ router.put("/:postId/save", verifyToken, async (req, res) => {
     res.json({
       saved: !saved,
     });
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ================= REPORT POST ================= */
+
+/* ================= REPORT ================= */
+
 router.post("/:postId/report", verifyToken, async (req, res) => {
   try {
-    const { reason } = req.body;
 
-    const post = await Post.findById(
-      req.params.postId
-    );
+    const post = await Post.findById(req.params.postId);
 
     post.reports = post.reports || [];
 
     post.reports.push({
       user: req.user.id,
-      reason,
+      reason: req.body.reason,
     });
 
     await post.save();
@@ -372,9 +418,11 @@ router.post("/:postId/report", verifyToken, async (req, res) => {
     res.json({
       message: "Reported",
     });
+
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 export default router;
