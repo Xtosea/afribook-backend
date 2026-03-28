@@ -1,56 +1,33 @@
-// src/routes/r2Routes.js
+// src/routes/r2StoryRoute.js
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import crypto from "crypto";
+import { R2_BUCKET, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN } from "../config/env.js"; 
+import fetch from "node-fetch";
 
 const router = express.Router();
 
-// ================= GET R2 SIGNED URL =================
-router.post("/upload-url", verifyToken, async (req, res) => {
+/**
+ * GET /api/r2-stories/upload-url
+ * Returns a signed URL for uploading a story to Cloudflare R2
+ */
+router.get("/upload-url", verifyToken, async (req, res) => {
   try {
-    const { fileType } = req.body;
-    if (!fileType) return res.status(400).json({ error: "Missing fileType" });
+    const fileName = `${req.user._id}-${Date.now()}.mp4`; // can adjust for images too
+    const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects/${fileName}`;
 
-    // Generate a unique filename
-    const fileName = `${crypto.randomUUID()}.${fileType.split("/")[1]}`;
-
-    // Cloudflare R2 bucket info from env
-    const BUCKET_NAME = process.env.R2_BUCKET_NAME;
-    const ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-    const ACCESS_KEY = process.env.R2_ACCESS_KEY_ID;
-    const SECRET_KEY = process.env.R2_SECRET_ACCESS_KEY;
-
-    if (!BUCKET_NAME || !ACCOUNT_ID || !ACCESS_KEY || !SECRET_KEY) {
-      return res.status(500).json({ error: "R2 environment not configured" });
-    }
-
-    // Create the PUT URL
-    const expires = 60; // URL valid for 60 seconds
-    const method = "PUT";
-    const urlPath = `/${BUCKET_NAME}/${fileName}`;
-    const date = new Date().toUTCString();
-    const stringToSign = `${method}\n\n${fileType}\n${date}\n${urlPath}`;
-    const signature = crypto
-      .createHmac("sha1", SECRET_KEY)
-      .update(stringToSign)
-      .digest("base64");
-
-    const uploadUrl = `https://${BUCKET_NAME}.${ACCOUNT_ID}.r2.cloudflarestorage.com/${fileName}`;
-    const signedUrl = uploadUrl; // PUT request with headers below
-
-    // Return the signed URL and the final file URL
+    // Cloudflare R2 PUT URL requires Authorization header with Bearer token
+    // We'll just return the URL + headers for the frontend to PUT
     res.json({
-      uploadUrl: signedUrl,
-      fileUrl: uploadUrl,
+      uploadUrl: url,
+      fileName,
       headers: {
-        "Content-Type": fileType,
-        "Date": date,
-        "Authorization": `AWS ${ACCESS_KEY}:${signature}`,
+        Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
+        "Content-Type": "video/mp4", // or "image/*" if image
       },
     });
   } catch (err) {
-    console.error("R2 signed URL error:", err);
-    res.status(500).json({ error: "Failed to generate R2 signed URL" });
+    console.error("R2 story signed URL error:", err);
+    res.status(500).json({ error: "Failed to get R2 signed URL" });
   }
 });
 
