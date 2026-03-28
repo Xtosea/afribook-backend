@@ -4,6 +4,10 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+console.log("R2_BUCKET_NAME:", R2_BUCKET_NAME);
+console.log("CLOUDFLARE_ACCOUNT_ID:", CLOUDFLARE_ACCOUNT_ID);
+console.log("CLOUDFLARE_API_TOKEN:", !!CLOUDFLARE_API_TOKEN);
+
 // Load R2 credentials directly from environment variables
 const {
   R2_BUCKET_NAME,
