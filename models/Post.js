@@ -17,6 +17,11 @@ const mediaSchema = new mongoose.Schema({
   type: String
 });
 
+type: {
+  type: String,
+  default: "post"
+}
+
 const postSchema = new mongoose.Schema({
   user: { 
     type: mongoose.Schema.Types.ObjectId, 
