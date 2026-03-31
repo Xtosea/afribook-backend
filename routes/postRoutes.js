@@ -208,6 +208,41 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
 });
 
 
+/* ================= GET SINGLE POST ================= */
+
+router.get("/:id", async (req, res) => {
+  try {
+
+    const post = await Post.findById(req.params.id)
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic");
+
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found"
+      });
+    }
+
+    // fetch comments separately
+    const comments = await Comment.find({
+      post: post._id
+    })
+    .populate("user", "name profilePic")
+    .sort({ createdAt: -1 });
+
+    res.json({
+      ...post.toObject(),
+      comments
+    });
+
+  } catch (err) {
+    console.error("GET SINGLE POST ERROR:", err);
+    res.status(500).json({
+      error: "Server error"
+    });
+  }
+});
+
 /* ================= LIKE ================= */
 
 router.put("/:postId/like", verifyToken, async (req, res) => {
