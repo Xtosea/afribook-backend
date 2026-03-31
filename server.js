@@ -66,20 +66,25 @@ app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
 /* ================= POST SHARE PREVIEW ================= */
-
 app.get("/post/:id", async (req, res) => {
   try {
-
     const post = await Post.findById(req.params.id)
       .populate("user", "name profilePic");
 
-    if (!post) {
-      return res.send("Post not found");
-    }
+    if (!post) return res.send("Post not found");
 
-    const image =
-      post.media?.[0]?.url ||
-      "https://africbook.globelynks.com/africbook-preview.png";
+    // Determine preview image
+    let image = "https://africbook.globelynks.com/africbook-preview.png";
+
+    if (post.media && post.media.length > 0) {
+      const firstMedia = post.media[0];
+      if (firstMedia.type === "image") {
+        image = firstMedia.url;
+      } else if (firstMedia.type === "video") {
+        // If you have thumbnails, replace with firstMedia.thumbnailUrl
+        image = firstMedia.url; // fallback, some platforms can preview video poster
+      }
+    }
 
     const title =
       post.content?.substring(0, 60) ||
@@ -89,50 +94,45 @@ app.get("/post/:id", async (req, res) => {
       post.content?.substring(0, 150) ||
       "Check this post on Africbook";
 
-    const url =
-      `https://africbook.globelynks.com/post/${post._id}`;
+    const url = `https://africbook.globelynks.com/post/${post._id}`;
 
     res.send(`
 <!DOCTYPE html>
 <html>
 <head>
+  <title>${title}</title>
 
-<title>${title}</title>
+  <!-- Open Graph / Facebook -->
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${image}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Africbook" />
 
-<meta property="og:title" content="${title}" />
-<meta property="og:description" content="${description}" />
-<meta property="og:image" content="${image}" />
-<meta property="og:url" content="${url}" />
-<meta property="og:type" content="article" />
-<meta property="og:site_name" content="Africbook" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="${image}" />
 
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${title}">
-<meta name="twitter:description" content="${description}">
-<meta name="twitter:image" content="${image}">
-
-<meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
-
+  <!-- Redirect to SPA -->
+  <meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
 </head>
-
 <body>
-Redirecting...
+Redirecting to Africbook...
 </body>
-
 </html>
-`);
-
-  } catch (error) {
-    console.error("Share preview error:", error);
+    `);
+  } catch (err) {
+    console.error("Share preview error:", err);
     res.status(500).send("Server error");
   }
 });
 
-
-/* ================= ROUTES ================= */
+/* ================= API ROUTES ================= */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
@@ -167,12 +167,10 @@ export const io = new Server(server, {
 /* ================= SOCKET AUTH ================= */
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-
   if (!token) {
     console.log("❌ No token provided");
     return next(new Error("No token provided"));
   }
-
   next();
 });
 
@@ -188,7 +186,6 @@ io.on("connection", (socket) => {
   socket.on("send-message", async (data) => {
     try {
       const message = await Message.create(data);
-
       io.to(data.receiverId).emit("receive-message", message);
       io.to(data.senderId).emit("receive-message", message);
     } catch (error) {
@@ -202,7 +199,6 @@ io.on("connection", (socket) => {
 });
 
 /* ================= START SERVER ================= */
-
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -213,15 +209,12 @@ const startServer = async () => {
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-
   } catch (err) {
-
     console.error("❌ Startup error:", err);
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`⚠️ Server running WITHOUT DB on port ${PORT}`);
     });
-
   }
 };
 
