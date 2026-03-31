@@ -1,54 +1,54 @@
-import { useState } from "react";
-import { API_BASE } from "../api/api";
-import { useR2Upload } from "./useR2Upload";
+import express from "express";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
-export const useStoryUpload = () => {
-  const { uploadVideo } = useR2Upload();
-  const [uploading, setUploading] = useState(false);
-console.log("Getting upload URL...");
+const router = express.Router();
 
-  const uploadStory = async (file) => {
-    try {
-      setUploading(true);
+const {
+  R2_BUCKET_NAME,
+  R2_ENDPOINT,
+  R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY,
+  R2_CUSTOM_DOMAIN,
+} = process.env;
 
-      const mediaUrl = await uploadVideo(file);
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: R2_ENDPOINT,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
 
-      if (!mediaUrl) {
-        throw new Error("Upload failed");
-      }
-    console.log("Upload success:", fileUrl);
+// Get signed upload URL
+router.post("/upload-url", verifyToken, async (req, res) => {
+  try {
+    const { fileType } = req.body;
 
-      const token = localStorage.getItem("token");
+    const fileName = `stories/${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 8)}`;
 
-      const res = await fetch(`${API_BASE}/api/stories/upload-video`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          url: mediaUrl,
-          type: file.type.startsWith("image") ? "image" : "video",
-        }),
-      });
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: fileName,
+      ContentType: fileType,
+    });
 
-      if (!res.ok) {
-        throw new Error("Story upload failed");
-      }
+    const signedUrl = await getSignedUrl(s3, command, {
+      expiresIn: 60,
+    });
 
-      const data = await res.json();
-      console.log("Upload URL response:", data);
-      
+    res.json({
+      uploadUrl: signedUrl,
+      fileUrl: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+    });
+  } catch (err) {
+    console.error("R2 signed URL error:", err);
+    res.status(500).json({ error: "Failed to get upload URL" });
+  }
+});
 
-      return data;
-
-    } catch (err) {
-      console.error("Story upload error:", err);
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return { uploadStory, uploading };
-};
+export default router;
