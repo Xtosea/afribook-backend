@@ -23,7 +23,6 @@ import searchRoutes from "./routes/searchRoutes.js";
 import imagekitRoutes from "./routes/imagekitRoutes.js";
 import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
-import r2Routes from "./routes/r2Routes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import r2StoryRoutes from "./routes/r2StoryRoutes.js";
 import reelRoutes from "./routes/reelRoutes.js";
@@ -48,7 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   fileUpload({
     useTempFiles: false,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   })
 );
 
@@ -57,7 +56,6 @@ const emailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
 });
-
 app.use("/api/auth/resend-verification", emailLimiter);
 app.use("/api/auth/forgot-password", emailLimiter);
 
@@ -75,25 +73,28 @@ app.get("/post/:id", async (req, res) => {
 
     // Determine preview image
     let image = "https://africbook.globelynks.com/africbook-preview.png";
-
     if (post.media && post.media.length > 0) {
       const firstMedia = post.media[0];
       if (firstMedia.type === "image") {
-        image = firstMedia.url;
+        image = firstMedia.url.startsWith("http")
+          ? firstMedia.url
+          : `https://africbook.globelynks.com${firstMedia.url}`;
       } else if (firstMedia.type === "video") {
-        // If you have thumbnails, replace with firstMedia.thumbnailUrl
-        image = firstMedia.url; // fallback, some platforms can preview video poster
+        image = firstMedia.thumbnailUrl
+          ? firstMedia.thumbnailUrl.startsWith("http")
+            ? firstMedia.thumbnailUrl
+            : `https://africbook.globelynks.com${firstMedia.thumbnailUrl}`
+          : firstMedia.url.startsWith("http")
+          ? firstMedia.url
+          : `https://africbook.globelynks.com${firstMedia.url}`;
       }
     }
 
     const title =
       post.content?.substring(0, 60) ||
       `${post.user?.name} shared a post on Africbook`;
-
     const description =
-      post.content?.substring(0, 150) ||
-      "Check this post on Africbook";
-
+      post.content?.substring(0, 150) || "Check this post on Africbook";
     const url = `https://africbook.globelynks.com/post/${post._id}`;
 
     res.send(`
@@ -145,7 +146,7 @@ app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/reels", reelRoutes);
-app.use("/api/r2", r2StoryRoutes);
+app.use("/api/r2", r2StoryRoutes); // R2 story upload
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
