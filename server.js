@@ -10,6 +10,7 @@ import fileUpload from "express-fileupload";
 
 /* ================= MODELS ================= */
 import Message from "./models/Message.js";
+import Post from "./models/Post.js";
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -24,7 +25,7 @@ import cloudinaryRoutes from "./routes/cloudinaryRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
 import messageRoutes from "./routes/messageRoutes.js";
-import r2StoryRoutes from "./routes/r2StoryRoutes.js"; 
+import r2StoryRoutes from "./routes/r2StoryRoutes.js";
 import reelRoutes from "./routes/reelRoutes.js";
 
 const app = express();
@@ -64,6 +65,73 @@ app.use("/api/auth/forgot-password", emailLimiter);
 app.use("/uploads/profiles", express.static("public/uploads/profiles"));
 app.use("/uploads/media", express.static("public/uploads/media"));
 
+/* ================= POST SHARE PREVIEW ================= */
+
+app.get("/post/:id", async (req, res) => {
+  try {
+
+    const post = await Post.findById(req.params.id)
+      .populate("user", "name profilePic");
+
+    if (!post) {
+      return res.send("Post not found");
+    }
+
+    const image =
+      post.media?.[0]?.url ||
+      "https://africbook.globelynks.com/africbook-preview.png";
+
+    const title =
+      post.content?.substring(0, 60) ||
+      `${post.user?.name} shared a post on Africbook`;
+
+    const description =
+      post.content?.substring(0, 150) ||
+      "Check this post on Africbook";
+
+    const url =
+      `https://africbook.globelynks.com/post/${post._id}`;
+
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>${title}</title>
+
+<meta property="og:title" content="${title}" />
+<meta property="og:description" content="${description}" />
+<meta property="og:image" content="${image}" />
+<meta property="og:url" content="${url}" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Africbook" />
+
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}">
+<meta name="twitter:image" content="${image}">
+
+<meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
+
+</head>
+
+<body>
+Redirecting...
+</body>
+
+</html>
+`);
+
+  } catch (error) {
+    console.error("Share preview error:", error);
+    res.status(500).send("Server error");
+  }
+});
+
+
 /* ================= ROUTES ================= */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -77,7 +145,6 @@ app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/reels", reelRoutes);
-              
 app.use("/api/r2", r2StoryRoutes);
 
 /* ================= TEST ROUTE ================= */
@@ -135,6 +202,7 @@ io.on("connection", (socket) => {
 });
 
 /* ================= START SERVER ================= */
+
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -145,12 +213,15 @@ const startServer = async () => {
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
+
   } catch (err) {
+
     console.error("❌ Startup error:", err);
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`⚠️ Server running WITHOUT DB on port ${PORT}`);
     });
+
   }
 };
 
