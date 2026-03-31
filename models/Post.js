@@ -17,11 +17,6 @@ const mediaSchema = new mongoose.Schema({
   type: String
 });
 
-type: {
-  type: String,
-  default: "post"
-}
-
 const postSchema = new mongoose.Schema({
   user: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -35,6 +30,12 @@ const postSchema = new mongoose.Schema({
   },
 
   media: [mediaSchema],
+
+  // ✅ FIXED — moved inside schema
+  type: {
+    type: String,
+    default: "post"
+  },
 
   feeling: { 
     type: String, 
@@ -60,15 +61,15 @@ const postSchema = new mongoose.Schema({
     }
   ],
 
-reactions: [
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    },
-    type: String
-  }
-],
+  reactions: [
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      },
+      type: String
+    }
+  ],
 
   comments: [commentSchema],
 
