@@ -1,8 +1,8 @@
 // src/routes/postRoutes.js
 import express from "express";
 import multer from "multer";
-import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import fs from "fs";
 
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
@@ -12,9 +12,12 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 
 const router = express.Router();
-const upload = multer({ dest: "/tmp" });
 
-/* ================= R2 CONFIG ================= */
+// ================= MULTER MEMORY STORAGE =================
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// ================= R2 CONFIG =================
 const {
   R2_BUCKET_NAME,
   R2_ENDPOINT,
@@ -32,43 +35,42 @@ const s3 = new S3Client({
   },
 });
 
-/* ================= CREATE POST / UPLOAD ================= */
+// ================= CREATE POST / UPLOAD =================
 router.post("/", verifyToken, upload.array("media"), async (req, res) => {
   try {
+    const { content, location, feeling, taggedFriends } = req.body;
     const files = req.files || [];
-    const { content } = req.body;
+    const mediaFiles = [];
 
-    const uploadedMedia = [];
+    for (let file of files) {
+      const type = file.mimetype.startsWith("image") ? "image" : "video";
+      const fileName = `posts/${Date.now()}-${file.originalname}`;
 
-    for (const file of files) {
-      const fileBuffer = fs.readFileSync(file.path);
-      const fileType = file.mimetype.startsWith("image") ? "image" : "video";
-      const fileName = `${fileType}s/${Date.now()}-${file.originalname}`;
-
+      // Upload to R2
       await s3.send(
         new PutObjectCommand({
           Bucket: R2_BUCKET_NAME,
           Key: fileName,
-          Body: fileBuffer,
+          Body: file.buffer,
           ContentType: file.mimetype,
         })
       );
 
-      fs.unlinkSync(file.path);
-
-      const url = `${R2_CUSTOM_DOMAIN}/${fileName}`;
-      uploadedMedia.push(
-        fileType === "video"
-          ? { url, type: fileType, thumbnailUrl: `${url}?thumbnail=1` }
-          : { url, type: fileType }
+      mediaFiles.push(
+        type === "video"
+          ? { url: `${R2_CUSTOM_DOMAIN}/${fileName}`, type, thumbnailUrl: `${R2_CUSTOM_DOMAIN}/${fileName}?thumbnail=1` }
+          : { url: `${R2_CUSTOM_DOMAIN}/${fileName}`, type }
       );
     }
 
     const post = await Post.create({
       user: req.user.id,
       content: content || "",
-      media: uploadedMedia,
-      isReel: uploadedMedia.some((m) => m.type === "video"),
+      media: mediaFiles,
+      location,
+      feeling,
+      taggedFriends: taggedFriends ? JSON.parse(taggedFriends) : [],
+      isReel: mediaFiles.some((m) => m.type === "video"),
     });
 
     await post.populate("user", "name profilePic");
@@ -83,7 +85,7 @@ router.post("/", verifyToken, upload.array("media"), async (req, res) => {
   }
 });
 
-/* ================= GET ALL POSTS ================= */
+// ================= GET ALL POSTS =================
 router.get("/", verifyToken, async (req, res) => {
   try {
     let posts = await Post.find()
@@ -106,7 +108,7 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= GET REELS ================= */
+// ================= GET REELS =================
 router.get("/reels", async (req, res) => {
   try {
     const reels = await Post.find({ isReel: true })
@@ -118,7 +120,7 @@ router.get("/reels", async (req, res) => {
   }
 });
 
-/* ================= GET USER POSTS ================= */
+// ================= GET USER POSTS =================
 router.get("/user/:userId", verifyToken, async (req, res) => {
   try {
     const posts = await Post.find({ user: req.params.userId })
@@ -131,7 +133,7 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= GET SINGLE POST ================= */
+// ================= GET SINGLE POST =================
 router.get("/:id", async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
@@ -151,7 +153,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/* ================= LIKE POST ================= */
+// ================= LIKE POST =================
 router.put("/:postId/like", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -183,7 +185,7 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= COMMENT POST ================= */
+// ================= COMMENT POST =================
 router.post("/:postId/comment", verifyToken, async (req, res) => {
   try {
     const { text } = req.body;
@@ -197,7 +199,7 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= SHARE POST ================= */
+// ================= SHARE POST =================
 router.post("/:postId/share", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -209,7 +211,7 @@ router.post("/:postId/share", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= VIEW POST ================= */
+// ================= VIEW POST =================
 router.post("/view/:id", async (req, res) => {
   try {
     await Post.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
@@ -219,7 +221,7 @@ router.post("/view/:id", async (req, res) => {
   }
 });
 
-/* ================= EDIT POST ================= */
+// ================= EDIT POST =================
 router.put("/:postId", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -232,7 +234,7 @@ router.put("/:postId", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= DELETE POST ================= */
+// ================= DELETE POST =================
 router.delete("/:postId", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -246,7 +248,7 @@ router.delete("/:postId", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= SAVE POST ================= */
+// ================= SAVE POST =================
 router.put("/:postId/save", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -261,7 +263,7 @@ router.put("/:postId/save", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= REPORT POST ================= */
+// ================= REPORT POST =================
 router.post("/:postId/report", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
