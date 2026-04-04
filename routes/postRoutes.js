@@ -38,11 +38,14 @@ const s3 = new S3Client({
 // ================= CREATE POST / UPLOAD =================
 router.post("/", verifyToken, upload.array("media"), async (req, res) => {
   try {
+    console.log("BODY:", req.body);
+    console.log("FILES:", req.files);
+    console.log("USER ID:", req.user.id);
+
     const { content, location, feeling, taggedFriends } = req.body;
     const files = req.files || [];
     const mediaFiles = [];
 
-    // ===== UPLOAD MEDIA =====
     for (let file of files) {
       const type = file.mimetype.startsWith("image") ? "image" : "video";
       const fileName = `posts/${Date.now()}-${file.originalname}`;
@@ -63,25 +66,13 @@ router.post("/", verifyToken, upload.array("media"), async (req, res) => {
       );
     }
 
-    // ===== HANDLE TAGGED FRIENDS =====
-    let taggedFriendIds = [];
-    if (taggedFriends) {
-      try {
-        const parsed = JSON.parse(taggedFriends); // frontend sends array
-        // Keep only valid ObjectIds
-        taggedFriendIds = parsed.filter(id => mongoose.Types.ObjectId.isValid(id));
-      } catch {
-        console.warn("taggedFriends not valid JSON, ignoring");
-      }
-    }
-
     const post = await Post.create({
       user: req.user.id,
       content: content || "",
       media: mediaFiles,
       location,
       feeling,
-      taggedFriends: taggedFriendIds,
+      taggedFriends: taggedFriends ? JSON.parse(taggedFriends) : [],
       isReel: mediaFiles.some((m) => m.type === "video"),
     });
 
@@ -96,7 +87,6 @@ router.post("/", verifyToken, upload.array("media"), async (req, res) => {
     res.status(500).json({ error: "Failed to create post", message: err.message });
   }
 });
-
 // ================= GET ALL POSTS =================
 router.get("/", verifyToken, async (req, res) => {
   try {
