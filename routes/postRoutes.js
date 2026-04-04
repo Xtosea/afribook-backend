@@ -33,36 +33,63 @@ const s3 = new S3Client({
 });
 
 /* ================= CREATE POST ================= */
-router.post("/", verifyToken, async (req, res) => {
+router.post("/upload", verifyToken, upload.single("video"), async (req, res) => {
   try {
-    const { content, feeling, location, taggedFriends, media } = req.body;
+    console.log("UPLOAD REQUEST RECEIVED");
 
-    const updatedMedia = (media || []).map((m) => ({
-      ...m,
-      url: m.url.startsWith("http") ? m.url : `${R2_CUSTOM_DOMAIN}/${m.url}`,
-    }));
+    const file = req.file;
 
-    const post = new Post({
+    if (!file) {
+      console.log("No file uploaded");
+      return res.status(400).json({ error: "No video uploaded" });
+    }
+
+    console.log("Uploading file:", file.originalname);
+
+    const fileBuffer = fs.readFileSync(file.path);
+    const fileName = `reels/${Date.now()}-${file.originalname}`;
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: fileName,
+        Body: fileBuffer,
+        ContentType: file.mimetype,
+      })
+    );
+
+    fs.unlinkSync(file.path);
+
+    const videoUrl = `${R2_CUSTOM_DOMAIN}/${fileName}`;
+    const thumbUrl = `${videoUrl}?thumbnail=1`;
+
+    const { caption } = req.body;
+
+    const reel = await Post.create({
       user: req.user.id,
-      content: content || "",
-      media: updatedMedia,
-      feeling: feeling || "",
-      location: location || "",
-      taggedFriends: taggedFriends || [],
+      content: caption || "",
+      media: [
+        {
+          url: videoUrl,
+          type: "video",
+          thumbnailUrl: thumbUrl,
+        },
+      ],
+      isReel: true,
     });
 
-    await post.save();
-    await post.populate([
-      { path: "user", select: "name profilePic" },
-      { path: "taggedFriends", select: "name profilePic" },
-    ]);
+    await reel.populate("user", "name profilePic");
 
-    io.emit("new-post", post);
+    io.emit("new-reel", reel);
 
-    res.status(201).json({ message: "Post created", post });
+    res.json(reel);
+
   } catch (err) {
-    console.error("CREATE POST ERROR:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("UPLOAD ERROR:", err);
+    res.status(500).json({
+      error: "Upload failed",
+      message: err.message
+    });
   }
 });
 
