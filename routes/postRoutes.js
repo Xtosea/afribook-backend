@@ -32,114 +32,54 @@ const s3 = new S3Client({
   },
 });
 
-/* ================= CREATE POST ================= */
-router.post("/upload", verifyToken, upload.single("video"), async (req, res) => {
+/* ================= CREATE POST / UPLOAD ================= */
+router.post("/", verifyToken, upload.array("media"), async (req, res) => {
   try {
-    console.log("UPLOAD REQUEST RECEIVED");
+    const files = req.files || [];
+    const { content } = req.body;
 
-    const file = req.file;
+    const uploadedMedia = [];
 
-    if (!file) {
-      console.log("No file uploaded");
-      return res.status(400).json({ error: "No video uploaded" });
+    for (const file of files) {
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileType = file.mimetype.startsWith("image") ? "image" : "video";
+      const fileName = `${fileType}s/${Date.now()}-${file.originalname}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: fileName,
+          Body: fileBuffer,
+          ContentType: file.mimetype,
+        })
+      );
+
+      fs.unlinkSync(file.path);
+
+      const url = `${R2_CUSTOM_DOMAIN}/${fileName}`;
+      uploadedMedia.push(
+        fileType === "video"
+          ? { url, type: fileType, thumbnailUrl: `${url}?thumbnail=1` }
+          : { url, type: fileType }
+      );
     }
 
-    console.log("Uploading file:", file.originalname);
-
-    const fileBuffer = fs.readFileSync(file.path);
-    const fileName = `reels/${Date.now()}-${file.originalname}`;
-
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: fileName,
-        Body: fileBuffer,
-        ContentType: file.mimetype,
-      })
-    );
-
-    fs.unlinkSync(file.path);
-
-    const videoUrl = `${R2_CUSTOM_DOMAIN}/${fileName}`;
-    const thumbUrl = `${videoUrl}?thumbnail=1`;
-
-    const { caption } = req.body;
-
-    const reel = await Post.create({
+    const post = await Post.create({
       user: req.user.id,
-      content: caption || "",
-      media: [
-        {
-          url: videoUrl,
-          type: "video",
-          thumbnailUrl: thumbUrl,
-        },
-      ],
-      isReel: true,
+      content: content || "",
+      media: uploadedMedia,
+      isReel: uploadedMedia.some((m) => m.type === "video"),
     });
 
-    await reel.populate("user", "name profilePic");
+    await post.populate("user", "name profilePic");
 
-    io.emit("new-reel", reel);
+    io.emit("new-post", post);
+    if (post.isReel) io.emit("new-reel", post);
 
-    res.json(reel);
-
+    res.json({ post });
   } catch (err) {
-    console.error("UPLOAD ERROR:", err);
-    res.status(500).json({
-      error: "Upload failed",
-      message: err.message
-    });
-  }
-});
-
-/* ================= UPLOAD REEL ================= */
-router.post("/upload", verifyToken, upload.single("video"), async (req, res) => {
-  try {
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: "No video uploaded" });
-
-    const fileBuffer = fs.readFileSync(file.path);
-    const fileName = `reels/${Date.now()}-${file.originalname}`;
-
-    // Upload video to R2
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: fileName,
-        Body: fileBuffer,
-        ContentType: file.mimetype,
-      })
-    );
-
-    fs.unlinkSync(file.path); // delete local file
-
-    // Generate thumbnail URL (10% of video duration placeholder)
-    const videoUrl = `${R2_CUSTOM_DOMAIN}/${fileName}`;
-    const thumbUrl = `${videoUrl}?thumbnail=1`; // Use your thumbnail service later
-
-    const { caption } = req.body;
-
-    const reel = await Post.create({
-      user: req.user.id,
-      content: caption || "",
-      media: [
-        {
-          url: videoUrl,
-          type: "video",
-          thumbnailUrl: thumbUrl,
-        },
-      ],
-      isReel: true,
-    });
-
-    await reel.populate("user", "name profilePic");
-    io.emit("new-reel", reel);
-
-    res.json(reel);
-  } catch (err) {
-    console.error("Reel upload error:", err);
-    res.status(500).json({ error: "Failed to upload reel" });
+    console.error("CREATE POST ERROR:", err);
+    res.status(500).json({ error: "Failed to create post", message: err.message });
   }
 });
 
@@ -153,7 +93,7 @@ router.get("/", verifyToken, async (req, res) => {
       .sort({ createdAt: -1 });
 
     // Smart feed ranking
-    posts = posts.sort((a, b) => {
+    posts.sort((a, b) => {
       const scoreA = (a.likes?.length || 0) * 3 + (a.comments?.length || 0) * 2 + (a.views || 0);
       const scoreB = (b.likes?.length || 0) * 3 + (b.comments?.length || 0) * 2 + (b.views || 0);
       return scoreB - scoreA;
@@ -211,14 +151,16 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/* ================= LIKE ================= */
+/* ================= LIKE POST ================= */
 router.put("/:postId/like", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
     const liked = post.likes.includes(req.user.id);
-    post.likes = liked ? post.likes.filter((id) => id.toString() !== req.user.id) : [...post.likes, req.user.id];
+    post.likes = liked
+      ? post.likes.filter((id) => id.toString() !== req.user.id)
+      : [...post.likes, req.user.id];
 
     await post.save();
 
@@ -241,7 +183,7 @@ router.put("/:postId/like", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= COMMENT ================= */
+/* ================= COMMENT POST ================= */
 router.post("/:postId/comment", verifyToken, async (req, res) => {
   try {
     const { text } = req.body;
@@ -255,7 +197,7 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= SHARE ================= */
+/* ================= SHARE POST ================= */
 router.post("/:postId/share", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -267,7 +209,7 @@ router.post("/:postId/share", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= VIEW ================= */
+/* ================= VIEW POST ================= */
 router.post("/view/:id", async (req, res) => {
   try {
     await Post.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
@@ -277,22 +219,11 @@ router.post("/view/:id", async (req, res) => {
   }
 });
 
-/* ================= DELETE ================= */
-router.delete("/:postId", verifyToken, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.postId);
-    if (post.user.toString() !== req.user.id) return res.status(403).json({ error: "Unauthorized" });
-    await post.deleteOne();
-    res.json({ message: "Post deleted" });
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-/* ================= EDIT ================= */
+/* ================= EDIT POST ================= */
 router.put("/:postId", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
     post.content = req.body.content;
     await post.save();
     res.json(post);
@@ -301,12 +232,28 @@ router.put("/:postId", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= SAVE ================= */
+/* ================= DELETE POST ================= */
+router.delete("/:postId", verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    if (post.user.toString() !== req.user.id)
+      return res.status(403).json({ error: "Unauthorized" });
+    await post.deleteOne();
+    res.json({ message: "Post deleted" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ================= SAVE POST ================= */
 router.put("/:postId/save", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
     const saved = post.savedBy?.includes(req.user.id);
-    post.savedBy = saved ? post.savedBy.filter((id) => id.toString() !== req.user.id) : [...(post.savedBy || []), req.user.id];
+    post.savedBy = saved
+      ? post.savedBy.filter((id) => id.toString() !== req.user.id)
+      : [...(post.savedBy || []), req.user.id];
     await post.save();
     res.json({ saved: !saved });
   } catch (err) {
@@ -314,7 +261,7 @@ router.put("/:postId/save", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= REPORT ================= */
+/* ================= REPORT POST ================= */
 router.post("/:postId/report", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
