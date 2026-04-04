@@ -1,44 +1,85 @@
-import ffmpeg from "fluent-ffmpeg";
+// routes/reelRoutes.js (upload route)
+import express from "express";
+import multer from "multer";
+import fs from "fs";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import Post from "../models/Post.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
+import { io } from "../server.js";
 
-// Inside your /upload route after saving video to R2
-const thumbnailFileName = `reels/thumbnails/${Date.now()}-thumb.jpg`;
-const thumbnailPath = `/tmp/${Date.now()}-thumb.jpg`;
+const router = express.Router();
+const upload = multer({ dest: "/tmp" });
 
-// Generate thumbnail using ffmpeg
-await new Promise((resolve, reject) => {
-  ffmpeg(file.path)
-    .screenshots({
-      timestamps: ["50%"],
-      filename: thumbnailPath.split("/").pop(),
-      folder: "/tmp",
-      size: "640x360",
-    })
-    .on("end", resolve)
-    .on("error", reject);
+const {
+  R2_BUCKET_NAME,
+  R2_ENDPOINT,
+  R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY,
+  R2_CUSTOM_DOMAIN,
+} = process.env;
+
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: R2_ENDPOINT,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
 });
 
-// Upload thumbnail to R2
-const thumbnailBuffer = fs.readFileSync(thumbnailPath);
-await s3.send(
-  new PutObjectCommand({
-    Bucket: R2_BUCKET_NAME,
-    Key: thumbnailFileName,
-    Body: thumbnailBuffer,
-    ContentType: "image/jpeg",
-  })
+/* ================= UPLOAD REEL ================= */
+router.post(
+  "/upload",
+  verifyToken,
+  upload.single("video"),
+  async (req, res) => {
+    try {
+      const file = req.file;
+      const { caption } = req.body;
+
+      if (!file) {
+        return res.status(400).json({ error: "No video uploaded" });
+      }
+
+      // Upload video to R2
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileName = `reels/${Date.now()}-${file.originalname}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: fileName,
+          Body: fileBuffer,
+          ContentType: file.mimetype,
+        })
+      );
+
+      fs.unlinkSync(file.path); // remove local temp file
+
+      // Use the same video URL as placeholder thumbnail
+      const reel = await Post.create({
+        user: req.user.id,
+        content: caption || "",
+        media: [
+          {
+            url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+            type: "video",
+            thumbnailUrl: `${R2_CUSTOM_DOMAIN}/${fileName}`, // placeholder
+          },
+        ],
+        isReel: true,
+      });
+
+      await reel.populate("user", "name profilePic");
+
+      io.emit("new-reel", reel);
+
+      res.status(201).json(reel);
+    } catch (err) {
+      console.error("Reel upload error:", err);
+      res.status(500).json({ error: "Failed to upload reel" });
+    }
+  }
 );
-fs.unlinkSync(thumbnailPath);
 
-// Save video post with thumbnail
-const reel = await Post.create({
-  user: req.user._id,
-  content: caption || "",
-  media: [
-    {
-      url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
-      type: "video",
-      thumbnailUrl: `${R2_CUSTOM_DOMAIN}/${thumbnailFileName}`,
-    },
-  ],
-  isReel: true,
-});
+export default router;
