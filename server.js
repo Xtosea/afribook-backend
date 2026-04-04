@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
 import fileUpload from "express-fileupload";
+import helmet from "helmet";
 
 /* ================= MODELS ================= */
 import Message from "./models/Message.js";
@@ -39,6 +40,32 @@ const allowedOrigins = [
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
+/* ================= HELMET + CSP ================= */
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'", "data:", "blob:", "https:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://africbook.globelynks.com", "https://static.cloudflareinsights.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        connectSrc: [
+          "'self'",
+          "ws:",
+          "wss:",
+          "https://africbook.globelynks.com",
+          process.env.FRONTEND_URL,
+          process.env.FRONTEND_BACKUP_URL,
+          process.env.BACKEND_URL || "https://afribook-backend.onrender.com",
+        ],
+        fontSrc: ["'self'", "https:", "data:"],
+        mediaSrc: ["'self'", "blob:", "https:"],
+        frameSrc: ["'self'", "https:"],
+      },
+    },
+  })
+);
+
 /* ================= BODY PARSER ================= */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -66,19 +93,14 @@ app.use("/uploads/media", express.static("public/uploads/media"));
 /* ================= POST SHARE PREVIEW ================= */
 app.get("/post/:id", async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id)
-      .populate("user", "name profilePic");
-
+    const post = await Post.findById(req.params.id).populate("user", "name profilePic");
     if (!post) return res.send("Post not found");
 
-    // Determine preview image
     let image = "https://africbook.globelynks.com/africbook-preview.png";
     if (post.media && post.media.length > 0) {
       const firstMedia = post.media[0];
       if (firstMedia.type === "image") {
-        image = firstMedia.url.startsWith("http")
-          ? firstMedia.url
-          : `https://africbook.globelynks.com${firstMedia.url}`;
+        image = firstMedia.url.startsWith("http") ? firstMedia.url : `https://africbook.globelynks.com${firstMedia.url}`;
       } else if (firstMedia.type === "video") {
         image = firstMedia.thumbnailUrl
           ? firstMedia.thumbnailUrl.startsWith("http")
@@ -90,11 +112,8 @@ app.get("/post/:id", async (req, res) => {
       }
     }
 
-    const title =
-      post.content?.substring(0, 60) ||
-      `${post.user?.name} shared a post on Africbook`;
-    const description =
-      post.content?.substring(0, 150) || "Check this post on Africbook";
+    const title = post.content?.substring(0, 60) || `${post.user?.name} shared a post on Africbook`;
+    const description = post.content?.substring(0, 150) || "Check this post on Africbook";
     const url = `https://africbook.globelynks.com/post/${post._id}`;
 
     res.send(`
