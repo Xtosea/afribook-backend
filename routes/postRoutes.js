@@ -42,11 +42,11 @@ router.post("/", verifyToken, upload.array("media"), async (req, res) => {
     const files = req.files || [];
     const mediaFiles = [];
 
+    // ===== UPLOAD MEDIA =====
     for (let file of files) {
       const type = file.mimetype.startsWith("image") ? "image" : "video";
       const fileName = `posts/${Date.now()}-${file.originalname}`;
 
-      // Upload to R2
       await s3.send(
         new PutObjectCommand({
           Bucket: R2_BUCKET_NAME,
@@ -63,13 +63,25 @@ router.post("/", verifyToken, upload.array("media"), async (req, res) => {
       );
     }
 
+    // ===== HANDLE TAGGED FRIENDS =====
+    let taggedFriendIds = [];
+    if (taggedFriends) {
+      try {
+        const parsed = JSON.parse(taggedFriends); // frontend sends array
+        // Keep only valid ObjectIds
+        taggedFriendIds = parsed.filter(id => mongoose.Types.ObjectId.isValid(id));
+      } catch {
+        console.warn("taggedFriends not valid JSON, ignoring");
+      }
+    }
+
     const post = await Post.create({
       user: req.user.id,
       content: content || "",
       media: mediaFiles,
       location,
       feeling,
-      taggedFriends: taggedFriends ? JSON.parse(taggedFriends) : [],
+      taggedFriends: taggedFriendIds,
       isReel: mediaFiles.some((m) => m.type === "video"),
     });
 
