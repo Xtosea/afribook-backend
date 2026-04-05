@@ -114,7 +114,7 @@ router.post("/upload", verifyToken, upload.array("media"), createPostHandler);
 
 
 // ================= GET POSTS =================
-router.get("/", verifyToken, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
 
     const page = parseInt(req.query.page) || 1;
@@ -127,11 +127,14 @@ router.get("/", verifyToken, async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
-    res.json(posts);
+    res.json(posts || []);
 
   } catch (err) {
     console.error("GET POSTS ERROR:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      error: "Server error",
+      message: err.message
+    });
   }
 });
 
