@@ -139,4 +139,34 @@ router.get("/:id/following", async (req, res) => {
   }
 });
 
+// GET mutual friends
+router.get("/:userId/mutual", verifyToken, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const otherUserId = req.params.userId;
+
+    const currentUser = await User.findById(currentUserId);
+    const otherUser = await User.findById(otherUserId);
+
+    if (!currentUser || !otherUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Mutual friends = intersection of friends arrays
+    const mutual = currentUser.friends.filter((f) =>
+      otherUser.friends.includes(f.toString())
+    );
+
+    // Optionally, populate user info
+    const mutualUsers = await User.find({ _id: { $in: mutual } }).select(
+      "name profilePic"
+    );
+
+    res.json(mutualUsers);
+  } catch (err) {
+    console.error("GET MUTUAL FRIENDS ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 export default router;
