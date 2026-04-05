@@ -103,22 +103,6 @@ app.use(
   })
 );
 
-let onlineUsers = [];
-
-io.on("connection", (socket) => {
-  socket.on("join", (userId) => {
-    if (!onlineUsers.includes(userId)) {
-      onlineUsers.push(userId);
-    }
-
-    io.emit("online-users", onlineUsers);
-  });
-
-  socket.on("disconnect", () => {
-    onlineUsers = onlineUsers.filter(id => id !== socket.userId);
-    io.emit("online-users", onlineUsers);
-  });
-});
 
 /* ================= RATE LIMIT ================= */
 const emailLimiter = rateLimit({
@@ -238,19 +222,31 @@ io.use((socket, next) => {
 });
 
 /* ================= SOCKET EVENTS ================= */
+let onlineUsers = [];
+
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
   socket.on("join", (userId) => {
     socket.join(userId);
+    socket.userId = userId;
+
+    if (!onlineUsers.includes(userId)) {
+      onlineUsers.push(userId);
+    }
+
+    io.emit("online-users", onlineUsers);
+
     console.log(`👤 User ${userId} joined`);
   });
 
   socket.on("send-message", async (data) => {
     try {
       const message = await Message.create(data);
+
       io.to(data.receiverId).emit("receive-message", message);
       io.to(data.senderId).emit("receive-message", message);
+
     } catch (error) {
       console.error("Message error:", error);
     }
@@ -258,6 +254,12 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("🔴 Socket disconnected:", socket.id);
+
+    onlineUsers = onlineUsers.filter(
+      (id) => id !== socket.userId
+    );
+
+    io.emit("online-users", onlineUsers);
   });
 });
 
