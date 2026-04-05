@@ -1,6 +1,7 @@
 // server.js
 import "./config/env.js";
 import express from "express";
+import path from "path";
 import mongoose from "mongoose";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -78,6 +79,16 @@ app.use(
       },
     },
   })
+);
+
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
+
+app.use(
+  "/profile",
+  express.static(path.join(process.cwd(), "public/profile"))
 );
 
 /* ================= BODY PARSER ================= */
@@ -184,15 +195,14 @@ app.get("/", (req, res) => {
 });
 
 /* ================= SOCKET.IO ================= */
-const server = http.createServer(app);
-
 export const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["polling"],
+  transports: ["websocket", "polling"],
+  path: "/socket.io",
 });
 
 /* ================= SOCKET AUTH ================= */
