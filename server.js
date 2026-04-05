@@ -87,8 +87,8 @@ app.use((req, res, next) => {
 });
 
 app.use(
-  "/profile",
-  express.static(path.join(process.cwd(), "public/profile"))
+  "/uploads/profiles",
+  express.static(path.join(process.cwd(), "public/uploads/profiles"))
 );
 
 /* ================= BODY PARSER ================= */
