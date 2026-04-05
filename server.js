@@ -42,11 +42,9 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = "The CORS policy for this site does not allow access from the specified Origin.";
-        return callback(new Error(msg), false);
+        return callback(new Error("CORS policy does not allow access from this origin"), false);
       }
       return callback(null, true);
     },
@@ -61,7 +59,13 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'", "data:", "blob:", "https:"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://africbook.globelynks.com", "https://static.cloudflareinsights.com"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://africbook.globelynks.com",
+          "https://static.cloudflareinsights.com",
+        ],
         styleSrc: ["'self'", "'unsafe-inline'", "https:"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         connectSrc: [
@@ -81,15 +85,11 @@ app.use(
   })
 );
 
+// Allow images to be used cross-origin
 app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   next();
 });
-
-app.use(
-  "/uploads/profiles",
-  express.static(path.join(process.cwd(), "public/uploads/profiles"))
-);
 
 /* ================= BODY PARSER ================= */
 app.use(express.json({ limit: "10mb" }));
@@ -112,8 +112,12 @@ app.use("/api/auth/resend-verification", emailLimiter);
 app.use("/api/auth/forgot-password", emailLimiter);
 
 /* ================= STATIC FILES ================= */
-app.use("/uploads/profiles", express.static("public/uploads/profiles"));
-app.use("/uploads/media", express.static("public/uploads/media"));
+// Profile images
+app.use("/uploads/profiles", express.static(path.join(process.cwd(), "public/uploads/profiles")));
+// Media uploads
+app.use("/uploads/media", express.static(path.join(process.cwd(), "public/uploads/media")));
+// Default profile/cover images
+app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 
 /* ================= POST SHARE PREVIEW ================= */
 app.get("/post/:id", async (req, res) => {
@@ -122,6 +126,7 @@ app.get("/post/:id", async (req, res) => {
     if (!post) return res.send("Post not found");
 
     let image = "https://africbook.globelynks.com/africbook-preview.png";
+
     if (post.media && post.media.length > 0) {
       const firstMedia = post.media[0];
       if (firstMedia.type === "image") {
@@ -146,7 +151,6 @@ app.get("/post/:id", async (req, res) => {
       <html>
       <head>
         <title>${title}</title>
-        <!-- Open Graph / Facebook -->
         <meta property="og:title" content="${title}" />
         <meta property="og:description" content="${description}" />
         <meta property="og:image" content="${image}" />
@@ -155,12 +159,10 @@ app.get("/post/:id", async (req, res) => {
         <meta property="og:url" content="${url}" />
         <meta property="og:type" content="article" />
         <meta property="og:site_name" content="Africbook" />
-        <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:description" content="${description}" />
         <meta name="twitter:image" content="${image}" />
-        <!-- Redirect to SPA -->
         <meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
       </head>
       <body>
@@ -193,6 +195,9 @@ app.use("/api/r2", r2StoryRoutes);
 app.get("/", (req, res) => {
   res.send("Afribook API running 🚀");
 });
+
+/* ================= CREATE HTTP SERVER ================= */
+const server = http.createServer(app);
 
 /* ================= SOCKET.IO ================= */
 export const io = new Server(server, {
