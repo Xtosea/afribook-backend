@@ -318,4 +318,24 @@ router.delete("/:postId", verifyToken, async (req, res) => {
   }
 });
 
+router.post("/api/posts/:id/share", verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    // duplicate the post for the current user
+    const sharedPost = new Post({
+      content: post.content,
+      media: post.media,
+      user: req.user.id,
+    });
+
+    await sharedPost.save();
+    res.json({ post: sharedPost });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Share failed" });
+  }
+});
+
 export default router;
