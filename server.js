@@ -103,6 +103,23 @@ app.use(
   })
 );
 
+let onlineUsers = [];
+
+io.on("connection", (socket) => {
+  socket.on("join", (userId) => {
+    if (!onlineUsers.includes(userId)) {
+      onlineUsers.push(userId);
+    }
+
+    io.emit("online-users", onlineUsers);
+  });
+
+  socket.on("disconnect", () => {
+    onlineUsers = onlineUsers.filter(id => id !== socket.userId);
+    io.emit("online-users", onlineUsers);
+  });
+});
+
 /* ================= RATE LIMIT ================= */
 const emailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
