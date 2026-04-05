@@ -107,7 +107,7 @@ const createPostHandler = async (req, res) => {
   }
 };
 
-console.error("GET POSTS ERROR:", err, err.stack);
+//console.error("GET POSTS ERROR:", err, err.stack);
 
 // ================= CREATE =================
 router.post("/", verifyToken, upload.array("media"), createPostHandler);
