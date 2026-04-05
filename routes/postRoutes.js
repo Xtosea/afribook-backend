@@ -116,25 +116,26 @@ router.post("/upload", verifyToken, upload.array("media"), createPostHandler);
 // ================= GET POSTS =================
 router.get("/", async (req, res) => {
   try {
-
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
     const posts = await Post.find()
-      .populate("user", "name profilePic")
+      .populate("user", "name profilePic") // IMPORTANT
       .populate("taggedFriends", "name profilePic")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    res.json(posts || []);
+    // Ensure every post has user object
+    const safePosts = posts.map(post => ({
+      ...post.toObject(),
+      user: post.user || { name: "User", profilePic: "" }
+    }));
 
+    res.json(safePosts);
   } catch (err) {
     console.error("GET POSTS ERROR:", err);
-    res.status(500).json({
-      error: "Server error",
-      message: err.message
-    });
+    res.status(500).json({ error: "Server error", message: err.message });
   }
 });
 
