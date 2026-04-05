@@ -38,7 +38,21 @@ const allowedOrigins = [
   "https://africbook.globelynks.com",
 ];
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = "The CORS policy for this site does not allow access from the specified Origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
 
 /* ================= HELMET + CSP ================= */
 app.use(
@@ -117,34 +131,31 @@ app.get("/post/:id", async (req, res) => {
     const url = `https://africbook.globelynks.com/post/${post._id}`;
 
     res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>${title}</title>
-
-  <!-- Open Graph / Facebook -->
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="${image}" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:url" content="${url}" />
-  <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="Africbook" />
-
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <meta name="twitter:image" content="${image}" />
-
-  <!-- Redirect to SPA -->
-  <meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
-</head>
-<body>
-Redirecting to Africbook...
-</body>
-</html>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <!-- Open Graph / Facebook -->
+        <meta property="og:title" content="${title}" />
+        <meta property="og:description" content="${description}" />
+        <meta property="og:image" content="${image}" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:url" content="${url}" />
+        <meta property="og:type" content="article" />
+        <meta property="og:site_name" content="Africbook" />
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="${title}" />
+        <meta name="twitter:description" content="${description}" />
+        <meta name="twitter:image" content="${image}" />
+        <!-- Redirect to SPA -->
+        <meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
+      </head>
+      <body>
+        Redirecting to Africbook...
+      </body>
+      </html>
     `);
   } catch (err) {
     console.error("Share preview error:", err);
@@ -165,7 +176,7 @@ app.use("/api/imagekit", imagekitRoutes);
 app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/reels", reelRoutes);
-app.use("/api/r2", r2StoryRoutes); // R2 story upload
+app.use("/api/r2", r2StoryRoutes);
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
