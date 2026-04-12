@@ -186,6 +186,19 @@ router.post(
   }
 );
 
+router.get("/user/:userId", verifyToken, async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.params.userId })
+      .populate("user", "name profilePic")
+      .sort({ createdAt: -1 });
+
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 /* ================= GET ALL POSTS ================= */
 
 router.get("/", verifyToken, async (req, res) => {
