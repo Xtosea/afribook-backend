@@ -85,7 +85,7 @@ router.post(
 
       const fileBuffer = fs.readFileSync(file.path);
 
-      const fileName = `posts/${Date.now()}-${file.originalname}`;
+      const fileName = `videos/${Date.now()}-${file.originalname}`;
 
       await s3.send(
         new PutObjectCommand({
@@ -115,7 +115,11 @@ router.post(
 
       io.emit("new-post", post);
 
-      res.json(post);
+      res.json({
+        success: true,
+        post,
+        media: post.media,
+      });
 
     } catch (err) {
       console.error("Video Upload Error:", err);
