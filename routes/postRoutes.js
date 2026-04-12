@@ -84,7 +84,7 @@ router.videos(
       }
 
 
-console.log("REQ FILE:", req.file);
+
 
       const fileBuffer = fs.readFileSync(file.path);
 
