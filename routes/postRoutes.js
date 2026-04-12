@@ -68,7 +68,7 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 /* ================= UPLOAD VIDEO (R2) ================= */
-
+console.log("REQ FILE:", req.file);
 router.post(
   "/upload",
   verifyToken,
