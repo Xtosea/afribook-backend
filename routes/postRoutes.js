@@ -68,8 +68,8 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 /* ================= UPLOAD VIDEO (R2) ================= */
-console.log("REQ FILE:", req.file);
-router.post(
+
+router.videos(
   "/upload",
   verifyToken,
   upload.single("video"),
@@ -82,6 +82,9 @@ router.post(
           error: "No video uploaded",
         });
       }
+
+
+console.log("REQ FILE:", req.file);
 
       const fileBuffer = fs.readFileSync(file.path);
 
