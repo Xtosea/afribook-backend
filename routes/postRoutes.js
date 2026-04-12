@@ -69,7 +69,7 @@ router.post("/", verifyToken, async (req, res) => {
 
 /* ================= UPLOAD VIDEO (R2) ================= */
 
-router.videos(
+router.post(
   "/upload",
   verifyToken,
   upload.single("video"),
