@@ -331,7 +331,7 @@ router.delete("/:postId", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/api/posts/:id/share", verifyToken, async (req, res) => {
+router.post("/:id/share", verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: "Post not found" });
