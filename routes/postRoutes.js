@@ -141,6 +141,13 @@ router.post(
   upload.single("video"),
   async (req, res) => {
     try {
+
+   console.log("USER:", req.user);
+console.log("FILE:", req.file);
+console.log("ENV:", {
+  R2_BUCKET_NAME,
+  R2_ENDPOINT,
+});
       const file = req.file;
 
       if (!file) {
@@ -207,12 +214,7 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
 });
 
 
-console.log("USER:", req.user);
-console.log("FILE:", req.file);
-console.log("ENV:", {
-  R2_BUCKET_NAME,
-  R2_ENDPOINT,
-});
+
 
 /* ================= GET ALL POSTS ================= */
 
