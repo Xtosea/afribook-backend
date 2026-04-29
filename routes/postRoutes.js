@@ -104,7 +104,7 @@ router.post(
       const { caption } = req.body;
 
       const post = await Post.create({
-        user: req.user._id,
+  user: req.user.id, // ✅ CORRECT
         content: caption || "",
         media: [
           {
