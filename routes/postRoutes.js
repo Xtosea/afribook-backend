@@ -74,6 +74,8 @@ router.post(
   verifyToken,
   upload.single("video"),
   async (req, res) => {
+
+console.log("HEADERS:", req.headers);
     try {
       const file = req.file;
 
