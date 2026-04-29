@@ -187,8 +187,9 @@ router.post(
     } catch (err) {
       console.error("Reel Upload Error:", err);
       res.status(500).json({
-        error: "Failed to upload reel",
-      });
+  error: err.message,
+  stack: err.stack, // 👈 temporary for debugging
+});
     }
   }
 );
@@ -205,6 +206,13 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
   }
 });
 
+
+console.log("USER:", req.user);
+console.log("FILE:", req.file);
+console.log("ENV:", {
+  R2_BUCKET_NAME,
+  R2_ENDPOINT,
+});
 
 /* ================= GET ALL POSTS ================= */
 
