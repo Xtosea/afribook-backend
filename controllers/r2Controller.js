@@ -12,12 +12,17 @@ const s3 = new S3Client({
 
 export const getSignedUploadUrl = async (req, res) => {
   try {
-    const fileName = `videos/${Date.now()}-${Math.random()}.mp4`;
+
+    const contentType =
+      req.query.contentType || "application/octet-stream";
+
+    const fileName =
+      `videos/${Date.now()}-${Math.random()}.mp4`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: fileName,
-      ContentType: "video/mp4",
+      ContentType: contentType,
     });
 
     const uploadUrl = await getSignedUrl(s3, command, {
