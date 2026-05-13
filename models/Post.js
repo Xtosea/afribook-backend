@@ -1,23 +1,5 @@
-import mongoose from "mongoose";
-
-const commentSchema = new mongoose.Schema({
-  user: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User" 
-  },
-  text: String,
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
-});
-
-const mediaSchema = new mongoose.Schema({
-  url: String,
-  type: String
-});
-
 const postSchema = new mongoose.Schema({
+
   user: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: "User", 
@@ -31,7 +13,6 @@ const postSchema = new mongoose.Schema({
 
   media: [mediaSchema],
 
-  // ✅ FIXED — moved inside schema
   type: {
     type: String,
     default: "post"
@@ -47,12 +28,8 @@ const postSchema = new mongoose.Schema({
     default: "" 
   },
 
-  taggedFriends: [
-    { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User" 
-    }
-  ],
+  // ✅ FIXED
+  taggedFriends: [String],
 
   likes: [
     { 
@@ -79,5 +56,3 @@ const postSchema = new mongoose.Schema({
   }
 
 });
-
-export default mongoose.model("Post", postSchema);
