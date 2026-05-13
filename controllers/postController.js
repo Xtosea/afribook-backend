@@ -31,18 +31,33 @@ res.status(500).json({ error: error.message });
 };
 
 export const likePost = async (req, res) => {
-try {
+  try {
 
-const post = await Post.findById(req.params.id);
+    const post = await Post.findById(req.params.id);
 
-if (!post.likes.includes(req.user.id))
-post.likes.push(req.user.id);
+    const alreadyLiked = post.likes.includes(req.user.id);
 
-await post.save();
+    if (alreadyLiked) {
 
-res.json(post);
+      post.likes = post.likes.filter(
+        (id) => id.toString() !== req.user.id
+      );
 
-} catch (error) {
-res.status(500).json({ error: error.message });
-}
+    } else {
+
+      post.likes.push(req.user.id);
+
+    }
+
+    await post.save();
+
+    res.json(post);
+
+  } catch (error) {
+
+    res.status(500).json({
+      error: error.message,
+    });
+
+  }
 };
