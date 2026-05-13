@@ -1,58 +1,84 @@
-const postSchema = new mongoose.Schema({
+import mongoose from "mongoose";
 
-  user: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User", 
-    required: true 
+const commentSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
 
-  content: { 
-    type: String, 
-    default: "" 
+  text: String,
+
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+const mediaSchema = new mongoose.Schema({
+  url: String,
+  type: String,
+});
+
+const postSchema = new mongoose.Schema({
+
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+
+  content: {
+    type: String,
+    default: "",
   },
 
   media: [mediaSchema],
 
   type: {
     type: String,
-    default: "post"
+    default: "post",
   },
 
-  feeling: { 
-    type: String, 
-    default: "" 
+  feeling: {
+    type: String,
+    default: "",
   },
 
-  location: { 
-    type: String, 
-    default: "" 
+  location: {
+    type: String,
+    default: "",
   },
 
-  // ✅ FIXED
+  // TEMPORARY SIMPLE TAGS
   taggedFriends: [String],
 
   likes: [
-    { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User" 
-    }
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   ],
 
   reactions: [
     {
       user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
+        ref: "User",
       },
-      type: String
-    }
+
+      type: String,
+    },
   ],
 
   comments: [commentSchema],
 
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 
 });
+
+const Post = mongoose.model("Post", postSchema);
+
+export default Post;
