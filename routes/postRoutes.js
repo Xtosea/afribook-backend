@@ -355,6 +355,27 @@ router.post("/:postId/comment", verifyToken, async (req, res) => {
   }
 });
 
+router.post("/:id/comment", verifyToken, async (req, res) => {
+  try {
+
+    const post = await Post.findById(req.params.id);
+
+    post.comments.push({
+      user: req.user.id,
+      text: req.body.text,
+    });
+
+    await post.save();
+
+    res.json(post);
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 /* ================= DELETE ================= */
 
 router.delete("/:postId", verifyToken, async (req, res) => {
