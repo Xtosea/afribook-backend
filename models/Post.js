@@ -79,6 +79,11 @@ const postSchema = new mongoose.Schema({
 
 });
 
+isReel: {
+  type: Boolean,
+  default: false,
+},
+
 const Post = mongoose.model("Post", postSchema);
 
 export default Post;
