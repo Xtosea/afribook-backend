@@ -20,7 +20,6 @@ const mediaSchema = new mongoose.Schema({
 });
 
 const postSchema = new mongoose.Schema({
-
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -72,17 +71,16 @@ const postSchema = new mongoose.Schema({
 
   comments: [commentSchema],
 
+  isReel: {
+    type: Boolean,
+    default: false,
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
   },
-
 });
-
-isReel: {
-  type: Boolean,
-  default: false,
-},
 
 const Post = mongoose.model("Post", postSchema);
 
