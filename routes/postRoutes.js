@@ -138,71 +138,45 @@ console.log("HEADERS:", req.headers);
 
 /* ================= UPLOAD REEL ================= */
 
-router.post(
-  "/reels/upload",
-  verifyToken,
-  upload.single("video"),
-  async (req, res) => {
-    try {
+router.post("/reels", verifyToken, async (req, res) => {
+  try {
 
-   console.log("USER:", req.user);
-console.log("FILE:", req.file);
-console.log("ENV:", {
-  R2_BUCKET_NAME,
-  R2_ENDPOINT,
-});
-      const file = req.file;
+    const { caption, videoUrl } = req.body;
 
-      if (!file) {
-        return res.status(400).json({
-          error: "No video uploaded",
-        });
-      }
-
-      const fileBuffer = fs.readFileSync(file.path);
-
-      const fileName = `reels/${Date.now()}-${file.originalname}`;
-
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: fileName,
-          Body: fileBuffer,
-          ContentType: file.mimetype,
-        })
-      );
-
-      fs.unlinkSync(file.path);
-
-      const { caption } = req.body;
-
-      const reel = await Post.create({
-        user: req.user.id,
-        content: caption || "",
-        media: [
-          {
-            url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
-            type: "video",
-          },
-        ],
-        isReel: true,
+    if (!videoUrl) {
+      return res.status(400).json({
+        error: "Video URL missing",
       });
-
-      await reel.populate("user", "name profilePic");
-
-      io.emit("new-reel", reel);
-
-      res.json(reel);
-
-    } catch (err) {
-      console.error("Reel Upload Error:", err);
-      res.status(500).json({
-  error: err.message,
-  stack: err.stack, // 👈 temporary for debugging
-});
     }
+
+    const reel = await Post.create({
+      user: req.user.id,
+      content: caption || "",
+      isReel: true,
+
+      media: [
+        {
+          url: videoUrl,
+          type: "video",
+        },
+      ],
+    });
+
+    await reel.populate("user", "name profilePic");
+
+    io.emit("new-reel", reel);
+
+    res.status(201).json(reel);
+
+  } catch (err) {
+
+    console.error("CREATE REEL ERROR:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
-);
+});
 
 router.get("/user/:userId", verifyToken, async (req, res) => {
   try {
