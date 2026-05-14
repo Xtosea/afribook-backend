@@ -479,4 +479,59 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+
+router.get("/reels", async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = 5;
+
+    const reels = await Post.find({
+      isReel: true,
+    })
+      .populate("user", "name profilePic")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json(reels);
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+
+router.put("/:id/save", verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+
+    if (!post.savedBy) {
+      post.savedBy = [];
+    }
+
+    const alreadySaved = post.savedBy.includes(req.user.id);
+
+    if (alreadySaved) {
+      post.savedBy = post.savedBy.filter(
+        (id) => id.toString() !== req.user.id
+      );
+    } else {
+      post.savedBy.push(req.user.id);
+    }
+
+    await post.save();
+
+    res.json({
+      savedBy: post.savedBy,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 export default router;
