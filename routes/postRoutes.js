@@ -135,34 +135,6 @@ console.log("HEADERS:", req.headers);
   }
 );
 
-/* ================= GET SINGLE POST ================= */
-
-router.get("/:id", async (req, res) => {
-  try {
-
-    const post = await Post.findById(req.params.id)
-      .populate("user", "name profilePic")
-      .populate("taggedFriends", "name profilePic")
-      .populate("comments.user", "name profilePic");
-
-    if (!post) {
-      return res.status(404).json({
-        error: "Post not found",
-      });
-    }
-
-    res.json(post);
-
-  } catch (err) {
-
-    console.error("GET SINGLE POST ERROR:", err);
-
-    res.status(500).json({
-      error: "Server error",
-    });
-
-  }
-});
 
 /* ================= UPLOAD REEL ================= */
 
@@ -243,7 +215,6 @@ router.get("/user/:userId", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 
 
@@ -499,6 +470,36 @@ router.post("/reels/view/:id", async (req, res) => {
 
     res.status(500).json({
       error: err.message,
+    });
+
+  }
+});
+
+
+/* ================= GET SINGLE POST ================= */
+
+router.get("/:id", async (req, res) => {
+  try {
+
+    const post = await Post.findById(req.params.id)
+      .populate("user", "name profilePic")
+      .populate("taggedFriends", "name profilePic")
+      .populate("comments.user", "name profilePic");
+
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
+
+    res.json(post);
+
+  } catch (err) {
+
+    console.error("GET SINGLE POST ERROR:", err);
+
+    res.status(500).json({
+      error: "Server error",
     });
 
   }
