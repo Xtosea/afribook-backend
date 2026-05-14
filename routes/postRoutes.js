@@ -302,77 +302,103 @@ router.get("/reels", async (req, res) => {
   }
 });
 
+
 /* ================= LIKE ================= */
 
-router.put("/:postId/like", verifyToken, async (req, res) => {
+router.put("/:id/like", verifyToken, async (req, res) => {
   try {
 
-    const post = await Post.findById(req.params.postId);
+    const post = await Post.findById(req.params.id);
 
-    const liked = post.likes.includes(req.user.id);
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
 
-    post.likes = liked
-      ? post.likes.filter(
-          (id) => id.toString() !== req.user.id
-        )
-      : [...post.likes, req.user.id];
+    const alreadyLiked = post.likes.some(
+      (id) => id.toString() === req.user.id
+    );
+
+    if (alreadyLiked) {
+
+      post.likes = post.likes.filter(
+        (id) => id.toString() !== req.user.id
+      );
+
+    } else {
+
+      post.likes.push(req.user.id);
+
+    }
 
     await post.save();
 
+    io.emit("post-liked", {
+      postId: post._id,
+      likes: post.likes.length,
+    });
+
     res.json({
+      likes: post.likes,
       likesCount: post.likes.length,
     });
 
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+
   }
 });
 
-/* ================= COMMENT ================= */
 
-router.post("/:postId/comment", verifyToken, async (req, res) => {
-  try {
-
-    const { text } = req.body;
-
-    const comment = new Comment({
-      post: req.params.postId,
-      user: req.user.id,
-      text,
-    });
-
-    await comment.save();
-    await comment.populate("user", "name profilePic");
-
-    io.emit("new-comment", comment);
-
-    res.status(201).json({
-      comment,
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
+a ================= COMMENT ================= */
 router.post("/:id/comment", verifyToken, async (req, res) => {
   try {
 
     const post = await Post.findById(req.params.id);
 
-    post.comments.push({
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
+
+    const comment = {
       user: req.user.id,
       text: req.body.text,
-    });
+    };
+
+    post.comments.push(comment);
 
     await post.save();
 
-    res.json(post);
+    await post.populate(
+      "comments.user",
+      "name profilePic"
+    );
+
+    io.emit("new-comment", {
+      postId: post._id,
+      comments: post.comments,
+    });
+
+    res.json({
+      comments: post.comments,
+    });
 
   } catch (err) {
+
+    console.error(err);
+
     res.status(500).json({
       error: err.message,
     });
+
   }
 });
 
@@ -400,23 +426,41 @@ router.delete("/:postId", verifyToken, async (req, res) => {
   }
 });
 
+
+/* ================= Share ================= */
+
 router.post("/:id/share", verifyToken, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ error: "Post not found" });
 
-    // duplicate the post for the current user
-    const sharedPost = new Post({
-      content: post.content,
-      media: post.media,
-      user: req.user.id,
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
+
+    post.shares = (post.shares || 0) + 1;
+
+    await post.save();
+
+    io.emit("post-shared", {
+      postId: post._id,
+      shares: post.shares,
     });
 
-    await sharedPost.save();
-    res.json({ post: sharedPost });
+    res.json({
+      shares: post.shares,
+    });
+
   } catch (err) {
+
     console.error(err);
-    res.status(500).json({ error: "Share failed" });
+
+    res.status(500).json({
+      error: err.message,
+    });
+
   }
 });
 
