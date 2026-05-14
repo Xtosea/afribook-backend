@@ -7,29 +7,44 @@ import { io } from "../server.js";
 const router = express.Router();
 
 // ================= UPLOAD STORY (R2-only) =================
-router.post("/upload-video", verifyToken, async (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   try {
-    const { url, type } = req.body;
 
-    if (!url || !type) {
-      return res.status(400).json({ error: "Missing url or type" });
+    const { media } = req.body;
+
+    if (!media || !media.length) {
+      return res.status(400).json({
+        error: "Media is required",
+      });
     }
 
     const story = await Story.create({
-      user: req.user._id,
-      media: [{ url, type }],
-      type,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h expiration
+      user: req.user.id,
+
+      media,
+
+      expiresAt: new Date(
+        Date.now() + 24 * 60 * 60 * 1000
+      ),
     });
 
-    await story.populate("user", "name profilePic");
+    await story.populate(
+      "user",
+      "name profilePic"
+    );
 
     io.emit("new-story", story);
 
     res.status(201).json(story);
+
   } catch (err) {
-    console.error("Story upload error:", err);
-    res.status(500).json({ error: "Failed to upload story" });
+
+    console.error("Story create error:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+
   }
 });
 
@@ -81,43 +96,54 @@ router.get("/", verifyToken, async (req, res) => {
 /* ================= LIKE STORY ================= */
 
 router.post("/like/:id", verifyToken, async (req, res) => {
-try {
+  try {
 
-const story = await Story.findById(req.params.id);
+    const story = await Story.findById(req.params.id);
 
-if (!story) {
-return res.status(404).json({
-error: "Story not found"
+    if (!story) {
+      return res.status(404).json({
+        error: "Story not found",
+      });
+    }
+
+    story.likes = story.likes || [];
+
+    const alreadyLiked = story.likes.some(
+      (id) => id.toString() === req.user.id
+    );
+
+    if (alreadyLiked) {
+
+      story.likes = story.likes.filter(
+        (id) => id.toString() !== req.user.id
+      );
+
+    } else {
+
+      story.likes.push(req.user.id);
+
+    }
+
+    await story.save();
+
+    io.emit("story-liked", {
+      storyId: story._id,
+      likes: story.likes.length,
+    });
+
+    res.json({
+      success: true,
+      likes: story.likes.length,
+    });
+
+  } catch (err) {
+
+    console.error("Story like error:", err);
+
+    res.status(500).json({
+      error: "Failed to like story",
+    });
+
+  }
 });
-}
-
-story.likes = story.likes || [];
-
-const liked = story.likes.includes(req.user._id);
-
-story.likes = liked
-? story.likes.filter(
-(id) => id.toString() !== req.user._id.toString()
-)
-: [...story.likes, req.user._id];
-
-await story.save();
-
-io.emit("story-liked", {
-storyId: story._id,
-likes: story.likes.length,
-});
-
-res.json({
-likes: story.likes.length,
-});
-
-} catch (err) {
-console.error("Story like error:", err);
-res.status(500).json({
-error: "Failed to like story"
-});
-}
-});
-
 export default router;
