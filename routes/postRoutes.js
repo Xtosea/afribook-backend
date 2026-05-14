@@ -205,7 +205,7 @@ console.log("ENV:", {
       const { caption } = req.body;
 
       const reel = await Post.create({
-        user: req.user._id,
+        user: req.user.id,
         content: caption || "",
         media: [
           {
