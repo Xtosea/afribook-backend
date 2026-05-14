@@ -356,7 +356,7 @@ router.put("/:id/like", verifyToken, async (req, res) => {
 });
 
 
-a ================= COMMENT ================= */
+/* ================= COMMENT ================= */
 router.post("/:id/comment", verifyToken, async (req, res) => {
   try {
 
