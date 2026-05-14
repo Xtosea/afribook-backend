@@ -76,21 +76,22 @@ const postSchema = new mongoose.Schema({
     default: false,
   },
 
+  // ✅ ADD THESE INSIDE THE SCHEMA
+  shares: {
+    type: Number,
+    default: 0,
+  },
+
+  views: {
+    type: Number,
+    default: 0,
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
-
-shares: {
-  type: Number,
-  default: 0,
-},
-
-views: {
-  type: Number,
-  default: 0,
-},
 
 const Post = mongoose.model("Post", postSchema);
 
