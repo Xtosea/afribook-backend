@@ -1,6 +1,7 @@
 import express from "express";
 
 import Story from "../models/Story.js";
+import Post from "../models/Post.js";
 
 import {
   verifyToken,
@@ -142,14 +143,14 @@ router.post(
         story.views.some(
           (id) =>
             id.toString() ===
-            req.user._id.toString()
+            req.user.id.toString()
         );
 
       // only count unique views
       if (!alreadyViewed) {
 
         story.views.push(
-          req.user._id
+          req.user.id
         );
 
         story.viewsCount += 1;
@@ -204,7 +205,7 @@ router.post(
       }
 
       story.reactions.push({
-        user: req.user._id,
+        user: req.user.id,
         type: reaction,
       });
 
@@ -249,7 +250,7 @@ router.post(
       }
 
       const newPost = await Post.create({
-        user: req.user._id,
+        user: req.user.id,
 
         content:
           story.caption ||
