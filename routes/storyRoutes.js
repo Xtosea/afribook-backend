@@ -146,4 +146,67 @@ router.post("/like/:id", verifyToken, async (req, res) => {
 
   }
 });
+
+/* ================= VIEW STORY ================= */
+
+router.post(
+  "/view/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const story = await Story.findById(
+        req.params.id
+      );
+
+      if (!story) {
+        return res.status(404).json({
+          error: "Story not found",
+        });
+      }
+
+      story.views =
+        story.views || [];
+
+      const alreadyViewed =
+        story.views.some(
+          (v) =>
+            v.toString() ===
+            req.user.id
+        );
+
+      if (!alreadyViewed) {
+        story.views.push(
+          req.user.id
+        );
+
+        await story.save();
+      }
+
+      io.emit("story-view", {
+        storyId: story._id,
+        views:
+          story.views.length,
+      });
+
+      res.json({
+        success: true,
+        views:
+          story.views.length,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Story view error:",
+        err
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to record story view",
+      });
+    }
+  }
+);
+
 export default router;
