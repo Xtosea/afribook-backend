@@ -42,6 +42,16 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
+viewsCount: {
+  type: Number,
+  default: 0,
+},
+
+engagementPoints: {
+  type: Number,
+  default: 0,
+},
+
     caption: String,
 
     views: [
