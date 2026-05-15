@@ -82,6 +82,20 @@ diamonds: {
   type: Number,
   default: 0,
 },
+
+subscriptions: [
+  {
+    creator: {
+      type:
+        mongoose.Schema
+          .Types.ObjectId,
+      ref: "User",
+    },
+
+    expiresAt: Date,
+  },
+],
+
     // Points system
     points: { type: Number, default: 0 },
   },
