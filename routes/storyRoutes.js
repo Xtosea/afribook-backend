@@ -187,25 +187,44 @@ router.post(
     }
   }
 );
+
+
+// ================= REACT STORY =================
+
 router.post(
   "/react/:id",
   verifyToken,
   async (req, res) => {
-    try {
-      const { reaction } = req.body;
 
-      const story = await Story.findById(
-        req.params.id
-      );
+    try {
+
+      const { reaction } =
+        req.body;
+
+      const story =
+        await Story.findById(
+          req.params.id
+        );
 
       if (!story) {
+
         return res.status(404).json({
-          error: "Story not found",
+          error:
+            "Story not found",
         });
       }
 
+      // remove previous reaction
+      story.reactions =
+        story.reactions.filter(
+          (r) =>
+            r.user.toString() !==
+            req.user._id.toString()
+        );
+
+      // add new reaction
       story.reactions.push({
-        user: req.user.id,
+        user: req.user._id,
         type: reaction,
       });
 
@@ -214,20 +233,34 @@ router.post(
 
       await story.save();
 
-      io.emit("story-reacted", {
-        storyId: story._id,
+      io.emit(
+        "story-reacted",
+        {
+          storyId:
+            story._id,
+
+          reactions:
+            story.reactions,
+        }
+      );
+
+      res.json({
+        success: true,
+
         reactions:
           story.reactions,
       });
 
-      res.json({
-        success: true,
-      });
     } catch (err) {
-      console.error(err);
+
+      console.error(
+        "Story reaction error:",
+        err
+      );
 
       res.status(500).json({
-        error: "Reaction failed",
+        error:
+          "Failed to react to story",
       });
     }
   }
