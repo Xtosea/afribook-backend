@@ -1,79 +1,77 @@
 import mongoose from "mongoose";
 
-const storySchema =
-  new mongoose.Schema(
-    {
-      user: {
-        type:
-          mongoose.Schema.Types.ObjectId,
+const reactionSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
 
-        ref: "User",
+  type: {
+    type: String,
+    enum: ["❤️", "😂", "😮", "😢", "👍"],
+    default: "❤️",
+  },
+});
 
-        required: true,
-      },
+const replySchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
 
-      media: [
-        {
-          url: {
-            type: String,
-            required: true,
-          },
+  text: String,
 
-          type: {
-            type: String,
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
 
-            enum: [
-              "image",
-              "video",
-            ],
-
-            required: true,
-          },
-        },
-      ],
-
-      caption: {
-        type: String,
-        default: "",
-      },
-
-      likes: [
-        {
-          type:
-            mongoose.Schema.Types.ObjectId,
-
-          ref: "User",
-        },
-      ],
-
-      replies: [
-        {
-          user: {
-            type:
-              mongoose.Schema.Types.ObjectId,
-
-            ref: "User",
-          },
-
-          text: String,
-
-          createdAt: {
-            type: Date,
-            default: Date.now,
-          },
-        },
-      ],
-
-      expiresAt: {
-        type: Date,
-        required: true,
-      },
+const storySchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
 
-    {
-      timestamps: true,
-    }
-  );
+    media: [
+      {
+        url: String,
+        type: String,
+      },
+    ],
+
+    caption: String,
+
+    views: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    reactions: [reactionSchema],
+
+    replies: [replySchema],
+
+    shares: {
+      type: Number,
+      default: 0,
+    },
+
+    engagementPoints: {
+      type: Number,
+      default: 0,
+    },
+
+    expiresAt: Date,
+  },
+
+  {
+    timestamps: true,
+  }
+);
 
 export default mongoose.model(
   "Story",
