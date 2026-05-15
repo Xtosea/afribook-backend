@@ -96,6 +96,37 @@ subscriptions: [
   },
 ],
 
+interests: [
+  {
+    type: String,
+  },
+],
+
+watchHistory: [
+  {
+    reel: {
+      type:
+        mongoose.Schema
+          .Types.ObjectId,
+      ref: "Post",
+    },
+
+    watchTime: Number,
+
+    completed: Boolean,
+  },
+],
+
+likedCategories: [
+  String,
+],
+
+skippedCategories: [
+  String,
+],
+
+
+
     // Points system
     points: { type: Number, default: 0 },
   },
