@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import Wallet from "../models/Wallet.js";
 
 export const register = async (req, res) => {
 try {
@@ -47,3 +48,9 @@ res.json({ user, token });
 res.status(500).json({ error: error.message });
 }
 };
+
+
+
+await Wallet.create({
+  user: newUser._id,
+});
