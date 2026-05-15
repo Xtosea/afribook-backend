@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+/* ================= REACTION SCHEMA ================= */
 const reactionSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -8,11 +9,21 @@ const reactionSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ["❤️", "😂", "😮", "😢", "👍"],
+
+    enum: [
+      "❤️",
+      "😂",
+      "😮",
+      "😢",
+      "👍",
+      "🔥",
+    ],
+
     default: "❤️",
   },
 });
 
+/* ================= REPLY SCHEMA ================= */
 const replySchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -27,6 +38,7 @@ const replySchema = new mongoose.Schema({
   },
 });
 
+/* ================= STORY SCHEMA ================= */
 const storySchema = new mongoose.Schema(
   {
     user: {
@@ -44,11 +56,9 @@ const storySchema = new mongoose.Schema(
 
     caption: String,
 
-    viewsCount: {
-      type: Number,
-      default: 0,
-    },
+    expiresAt: Date,
 
+    /* ================= VIEWS ================= */
     views: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -56,7 +66,12 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
-    // optional simple likes
+    viewsCount: {
+      type: Number,
+      default: 0,
+    },
+
+    /* ================= LIKES ================= */
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -64,22 +79,23 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
-    // emoji reactions
+    /* ================= REACTIONS ================= */
     reactions: [reactionSchema],
 
+    /* ================= REPLIES ================= */
     replies: [replySchema],
 
+    /* ================= SHARES ================= */
     shares: {
       type: Number,
       default: 0,
     },
 
+    /* ================= ENGAGEMENT ================= */
     engagementPoints: {
       type: Number,
       default: 0,
     },
-
-    expiresAt: Date,
   },
 
   {
@@ -87,7 +103,4 @@ const storySchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model(
-  "Story",
-  storySchema
-);
+export default mongoose.model("Story", storySchema);
