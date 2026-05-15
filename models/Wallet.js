@@ -8,12 +8,20 @@ const walletSchema = new mongoose.Schema(
       unique: true,
     },
 
+    /* ================= POINTS ================= */
     points: {
       type: Number,
       default: 0,
     },
 
+    /* ================= BALANCE ================= */
     balance: {
+      type: Number,
+      default: 0,
+    },
+
+    /* ================= EARNINGS ================= */
+    totalEarned: {
       type: Number,
       default: 0,
     },
@@ -22,8 +30,17 @@ const walletSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+
+    /* ================= PENDING ================= */
+    pending: {
+      type: Number,
+      default: 0,
+    },
   },
-  { timestamps: true }
+
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model(
