@@ -2,6 +2,7 @@ import express from "express";
 
 import Story from "../models/Story.js";
 import Post from "../models/Post.js";
+import Wallet from "../models/Wallet.js";
 
 import {
   verifyToken,
@@ -122,71 +123,50 @@ router.get(
 
 // ================= VIEW STORY =================
 
-router.post(
-  "/view/:id",
-  verifyToken,
-  async (req, res) => {
-    try {
+router.post("/view/:id", verifyToken, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id);
 
-      const story =
-        await Story.findById(
-          req.params.id
-        );
+    if (!story) {
+      return res.status(404).json({ error: "Story not found" });
+    }
 
-      if (!story) {
-        return res.status(404).json({
-          error: "Story not found",
-        });
-      }
+    const userId = req.user._id;
 
-      const alreadyViewed =
-        story.views.some(
-          (id) =>
-            id.toString() ===
-            req.user.id.toString()
-        );
+    const alreadyViewed = story.views.some(
+      (id) => id.toString() === userId.toString()
+    );
 
-      // only count unique views
-      if (!alreadyViewed) {
+    if (!alreadyViewed) {
+      story.views.push(userId);
+      story.viewsCount += 1;
+      story.engagementPoints += 1;
 
-        story.views.push(
-          req.user.id
-        );
+      await story.save();
 
-        story.viewsCount += 1;
-
-        // reward creator
-        story.engagementPoints += 1;
-
-        await story.save();
-
-        io.emit("story-view", {
-          storyId: story._id,
-          viewsCount:
-            story.viewsCount,
-        });
-      }
-
-      res.json({
-        success: true,
-        viewsCount:
-          story.viewsCount,
-      });
-
-    } catch (err) {
-
-      console.error(
-        "Story view error:",
-        err
+      // ✅ wallet update (ONLY after successful save)
+      await Wallet.findOneAndUpdate(
+        { user: story.user },
+        { $inc: { points: 1 } },
+        { new: true }
       );
 
-      res.status(500).json({
-        error:
-          "Failed to record story view",
+      io.emit("story-view", {
+        storyId: story._id,
+        viewsCount: story.viewsCount,
       });
     }
+
+    return res.json({
+      success: true,
+      viewsCount: story.viewsCount,
+    });
+
+  } catch (err) {
+    console.error("Story view error:", err);
+    res.status(500).json({ error: "Failed to record story view" });
   }
-);
+});
 
 
 // ================= REACT STORY =================
