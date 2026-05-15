@@ -72,6 +72,16 @@ referralEarnings: {
   default: 0,
 },
 
+
+coins: {
+  type: Number,
+  default: 0,
+},
+
+diamonds: {
+  type: Number,
+  default: 0,
+},
     // Points system
     points: { type: Number, default: 0 },
   },
