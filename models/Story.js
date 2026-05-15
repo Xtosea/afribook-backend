@@ -42,14 +42,12 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
-viewsCount: {
-  type: Number,
-  default: 0,
-},
-
-
-
     caption: String,
+
+    viewsCount: {
+      type: Number,
+      default: 0,
+    },
 
     views: [
       {
@@ -58,6 +56,15 @@ viewsCount: {
       },
     ],
 
+    // optional simple likes
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    // emoji reactions
     reactions: [reactionSchema],
 
     replies: [replySchema],
