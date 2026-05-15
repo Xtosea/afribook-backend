@@ -19,6 +19,28 @@ const mediaSchema = new mongoose.Schema({
   type: String,
 });
 
+const watchSessionSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+
+  duration: {
+    type: Number,
+    default: 0,
+  },
+
+  completed: {
+    type: Boolean,
+    default: false,
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 const postSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -65,7 +87,10 @@ const postSchema = new mongoose.Schema({
         ref: "User",
       },
 
-      type: String,
+      type: {
+        type: String,
+        default: "❤️",
+      },
     },
   ],
 
@@ -76,13 +101,48 @@ const postSchema = new mongoose.Schema({
     default: false,
   },
 
-  // ✅ ADD THESE INSIDE THE SCHEMA
+  // ================= VIDEO / REEL ANALYTICS =================
+
+  watchTime: {
+    type: Number,
+    default: 0,
+  },
+
+  watchSessions: [watchSessionSchema],
+
+  engagementPoints: {
+    type: Number,
+    default: 0,
+  },
+
+  earnings: {
+    type: Number,
+    default: 0,
+  },
+
+  viral: {
+    type: Boolean,
+    default: false,
+  },
+
+  multiplier: {
+    type: Number,
+    default: 1,
+  },
+
   shares: {
     type: Number,
     default: 0,
   },
 
-  views: {
+  views: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+
+  viewsCount: {
     type: Number,
     default: 0,
   },
@@ -93,6 +153,9 @@ const postSchema = new mongoose.Schema({
   },
 });
 
-const Post = mongoose.model("Post", postSchema);
+const Post = mongoose.model(
+  "Post",
+  postSchema
+);
 
 export default Post;
