@@ -47,10 +47,7 @@ viewsCount: {
   default: 0,
 },
 
-engagementPoints: {
-  type: Number,
-  default: 0,
-},
+
 
     caption: String,
 
