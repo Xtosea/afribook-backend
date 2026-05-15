@@ -29,6 +29,8 @@ import messageRoutes from "./routes/messageRoutes.js";
 import r2StoryRoutes from "./routes/r2StoryRoutes.js";
 import reelRoutes from "./routes/reelRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
+import storyFeedRoutes from "./routes/storyFeed.js";
+
 
 const app = express();
 app.set("trust proxy", 1);
@@ -193,6 +195,8 @@ app.use("/api/videos", videoRoutes);
 app.use("/api/reels", reelRoutes);
 app.use("/api/r2", r2Routes);
 app.use("/api/r2stories", r2StoryRoutes);
+app.use("/api/stories", storyFeedRoutes);
+
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
