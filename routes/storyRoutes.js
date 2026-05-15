@@ -119,50 +119,73 @@ router.get(
 );
 
 
+// ================= VIEW STORY =================
+
 router.post(
   "/view/:id",
   verifyToken,
   async (req, res) => {
     try {
-      const story = await Story.findById(
-        req.params.id
-      );
+
+      const story =
+        await Story.findById(
+          req.params.id
+        );
 
       if (!story) {
-        return res
-          .status(404)
-          .json({
-            error: "Story not found",
-          });
+        return res.status(404).json({
+          error: "Story not found",
+        });
       }
 
       const alreadyViewed =
-        story.views.includes(
+        story.views.some(
+          (id) =>
+            id.toString() ===
+            req.user._id.toString()
+        );
+
+      // only count unique views
+      if (!alreadyViewed) {
+
+        story.views.push(
           req.user._id
         );
 
-      if (!alreadyViewed) {
-        story.views.push(req.user._id);
+        story.viewsCount += 1;
 
         // reward creator
         story.engagementPoints += 1;
+
+        await story.save();
+
+        io.emit("story-view", {
+          storyId: story._id,
+          viewsCount:
+            story.viewsCount,
+        });
       }
 
-      await story.save();
-
       res.json({
-        views: story.views.length,
+        success: true,
+        viewsCount:
+          story.viewsCount,
       });
+
     } catch (err) {
-      console.error(err);
+
+      console.error(
+        "Story view error:",
+        err
+      );
 
       res.status(500).json({
-        error: "Failed to view story",
+        error:
+          "Failed to record story view",
       });
     }
   }
 );
-
 router.post(
   "/react/:id",
   verifyToken,
