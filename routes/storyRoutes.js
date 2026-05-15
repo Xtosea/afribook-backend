@@ -16,6 +16,7 @@ router.post(
   "/",
   verifyToken,
   async (req, res) => {
+
     try {
 
       const {
@@ -27,33 +28,28 @@ router.post(
         !media ||
         !media.length
       ) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Media required",
-          });
+        return res.status(400).json({
+          error: "Media required",
+        });
       }
 
       const story =
         await Story.create({
+
           user: req.user.id,
 
           media,
 
-          caption:
-            caption || "",
+          caption,
 
           expiresAt:
             new Date(
               Date.now() +
-                24 *
-                  60 *
-                  60 *
-                  1000
+              24 * 60 * 60 * 1000
             ),
         });
 
+      // IMPORTANT
       await story.populate(
         "user",
         "name profilePic"
@@ -71,7 +67,7 @@ router.post(
     } catch (err) {
 
       console.error(
-        "CREATE STORY ERROR:",
+        "Create story error:",
         err
       );
 
