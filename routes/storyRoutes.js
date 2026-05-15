@@ -209,4 +209,54 @@ router.post(
   }
 );
 
+
+/* ================= SHARE STORY ================= */
+
+router.post(
+  "/share/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const story = await Story.findById(
+        req.params.id
+      );
+
+      if (!story) {
+        return res.status(404).json({
+          error: "Story not found",
+        });
+      }
+
+      // increase shares count
+      story.shares =
+        (story.shares || 0) + 1;
+
+      await story.save();
+
+      io.emit("story-shared", {
+        storyId: story._id,
+        shares: story.shares,
+      });
+
+      res.json({
+        success: true,
+        shares: story.shares,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "Story share error:",
+        err
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to share story",
+      });
+    }
+  }
+);
+
 export default router;
