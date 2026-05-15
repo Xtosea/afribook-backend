@@ -122,6 +122,29 @@ adClicks: {
   default: 0,
 },
 
+
+tags: [
+  String,
+],
+
+category: {
+  type: String,
+  default: "general",
+},
+
+aiScore: {
+  type: Number,
+  default: 0,
+},
+
+viralScore: {
+  type: Number,
+  default: 0,
+},
+
+
+
+
   // ================= VIDEO / REEL ANALYTICS =================
 
   watchTime: {
