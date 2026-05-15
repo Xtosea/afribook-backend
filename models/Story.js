@@ -1,86 +1,79 @@
 import mongoose from "mongoose";
 
-const reactionSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+const storySchema =
+  new mongoose.Schema(
+    {
+      user: {
+        type:
+          mongoose.Schema.Types.ObjectId,
 
-  type: {
-    type: String,
-    default: "❤️",
-  },
-});
+        ref: "User",
 
-const replySchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-
-  text: String,
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-const storySchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    media: [
-      {
-        url: String,
-        type: String,
+        required: true,
       },
-    ],
 
-    caption: String,
+      media: [
+        {
+          url: {
+            type: String,
+            required: true,
+          },
 
-    reactions: [reactionSchema],
+          type: {
+            type: String,
 
-    replies: [replySchema],
+            enum: [
+              "image",
+              "video",
+            ],
 
-    views: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
+            required: true,
+          },
+        },
+      ],
+
+      caption: {
+        type: String,
+        default: "",
+      },
+
+      likes: [
+        {
+          type:
+            mongoose.Schema.Types.ObjectId,
+
           ref: "User",
         },
+      ],
 
-        viewedAt: {
-          type: Date,
-          default: Date.now,
+      replies: [
+        {
+          user: {
+            type:
+              mongoose.Schema.Types.ObjectId,
+
+            ref: "User",
+          },
+
+          text: String,
+
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
         },
+      ],
+
+      expiresAt: {
+        type: Date,
+        required: true,
       },
-    ],
-
-    shares: {
-      type: Number,
-      default: 0,
     },
 
-    privacy: {
-      type: String,
-      enum: ["public", "friends", "private"],
-      default: "public",
-    },
-
-    expiresAt: {
-      type: Date,
-      required: true,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+    {
+      timestamps: true,
+    }
+  );
 
 export default mongoose.model(
   "Story",
