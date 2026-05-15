@@ -101,6 +101,27 @@ const postSchema = new mongoose.Schema({
     default: false,
   },
 
+
+sponsored: {
+  type: Boolean,
+  default: false,
+},
+
+sponsor: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+},
+
+promotionBudget: {
+  type: Number,
+  default: 0,
+},
+
+adClicks: {
+  type: Number,
+  default: 0,
+},
+
   // ================= VIDEO / REEL ANALYTICS =================
 
   watchTime: {
