@@ -534,4 +534,82 @@ router.put("/:id/save", verifyToken, async (req, res) => {
   }
 });
 
+
+// ================= TRACK WATCH =================
+
+router.post(
+  "/:id/watch",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const {
+        duration,
+        completed,
+      } = req.body;
+
+      const reel =
+        await Post.findById(
+          req.params.id
+        );
+
+      if (!reel) {
+        return res.status(404).json({
+          error: "Reel not found",
+        });
+      }
+
+      reel.watchSessions.push({
+        user: req.user._id,
+        duration,
+        completed,
+      });
+
+      reel.watchTime += duration;
+
+      // ===== POINTS =====
+
+      let earnedPoints = 0;
+
+      if (duration >= 10) {
+        earnedPoints += 2;
+      }
+
+      if (completed) {
+        earnedPoints += 5;
+      }
+
+      // VIRAL BOOST
+      if (reel.viral) {
+        earnedPoints *= 2;
+      }
+
+      reel.engagementPoints +=
+        earnedPoints;
+
+      // CREATOR EARNINGS
+      reel.earnings +=
+        earnedPoints * 0.01;
+
+      await reel.save();
+
+      res.json({
+        success: true,
+        earnedPoints,
+      });
+
+    } catch (err) {
+      console.error(
+        "Watch tracking error:",
+        err
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to track watch",
+      });
+    }
+  }
+);
+
 export default router;
