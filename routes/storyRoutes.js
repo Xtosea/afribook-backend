@@ -364,133 +364,91 @@ router.post(
 );
 
 
-// ================= STORY ANALYTICS =================
+/* =========================
+   STORY ANALYTICS
+========================= */
+router.get("/analytics/:id", verifyToken, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id)
+      .populate("user", "name profilePic")
+      .populate("views", "name profilePic")
+      .populate("reactions.user", "name profilePic")
+      .populate("replies.user", "name profilePic");
 
-router.get(
-  "/analytics/:id",
-  verifyToken,
-  async (req, res) => {
-
-    try {
-
-      const story =
-        await Story.findById(
-          req.params.id
-        )
-          .populate(
-            "user",
-            "name profilePic"
-          )
-          .populate(
-            "views",
-            "name profilePic"
-          )
-          .populate(
-            "reactions.user",
-            "name profilePic"
-          )
-          .populate(
-            "replies.user",
-            "name profilePic"
-          );
-
-      if (!story) {
-        return res.status(404).json({
-          error: "Story not found",
-        });
-      }
-
-      // =========================
-      // OWNER CHECK
-      // =========================
-      const ownerId =
-        story.user?._id?.toString();
-
-      const currentUserId =
-        req.user._id.toString();
-
-      if (ownerId !== currentUserId) {
-
-        return res.status(403).json({
-          error: "Unauthorized",
-        });
-
-      }
-
-      // =========================
-      // REACTION COUNTS
-      // =========================
-      const reactionSummary = {
-        "❤️": 0,
-        "😂": 0,
-        "😮": 0,
-        "😢": 0,
-        "👍": 0,
-      };
-
-      story.reactions.forEach((r) => {
-
-        if (
-          reactionSummary[r.type] !==
-          undefined
-        ) {
-          reactionSummary[r.type]++;
-        }
-
-      });
-
-      // =========================
-      // ANALYTICS RESPONSE
-      // =========================
-      const analytics = {
-  views: story.viewsCount || 0,
-
-  totalViewers: story.views?.length || 0,
-
-  reactions: reactionSummary,
-
-  totalReactions: story.reactions?.length || 0,
-
-  replies: story.replies?.length || 0,
-
-  shares: story.shares || 0,
-
-  engagementPoints: story.engagementPoints || 0,
-
-  engagementRate:
-    story.viewsCount > 0
-      ? Number(
-          (
-            (story.reactions.length +
-              story.replies.length +
-              story.shares) /
-            story.viewsCount
-          ).toFixed(2)
-        )
-      : 0,
-
-  viewers: story.views || [],
-
-  repliesList: story.replies || [],
-
-  createdAt: story.createdAt,
-};
-
-      res.json(analytics);
-
-    } catch (err) {
-
-      console.error(
-        "Analytics error:",
-        err
-      );
-
-      res.status(500).json({
-        error:
-          "Failed to fetch analytics",
-      });
+    if (!story) {
+      return res.status(404).json({ error: "Story not found" });
     }
-  }
-);
 
+    /* ================= OWNER CHECK ================= */
+    const ownerId = story.user?._id?.toString();
+    const currentUserId = req.user._id.toString();
+
+    if (ownerId !== currentUserId) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    /* ================= REACTION BREAKDOWN ================= */
+    const reactionSummary = {
+      "❤️": 0,
+      "😂": 0,
+      "😮": 0,
+      "😢": 0,
+      "👍": 0,
+      "🔥": 0,
+    };
+
+    story.reactions.forEach((r) => {
+      if (reactionSummary[r.type] !== undefined) {
+        reactionSummary[r.type]++;
+      }
+    });
+
+    /* ================= METRICS ================= */
+    const totalReactions = story.reactions?.length || 0;
+    const totalReplies = story.replies?.length || 0;
+    const totalShares = story.shares || 0;
+    const views = story.viewsCount || 0;
+
+    const engagementScore =
+      totalReactions * 1 +
+      totalReplies * 2 +
+      totalShares * 3;
+
+    const engagementRate =
+      views > 0
+        ? Number((engagementScore / views).toFixed(2))
+        : 0;
+
+    const viralScore =
+      engagementScore + views * 0.1;
+
+    /* ================= RESPONSE ================= */
+    const analytics = {
+      views,
+      totalViewers: story.views?.length || 0,
+
+      reactions: reactionSummary,
+      totalReactions,
+
+      replies: totalReplies,
+      shares: totalShares,
+
+      engagementScore,
+      engagementRate,
+      viralScore,
+
+      engagementPoints: story.engagementPoints || 0,
+
+      viewers: story.views || [],
+      repliesList: story.replies || [],
+
+      createdAt: story.createdAt,
+    };
+
+    res.json(analytics);
+  } catch (err) {
+    console.error("Analytics error:", err);
+    res.status(500).json({ error: "Failed to fetch analytics" });
+  }
+});
 export default router;
