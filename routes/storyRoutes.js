@@ -313,6 +313,72 @@ router.post(
 );
 
 
+// ================= REPLY STORY =================
+
+router.post(
+  "/reply/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json({
+          error: "Reply text required",
+        });
+      }
+
+      const story =
+        await Story.findById(
+          req.params.id
+        ).populate("user");
+
+      if (!story) {
+        return res.status(404).json({
+          error: "Story not found",
+        });
+      }
+
+      const reply = {
+        user: req.user._id,
+        text,
+        createdAt: new Date(),
+      };
+
+      story.replies.push(reply);
+
+      // reward creator
+      story.engagementPoints += 3;
+
+      await story.save();
+
+      // send notification to story owner
+      io.to(
+        story.user._id.toString()
+      ).emit("story-reply", {
+        storyId: story._id,
+        from: req.user._id,
+        text,
+      });
+
+      res.json({
+        success: true,
+        reply,
+      });
+
+    } catch (err) {
+      console.error(
+        "Story reply error:",
+        err
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to reply to story",
+      });
+    }
+  }
+);
 
 
 export default router;
