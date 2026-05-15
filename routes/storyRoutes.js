@@ -443,37 +443,38 @@ router.get(
       // ANALYTICS RESPONSE
       // =========================
       const analytics = {
+  views: story.viewsCount || 0,
 
-        views:
-          story.viewsCount || 0,
+  totalViewers: story.views?.length || 0,
 
-        totalViewers:
-          story.views?.length || 0,
+  reactions: reactionSummary,
 
-        reactions:
-          reactionSummary,
+  totalReactions: story.reactions?.length || 0,
 
-        totalReactions:
-          story.reactions?.length || 0,
+  replies: story.replies?.length || 0,
 
-        replies:
-          story.replies?.length || 0,
+  shares: story.shares || 0,
 
-        shares:
-          story.shares || 0,
+  engagementPoints: story.engagementPoints || 0,
 
-        engagementPoints:
-          story.engagementPoints || 0,
+  engagementRate:
+    story.viewsCount > 0
+      ? Number(
+          (
+            (story.reactions.length +
+              story.replies.length +
+              story.shares) /
+            story.viewsCount
+          ).toFixed(2)
+        )
+      : 0,
 
-        viewers:
-          story.views || [],
+  viewers: story.views || [],
 
-        repliesList:
-          story.replies || [],
+  repliesList: story.replies || [],
 
-        createdAt:
-          story.createdAt,
-      };
+  createdAt: story.createdAt,
+};
 
       res.json(analytics);
 
