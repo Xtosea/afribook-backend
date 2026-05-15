@@ -1,215 +1,125 @@
-import React, {
-  useState,
-  useEffect,
-} from "react";
+import express from "express";
 
-import StoryCard from "./StoryCard";
-import StoryViewer from "./StoryViewer";
+import Story from "../models/Story.js";
 
-import { API_BASE } from "../../api/api";
+import {
+  verifyToken,
+} from "../middleware/authMiddleware.js";
 
-const StoryBar = () => {
+import { io } from "../server.js";
 
-  const [selectedStory, setSelectedStory] =
-    useState(null);
+const router = express.Router();
 
-  const [viewedStories, setViewedStories] =
-    useState([]);
+/* ================= CREATE STORY ================= */
 
-  const [activeStories, setActiveStories] =
-    useState([]);
-
-  // FETCH STORIES
-  useEffect(() => {
-
-    const fetchStories =
-      async () => {
-
-        try {
-
-          const token =
-            localStorage.getItem(
-              "token"
-            );
-
-          const res =
-            await fetch(
-              `${API_BASE}/api/stories`,
-              {
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          const data =
-            await res.json();
-
-          console.log(
-            "Stories:",
-            data
-          );
-
-          // ✅ FIX
-          setActiveStories(
-            data.stories || []
-          );
-
-        } catch (err) {
-
-          console.error(
-            "Fetch stories error:",
-            err
-          );
-        }
-      };
-
-    fetchStories();
-
-  }, []);
-
-  // OPEN STORY
-  const openStory = (story) => {
-
-    setSelectedStory(story);
-
-    if (
-      !viewedStories.includes(
-        story._id
-      )
-    ) {
-      setViewedStories((prev) => [
-        ...prev,
-        story._id,
-      ]);
-    }
-  };
-
-  // LIKE STORY
-  const handleLike = async (
-    story
-  ) => {
-
+router.post(
+  "/",
+  verifyToken,
+  async (req, res) => {
     try {
 
-      const token =
-        localStorage.getItem(
-          "token"
-        );
+      const {
+        media,
+        caption,
+      } = req.body;
 
-      const res = await fetch(
-        `${API_BASE}/api/stories/like/${story._id}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        }
+      if (
+        !media ||
+        !media.length
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Media required",
+          });
+      }
+
+      const story =
+        await Story.create({
+          user: req.user.id,
+
+          media,
+
+          caption:
+            caption || "",
+
+          expiresAt:
+            new Date(
+              Date.now() +
+                24 *
+                  60 *
+                  60 *
+                  1000
+            ),
+        });
+
+      await story.populate(
+        "user",
+        "name profilePic"
       );
 
-      const data =
-        await res.json();
+      io.emit(
+        "new-story",
+        story
+      );
 
-      console.log(
-        "Liked:",
-        data
+      res.status(201).json(
+        story
       );
 
     } catch (err) {
 
       console.error(
-        "Like story error:",
+        "CREATE STORY ERROR:",
         err
       );
+
+      res.status(500).json({
+        error:
+          "Failed to create story",
+      });
     }
-  };
+  }
+);
 
-  // SHARE STORY
-  const handleShare = async (
-    story
-  ) => {
+/* ================= GET STORIES ================= */
 
+router.get(
+  "/",
+  verifyToken,
+  async (req, res) => {
     try {
 
-      if (navigator.share) {
+      const stories =
+        await Story.find({
+          expiresAt: {
+            $gt: new Date(),
+          },
+        })
+          .populate(
+            "user",
+            "name profilePic"
+          )
+          .sort({
+            createdAt: -1,
+          });
 
-        await navigator.share({
-          title: "Story",
-          url:
-            story.media?.[0]?.url,
-        });
-
-      } else {
-
-        await navigator.clipboard.writeText(
-          story.media?.[0]?.url
-        );
-
-        alert("Link copied");
-
-      }
+      res.json(stories);
 
     } catch (err) {
 
-      if (
-        err.name !==
-        "AbortError"
-      ) {
+      console.error(
+        "GET STORIES ERROR:",
+        err
+      );
 
-        console.error(
-          "Share error:",
-          err
-        );
-      }
+      res.status(500).json({
+        error:
+          "Failed to fetch stories",
+      });
     }
-  };
+  }
+);
 
-  return (
-    <>
-
-      <div
-        className="
-          flex
-          gap-4
-          overflow-x-auto
-          py-3
-          px-2
-          scrollbar-hide
-        "
-      >
-
-        {activeStories.map(
-          (story) => (
-
-            <StoryCard
-              key={story._id}
-              story={story}
-              viewed={viewedStories.includes(
-                story._id
-              )}
-              onOpen={openStory}
-            />
-
-          )
-        )}
-
-      </div>
-
-      {selectedStory && (
-        <StoryViewer
-          story={selectedStory}
-          onClose={() =>
-            setSelectedStory(null)
-          }
-          onLike={handleLike}
-          onShare={handleShare}
-        />
-      )}
-
-    </>
-  );
-};
-
-export default StoryBar;
+export default router;
