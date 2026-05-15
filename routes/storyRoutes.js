@@ -178,23 +178,24 @@ router.post(
 
     try {
 
-      const { reaction } =
-        req.body;
+      const { reaction } = req.body;
 
-      const story =
-        await Story.findById(
-          req.params.id
-        );
+      const story = await Story.findById(
+        req.params.id
+      );
 
       if (!story) {
-
         return res.status(404).json({
-          error:
-            "Story not found",
+          error: "Story not found",
         });
       }
 
-      // remove previous reaction
+      // ensure reactions array exists
+      if (!Array.isArray(story.reactions)) {
+        story.reactions = [];
+      }
+
+      // remove previous reaction from same user
       story.reactions =
         story.reactions.filter(
           (r) =>
@@ -213,22 +214,25 @@ router.post(
 
       await story.save();
 
+      // ✅ UPDATE WALLET
+      await Wallet.findOneAndUpdate(
+        { user: story.user },
+        { $inc: { points: 2 } },
+        { new: true }
+      );
+
+      // socket update
       io.emit(
         "story-reacted",
         {
-          storyId:
-            story._id,
-
-          reactions:
-            story.reactions,
+          storyId: story._id,
+          reactions: story.reactions,
         }
       );
 
       res.json({
         success: true,
-
-        reactions:
-          story.reactions,
+        reactions: story.reactions,
       });
 
     } catch (err) {
@@ -245,7 +249,6 @@ router.post(
     }
   }
 );
-
 
 router.post(
   "/share/:id",
