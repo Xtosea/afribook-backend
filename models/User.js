@@ -58,6 +58,20 @@ const UserSchema = new mongoose.Schema(
       },
     ],
 
+   referralCode: String,
+
+referredBy: {
+  type:
+    mongoose.Schema
+      .Types.ObjectId,
+  ref: "User",
+},
+
+referralEarnings: {
+  type: Number,
+  default: 0,
+},
+
     // Points system
     points: { type: Number, default: 0 },
   },
