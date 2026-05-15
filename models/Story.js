@@ -1,106 +1,112 @@
 import mongoose from "mongoose";
 
-/* ================= REACTION SCHEMA ================= */
-const reactionSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+const reactionSchema =
+  new mongoose.Schema(
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
 
-  type: {
-    type: String,
-
-    enum: [
-      "❤️",
-      "😂",
-      "😮",
-      "😢",
-      "👍",
-      "🔥",
-    ],
-
-    default: "❤️",
-  },
-});
-
-/* ================= REPLY SCHEMA ================= */
-const replySchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-
-  text: String,
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-/* ================= STORY SCHEMA ================= */
-const storySchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    media: [
-      {
-        url: String,
+      type: {
         type: String,
+        enum: [
+          "❤️",
+          "😂",
+          "😮",
+          "😢",
+          "👍",
+        ],
       },
-    ],
+    },
+    { _id: false }
+  );
 
-    caption: String,
-
-    expiresAt: Date,
-
-    /* ================= VIEWS ================= */
-    views: [
-      {
+const replySchema =
+  new mongoose.Schema(
+    {
+      user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
-    ],
 
-    viewsCount: {
-      type: Number,
-      default: 0,
+      text: String,
+
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
     },
+    { _id: false }
+  );
 
-    /* ================= LIKES ================= */
-    likes: [
-      {
+const storySchema =
+  new mongoose.Schema(
+    {
+      user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
+        required: true,
       },
-    ],
 
-    /* ================= REACTIONS ================= */
-    reactions: [reactionSchema],
+      media: [
+        {
+          url: String,
 
-    /* ================= REPLIES ================= */
-    replies: [replySchema],
+          type: {
+            type: String,
+            enum: [
+              "image",
+              "video",
+            ],
+          },
+        },
+      ],
 
-    /* ================= SHARES ================= */
-    shares: {
-      type: Number,
-      default: 0,
+      caption: {
+        type: String,
+        default: "",
+      },
+
+      views: [
+        {
+          type:
+            mongoose.Schema.Types.ObjectId,
+
+          ref: "User",
+        },
+      ],
+
+      viewsCount: {
+        type: Number,
+        default: 0,
+      },
+
+      reactions: [reactionSchema],
+
+      replies: [replySchema],
+
+      shares: {
+        type: Number,
+        default: 0,
+      },
+
+      engagementPoints: {
+        type: Number,
+        default: 0,
+      },
+
+      expiresAt: {
+        type: Date,
+        required: true,
+      },
     },
+    {
+      timestamps: true,
+    }
+  );
 
-    /* ================= ENGAGEMENT ================= */
-    engagementPoints: {
-      type: Number,
-      default: 0,
-    },
-  },
-
-  {
-    timestamps: true,
-  }
+export default mongoose.model(
+  "Story",
+  storySchema
 );
-
-export default mongoose.model("Story", storySchema);
