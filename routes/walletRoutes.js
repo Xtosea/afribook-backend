@@ -76,4 +76,68 @@ router.get(
   }
 );
 
+
+router.post(
+  "/withdraw",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const {
+        amount,
+        bankName,
+        accountNumber,
+        accountName,
+      } = req.body;
+
+      const wallet =
+        await Wallet.findOne({
+          user:
+            req.user._id,
+        });
+
+      if (
+        wallet.balance <
+        amount
+      ) {
+        return res.status(400).json({
+          error:
+            "Insufficient balance",
+        });
+      }
+
+      wallet.balance -= amount;
+
+      await wallet.save();
+
+      const withdrawal =
+        await Withdrawal.create({
+          user:
+            req.user._id,
+
+          amount,
+
+          bankName,
+
+          accountNumber,
+
+          accountName,
+        });
+
+      res.json({
+        success: true,
+        withdrawal,
+      });
+
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Withdrawal failed",
+      });
+    }
+  }
+);
+
 export default router;
