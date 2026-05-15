@@ -370,11 +370,17 @@ router.get(
   "/analytics/:id",
   verifyToken,
   async (req, res) => {
+
     try {
+
       const story =
         await Story.findById(
           req.params.id
         )
+          .populate(
+            "user",
+            "name profilePic"
+          )
           .populate(
             "views",
             "name profilePic"
@@ -394,16 +400,26 @@ router.get(
         });
       }
 
-      // only owner can view analytics
-      if (
-        story.user.toString() !==
-        req.user._id.toString()
-      ) {
+      // =========================
+      // OWNER CHECK
+      // =========================
+      const ownerId =
+        story.user?._id?.toString();
+
+      const currentUserId =
+        req.user._id.toString();
+
+      if (ownerId !== currentUserId) {
+
         return res.status(403).json({
           error: "Unauthorized",
         });
+
       }
 
+      // =========================
+      // REACTION COUNTS
+      // =========================
       const reactionSummary = {
         "❤️": 0,
         "😂": 0,
@@ -413,22 +429,56 @@ router.get(
       };
 
       story.reactions.forEach((r) => {
-        reactionSummary[r.type]++;
+
+        if (
+          reactionSummary[r.type] !==
+          undefined
+        ) {
+          reactionSummary[r.type]++;
+        }
+
       });
 
+      // =========================
+      // ANALYTICS RESPONSE
+      // =========================
       const analytics = {
-        views: story.views.length,
-        reactions: reactionSummary,
-        replies: story.replies.length,
-        shares: story.shares,
+
+        views:
+          story.viewsCount || 0,
+
+        totalViewers:
+          story.views?.length || 0,
+
+        reactions:
+          reactionSummary,
+
+        totalReactions:
+          story.reactions?.length || 0,
+
+        replies:
+          story.replies?.length || 0,
+
+        shares:
+          story.shares || 0,
+
         engagementPoints:
-          story.engagementPoints,
-        viewers: story.views,
-        repliesList: story.replies,
+          story.engagementPoints || 0,
+
+        viewers:
+          story.views || [],
+
+        repliesList:
+          story.replies || [],
+
+        createdAt:
+          story.createdAt,
       };
 
       res.json(analytics);
+
     } catch (err) {
+
       console.error(
         "Analytics error:",
         err
