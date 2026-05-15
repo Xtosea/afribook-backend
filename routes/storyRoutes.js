@@ -381,4 +381,82 @@ router.post(
 );
 
 
+// ================= STORY ANALYTICS =================
+
+router.get(
+  "/analytics/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const story =
+        await Story.findById(
+          req.params.id
+        )
+          .populate(
+            "views",
+            "name profilePic"
+          )
+          .populate(
+            "reactions.user",
+            "name profilePic"
+          )
+          .populate(
+            "replies.user",
+            "name profilePic"
+          );
+
+      if (!story) {
+        return res.status(404).json({
+          error: "Story not found",
+        });
+      }
+
+      // only owner can view analytics
+      if (
+        story.user.toString() !==
+        req.user._id.toString()
+      ) {
+        return res.status(403).json({
+          error: "Unauthorized",
+        });
+      }
+
+      const reactionSummary = {
+        "❤️": 0,
+        "😂": 0,
+        "😮": 0,
+        "😢": 0,
+        "👍": 0,
+      };
+
+      story.reactions.forEach((r) => {
+        reactionSummary[r.type]++;
+      });
+
+      const analytics = {
+        views: story.views.length,
+        reactions: reactionSummary,
+        replies: story.replies.length,
+        shares: story.shares,
+        engagementPoints:
+          story.engagementPoints,
+        viewers: story.views,
+        repliesList: story.replies,
+      };
+
+      res.json(analytics);
+    } catch (err) {
+      console.error(
+        "Analytics error:",
+        err
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to fetch analytics",
+      });
+    }
+  }
+);
+
 export default router;
