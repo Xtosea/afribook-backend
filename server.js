@@ -39,7 +39,7 @@ app.set("trust proxy", 1);
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_BACKUP_URL,
-  "https://africbook.globelynks.com",
+  "https://africsocial.globelynks.com",
 ];
 
 app.use(
@@ -210,6 +210,7 @@ app.use("/api/reels", reelRoutes);
 app.use("/api/r2", r2Routes);
 app.use("/api/r2stories", r2StoryRoutes);
 app.use("/api/stories", storyFeedRoutes);
+app.use("/api/wallet", walletRoutes);
 
 
 /* ================= TEST ROUTE ================= */
