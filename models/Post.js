@@ -142,6 +142,10 @@ viralScore: {
   default: 0,
 },
 
+title: {
+  type: String,
+  default: "",
+},
 
 
 
