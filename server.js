@@ -137,25 +137,26 @@ app.get("/post/:id", async (req, res) => {
     }
 
     // DEFAULT IMAGE
-    let image =
-      "https://africsocial.globelynks.com/social-preview.png";
+    let image = "https://africsocial.globelynks.com/social-preview.png";
 
-    // CHECK MEDIA
-    if (
-      Array.isArray(post.media) &&
-      post.media.length > 0
-    ) {
-      const firstMedia = post.media[0];
+const firstMedia = post?.media?.find(m => m?.url);
 
-      // IMAGE
-      if (
-        firstMedia?.type === "image" &&
-        firstMedia?.url
-      ) {
-        image = firstMedia.url.startsWith("http")
-          ? firstMedia.url
-          : `https://africsocial.globelynks.com${firstMedia.url}`;
-      }
+if (firstMedia) {
+  if (firstMedia.type === "image") {
+    image = firstMedia.url?.startsWith("http")
+      ? firstMedia.url
+      : `https://africsocial.globelynks.com${firstMedia.url}`;
+  }
+
+  if (
+    firstMedia.type === "video" &&
+    firstMedia.thumbnailUrl
+  ) {
+    image = firstMedia.thumbnailUrl?.startsWith("http")
+      ? firstMedia.thumbnailUrl
+      : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`;
+  }
+}
 
       // VIDEO
       else if (
@@ -202,8 +203,7 @@ app.get("/post/:id", async (req, res) => {
 <meta name="twitter:description" content="${description}" />
 <meta name="twitter:image" content="${image}" />
 
-<meta http-equiv="refresh"
-content="0; url=https://africsocial.globelynks.com/post/${post._id}" />
+<meta http-equiv="refresh" content="0; url=..." /> url=https://africsocial.globelynks.com/post/${post._id}" />
 
 </head>
 
