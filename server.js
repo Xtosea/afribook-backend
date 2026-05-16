@@ -174,7 +174,7 @@ app.get("/post/:id", async (req, res) => {
       "Check this post on AfricSocial";
 
     const url =
-      `${FRONTEND_URL}/post/${post._id}`;
+  `https://afribook-backend.onrender.com/post/${post._id}`;
 
     res.send(`
 <!DOCTYPE html>
@@ -223,22 +223,6 @@ Redirecting...
   }
 });
 
-</head>
-
-<body>
-Redirecting...
-</body>
-</html>
-`);
-  } catch (err) {
-    console.error("POST SHARE ERROR:", err);
-
-    res.status(500).send(`
-      <h1>Server Error</h1>
-      <pre>${err.message}</pre>
-    `);
-  }
-});
 /* ================= API ROUTES ================= */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
