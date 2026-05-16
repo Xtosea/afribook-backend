@@ -183,13 +183,15 @@ app.get("/post/:id", async (req, res) => {
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:url" content="${url}" />
-<meta property="og:type" content="website" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="AfricSocial" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${title}" />
 <meta name="twitter:description" content="${description}" />
 <meta name="twitter:image" content="${image}" />
 
-<script>
-window.location.href = "https://africsocial.globelynks.com/post/${post._id}";
-</script>
+<meta http-equiv="refresh" content="0; url=https://africsocial.globelynks.com/post/${post._id}" />
 </head>
 
 <body>
