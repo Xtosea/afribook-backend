@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema(
       required: [true, "Name is required"],
       trim: true,
     },
+
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -15,34 +16,91 @@ const UserSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+
     password: {
       type: String,
       required: [true, "Password is required"],
     },
+
     profilePic: {
       type: String,
-      default: "", // e.g., "/uploads/default.png"
+      default: "",
     },
-    coverPhoto: { type: String, default: "" },
-    dob: { type: String, default: "" },
-    phone: { type: String, default: "" },
-    education: { type: String, default: "" },
-    origin: { type: String, default: "" },
-    maritalStatus: { type: String, default: "" },
-    spouse: { type: String, default: "" },  // ✅ fixed
-    gender: { type: String, default: "" },  // ✅ fixed
-    hubby: { type: String, default: "" },   // ✅ fixed typo
-    bio: { type: String, default: "" },
-    intro: { type: String, default: "" },
+
+    coverPhoto: {
+      type: String,
+      default: "",
+    },
+
+    dob: {
+      type: String,
+      default: "",
+    },
+
+    phone: {
+      type: String,
+      default: "",
+    },
+
+    education: {
+      type: String,
+      default: "",
+    },
+
+    origin: {
+      type: String,
+      default: "",
+    },
+
+    maritalStatus: {
+      type: String,
+      default: "",
+    },
+
+    spouse: {
+      type: String,
+      default: "",
+    },
+
+    gender: {
+      type: String,
+      default: "",
+    },
+
+    hubby: {
+      type: String,
+      default: "",
+    },
+
+    bio: {
+      type: String,
+      default: "",
+    },
+
+    intro: {
+      type: String,
+      default: "",
+    },
 
     // Email verification
-    isVerified: { type: Boolean, default: false },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+
     verifyToken: String,
     verifyTokenExpiry: Date,
 
     // Password reset
-    resetToken: { type: String, default: null },
-    resetTokenExpiry: { type: Date, default: null },
+    resetToken: {
+      type: String,
+      default: null,
+    },
+
+    resetTokenExpiry: {
+      type: Date,
+      default: null,
+    },
 
     // Social connections
     followers: [
@@ -51,6 +109,7 @@ const UserSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+
     following: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -58,80 +117,96 @@ const UserSchema = new mongoose.Schema(
       },
     ],
 
-   referralCode: String,
+    friends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
-referredBy: {
-  type:
-    mongoose.Schema
-      .Types.ObjectId,
-  ref: "User",
-},
+    friendRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
-referralEarnings: {
-  type: Number,
-  default: 0,
-},
+    sentRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
+    // Referral system
+    referralCode: String,
 
-coins: {
-  type: Number,
-  default: 0,
-},
-
-diamonds: {
-  type: Number,
-  default: 0,
-},
-
-subscriptions: [
-  {
-    creator: {
-      type:
-        mongoose.Schema
-          .Types.ObjectId,
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
 
-    expiresAt: Date,
-  },
-],
-
-interests: [
-  {
-    type: String,
-  },
-],
-
-watchHistory: [
-  {
-    reel: {
-      type:
-        mongoose.Schema
-          .Types.ObjectId,
-      ref: "Post",
+    referralEarnings: {
+      type: Number,
+      default: 0,
     },
 
-    watchTime: Number,
+    // Virtual economy
+    coins: {
+      type: Number,
+      default: 0,
+    },
 
-    completed: Boolean,
-  },
-],
+    diamonds: {
+      type: Number,
+      default: 0,
+    },
 
-likedCategories: [
-  String,
-],
+    // Creator subscriptions
+    subscriptions: [
+      {
+        creator: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
 
-skippedCategories: [
-  String,
-],
+        expiresAt: Date,
+      },
+    ],
 
+    // Interests
+    interests: [
+      {
+        type: String,
+      },
+    ],
 
+    // Reel/video watch history
+    watchHistory: [
+      {
+        reel: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Post",
+        },
+
+        watchTime: Number,
+
+        completed: Boolean,
+      },
+    ],
+
+    likedCategories: [String],
+
+    skippedCategories: [String],
 
     // Points system
-    points: { type: Number, default: 0 },
+    points: {
+      type: Number,
+      default: 0,
+    },
   },
   {
-    timestamps: true, // adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
