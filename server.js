@@ -129,45 +129,56 @@ app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 app.get("/post/:id", async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate("user", "name profilePic");
+      .populate("user", "name profilePic")
+      .lean();
 
     if (!post) {
-      return res.send("Post not found");
+      return res.status(404).send("Post not found");
     }
 
+    // DEFAULT IMAGE
     let image =
       "https://africsocial.globelynks.com/social-preview.png";
 
-    if (post.media?.length > 0) {
-  const firstMedia = post.media[0];
+    // CHECK MEDIA
+    if (
+      Array.isArray(post.media) &&
+      post.media.length > 0
+    ) {
+      const firstMedia = post.media[0];
 
-  // IMAGE POST
-  if (firstMedia.type === "image") {
-    image = firstMedia.url.startsWith("http")
-      ? firstMedia.url
-      : `https://africsocial.globelynks.com${firstMedia.url}`;
-  }
+      // IMAGE
+      if (
+        firstMedia?.type === "image" &&
+        firstMedia?.url
+      ) {
+        image = firstMedia.url.startsWith("http")
+          ? firstMedia.url
+          : `https://africsocial.globelynks.com${firstMedia.url}`;
+      }
 
-  // VIDEO POST
-  else if (
-    firstMedia.type === "video" &&
-    firstMedia.thumbnailUrl
-  ) {
-    image = firstMedia.thumbnailUrl.startsWith("http")
-      ? firstMedia.thumbnailUrl
-      : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`;
-  }
-}
+      // VIDEO
+      else if (
+        firstMedia?.type === "video" &&
+        firstMedia?.thumbnailUrl
+      ) {
+        image = firstMedia.thumbnailUrl.startsWith(
+          "http"
+        )
+          ? firstMedia.thumbnailUrl
+          : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`;
+      }
+    }
 
     const title =
       post.content?.substring(0, 60) ||
-      `${post.user?.name} shared a post`;
+      `${post.user?.name || "Someone"} shared a post`;
 
     const description =
       post.content?.substring(0, 150) ||
       "Check this post on AfricSocial";
 
-    const url = `https://africsocial.globelynks.com/post/${post._id}`;
+    const url = `https://afribook-backend.onrender.com/post/${post._id}`;
 
     res.send(`
 <!DOCTYPE html>
@@ -191,7 +202,9 @@ app.get("/post/:id", async (req, res) => {
 <meta name="twitter:description" content="${description}" />
 <meta name="twitter:image" content="${image}" />
 
-<meta http-equiv="refresh" content="0; url=https://africsocial.globelynks.com/post/${post._id}" />
+<meta http-equiv="refresh"
+content="0; url=https://africsocial.globelynks.com/post/${post._id}" />
+
 </head>
 
 <body>
@@ -200,11 +213,14 @@ Redirecting...
 </html>
 `);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server error");
+    console.error("POST SHARE ERROR:", err);
+
+    res.status(500).send(`
+      <h1>Server Error</h1>
+      <pre>${err.message}</pre>
+    `);
   }
 });
-
 /* ================= API ROUTES ================= */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
