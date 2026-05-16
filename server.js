@@ -126,56 +126,70 @@ app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 /* ================= POST SHARE PREVIEW ================= */
 app.get("/post/:id", async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).populate("user", "name profilePic");
-    if (!post) return res.send("Post not found");
+    const post = await Post.findById(req.params.id)
+      .populate("user", "name profilePic");
 
-    let image = "https://africsocial.globelynks.com/africbook-preview.png";
+    if (!post) {
+      return res.send("Post not found");
+    }
 
-    if (post.media && post.media.length > 0) {
+    let image =
+      "https://africsocial.globelynks.com/social-preview.png";
+
+    if (post.media?.length > 0) {
       const firstMedia = post.media[0];
+
       if (firstMedia.type === "image") {
-        image = firstMedia.url.startsWith("http") ? firstMedia.url : `https://africsocial.globelynks.com${firstMedia.url}`;
-      } else if (firstMedia.type === "video") {
-        image = firstMedia.thumbnailUrl
-          ? firstMedia.thumbnailUrl.startsWith("http")
-            ? firstMedia.thumbnailUrl
-            : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`
-          : firstMedia.url.startsWith("http")
-          ? firstMedia.url
-          : `https://africsocial.globelynks.com${firstMedia.url}`;
+        image = firstMedia.url;
+      } else if (
+        firstMedia.type === "video" &&
+        firstMedia.thumbnailUrl
+      ) {
+        image = firstMedia.thumbnailUrl;
       }
     }
 
-    const title = post.content?.substring(0, 60) || `${post.user?.name} shared a post on AfricSocial`;
-    const description = post.content?.substring(0, 150) || "Check this post on AfricSocial";
+    const title =
+      post.content?.substring(0, 60) ||
+      `${post.user?.name} shared a post`;
+
+    const description =
+      post.content?.substring(0, 150) ||
+      "Check this post on AfricSocial";
+
     const url = `https://africsocial.globelynks.com/post/${post._id}`;
 
     res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${title}</title>
-        <meta property="og:title" content="${title}" />
-        <meta property="og:description" content="${description}" />
-        <meta property="og:image" content="${image}" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:url" content="${url}" />
-        <meta property="og:type" content="article" />
-        <meta property="og:site_name" content="AfricSocial" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="${title}" />
-        <meta name="twitter:description" content="${description}" />
-        <meta name="twitter:image" content="${image}" />
-        <meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
-      </head>
-      <body>
-        Redirecting to AfricSocial...
-      </body>
-      </html>
-    `);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+
+<title>${title}</title>
+
+<meta property="og:title" content="${title}" />
+<meta property="og:description" content="${description}" />
+<meta property="og:image" content="${image}" />
+<meta property="og:url" content="${url}" />
+<meta property="og:type" content="website" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${title}" />
+<meta name="twitter:description" content="${description}" />
+<meta name="twitter:image" content="${image}" />
+
+<script>
+window.location.href = "https://africsocial.globelynks.com/post/${post._id}";
+</script>
+</head>
+
+<body>
+Redirecting...
+</body>
+</html>
+`);
   } catch (err) {
-    console.error("Share preview error:", err);
+    console.error(err);
     res.status(500).send("Server error");
   }
 });
