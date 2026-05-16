@@ -29,7 +29,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import r2StoryRoutes from "./routes/r2StoryRoutes.js";
 import reelRoutes from "./routes/reelRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
-import storyFeedRoutes from "./routes/storyFeed.js";
+import storyFeedRoutes from "./routes/storyFeedRoutes.js";
 
 
 const app = express();
