@@ -128,63 +128,59 @@ app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 /* ================= POST SHARE PREVIEW ================= */
 app.get("/post/:id", async (req, res) => {
   try {
+
+    const FRONTEND_URL =
+      "https://africsocial.globelynks.com";
+
     const post = await Post.findById(req.params.id)
-      .populate("user", "name profilePic")
-      .lean();
+      .populate("user", "name profilePic");
 
     if (!post) {
       return res.status(404).send("Post not found");
     }
 
-    // DEFAULT IMAGE
-    let image = "https://africsocial.globelynks.com/social-preview.png";
+    let image =
+      `${FRONTEND_URL}/social-preview.png`;
 
-const firstMedia = post?.media?.find(m => m?.url);
+    const firstMedia = post?.media?.[0];
 
-if (firstMedia) {
-  if (firstMedia.type === "image") {
-    image = firstMedia.url?.startsWith("http")
-      ? firstMedia.url
-      : `https://africsocial.globelynks.com${firstMedia.url}`;
-  }
+    if (firstMedia?.url) {
 
-  if (
-    firstMedia.type === "video" &&
-    firstMedia.thumbnailUrl
-  ) {
-    image = firstMedia.thumbnailUrl?.startsWith("http")
-      ? firstMedia.thumbnailUrl
-      : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`;
-  }
-}
+      if (firstMedia.type === "image") {
 
-      // VIDEO
-      else if (
-        firstMedia?.type === "video" &&
-        firstMedia?.thumbnailUrl
+        image = firstMedia.url.startsWith("http")
+          ? firstMedia.url
+          : `${FRONTEND_URL}${firstMedia.url}`;
+      }
+
+      if (
+        firstMedia.type === "video" &&
+        firstMedia.thumbnailUrl
       ) {
-        image = firstMedia.thumbnailUrl.startsWith(
-          "http"
-        )
-          ? firstMedia.thumbnailUrl
-          : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`;
+
+        image =
+          firstMedia.thumbnailUrl.startsWith("http")
+            ? firstMedia.thumbnailUrl
+            : `${FRONTEND_URL}${firstMedia.thumbnailUrl}`;
       }
     }
 
     const title =
       post.content?.substring(0, 60) ||
-      `${post.user?.name || "Someone"} shared a post`;
+      `${post.user?.name} shared a post`;
 
     const description =
       post.content?.substring(0, 150) ||
       "Check this post on AfricSocial";
 
-    const url = `https://afribook-backend.onrender.com/post/${post._id}`;
+    const url =
+      `${FRONTEND_URL}/post/${post._id}`;
 
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8" />
 
 <title>${title}</title>
@@ -195,15 +191,37 @@ if (firstMedia) {
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:url" content="${url}" />
-<meta property="og:type" content="article" />
-<meta property="og:site_name" content="AfricSocial" />
+<meta property="og:type" content="website" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${title}" />
 <meta name="twitter:description" content="${description}" />
 <meta name="twitter:image" content="${image}" />
 
-<meta http-equiv="refresh" content="0; url=..." /> url=https://africsocial.globelynks.com/post/${post._id}" />
+<script>
+setTimeout(() => {
+  window.location.href = "${url}";
+}, 1500);
+</script>
+
+</head>
+
+<body>
+
+Redirecting...
+
+</body>
+</html>
+`);
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).send("Server error");
+
+  }
+});
 
 </head>
 
