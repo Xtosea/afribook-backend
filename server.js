@@ -30,6 +30,8 @@ import r2StoryRoutes from "./routes/r2StoryRoutes.js";
 import reelRoutes from "./routes/reelRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
 import storyFeedRoutes from "./routes/storyFeedRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+
 
 
 const app = express();
@@ -137,17 +139,25 @@ app.get("/post/:id", async (req, res) => {
       "https://africsocial.globelynks.com/social-preview.png";
 
     if (post.media?.length > 0) {
-      const firstMedia = post.media[0];
+  const firstMedia = post.media[0];
 
-      if (firstMedia.type === "image") {
-        image = firstMedia.url;
-      } else if (
-        firstMedia.type === "video" &&
-        firstMedia.thumbnailUrl
-      ) {
-        image = firstMedia.thumbnailUrl;
-      }
-    }
+  // IMAGE POST
+  if (firstMedia.type === "image") {
+    image = firstMedia.url.startsWith("http")
+      ? firstMedia.url
+      : `https://africsocial.globelynks.com${firstMedia.url}`;
+  }
+
+  // VIDEO POST
+  else if (
+    firstMedia.type === "video" &&
+    firstMedia.thumbnailUrl
+  ) {
+    image = firstMedia.thumbnailUrl.startsWith("http")
+      ? firstMedia.thumbnailUrl
+      : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`;
+  }
+}
 
     const title =
       post.content?.substring(0, 60) ||
@@ -170,11 +180,10 @@ app.get("/post/:id", async (req, res) => {
 <meta property="og:title" content="${title}" />
 <meta property="og:description" content="${description}" />
 <meta property="og:image" content="${image}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 <meta property="og:url" content="${url}" />
 <meta property="og:type" content="website" />
-
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${title}" />
 <meta name="twitter:description" content="${description}" />
 <meta name="twitter:image" content="${image}" />
 
