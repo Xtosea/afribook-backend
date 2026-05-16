@@ -250,7 +250,8 @@ router.get("/reels", async (req, res) => {
 
 /* ================= LIKE ================= */
 
-router.put("/:id/like", verifyToken, async (req, res) => {
+router.post("/:id/like", verifyToken, async (req, res) => {
+
   try {
 
     const post = await Post.findById(req.params.id);
@@ -261,14 +262,12 @@ router.put("/:id/like", verifyToken, async (req, res) => {
       });
     }
 
-    const alreadyLiked = post.likes.some(
-      (id) => id.toString() === req.user.id
-    );
+    const alreadyLiked = post.likes.includes(req.user.id);
 
     if (alreadyLiked) {
 
       post.likes = post.likes.filter(
-        (id) => id.toString() !== req.user.id
+        id => id.toString() !== req.user.id
       );
 
     } else {
@@ -279,12 +278,8 @@ router.put("/:id/like", verifyToken, async (req, res) => {
 
     await post.save();
 
-    io.emit("post-liked", {
-      postId: post._id,
-      likes: post.likes.length,
-    });
-
     res.json({
+      success: true,
       likes: post.likes,
       likesCount: post.likes.length,
     });
@@ -294,12 +289,12 @@ router.put("/:id/like", verifyToken, async (req, res) => {
     console.error(err);
 
     res.status(500).json({
-      error: err.message,
+      error: "Like failed",
     });
 
   }
-});
 
+});
 
 /* ================= COMMENT ================= */
 router.post("/:id/comment", verifyToken, async (req, res) => {
