@@ -66,7 +66,7 @@ app.use(
           "'self'",
           "'unsafe-inline'",
           "'unsafe-eval'",
-          "https://africbook.globelynks.com",
+          "https://africsocial.globelynks.com",
           "https://static.cloudflareinsights.com",
         ],
         styleSrc: ["'self'", "'unsafe-inline'", "https:"],
@@ -75,7 +75,7 @@ app.use(
           "'self'",
           "ws:",
           "wss:",
-          "https://africbook.globelynks.com",
+          "https://africsocial.globelynks.com",
           process.env.FRONTEND_URL,
           process.env.FRONTEND_BACKUP_URL,
           process.env.BACKEND_URL || "https://afribook-backend.onrender.com",
@@ -129,26 +129,26 @@ app.get("/post/:id", async (req, res) => {
     const post = await Post.findById(req.params.id).populate("user", "name profilePic");
     if (!post) return res.send("Post not found");
 
-    let image = "https://africbook.globelynks.com/africbook-preview.png";
+    let image = "https://africsocial.globelynks.com/africbook-preview.png";
 
     if (post.media && post.media.length > 0) {
       const firstMedia = post.media[0];
       if (firstMedia.type === "image") {
-        image = firstMedia.url.startsWith("http") ? firstMedia.url : `https://africbook.globelynks.com${firstMedia.url}`;
+        image = firstMedia.url.startsWith("http") ? firstMedia.url : `https://africsocial.globelynks.com${firstMedia.url}`;
       } else if (firstMedia.type === "video") {
         image = firstMedia.thumbnailUrl
           ? firstMedia.thumbnailUrl.startsWith("http")
             ? firstMedia.thumbnailUrl
-            : `https://africbook.globelynks.com${firstMedia.thumbnailUrl}`
+            : `https://africsocial.globelynks.com${firstMedia.thumbnailUrl}`
           : firstMedia.url.startsWith("http")
           ? firstMedia.url
-          : `https://africbook.globelynks.com${firstMedia.url}`;
+          : `https://africsocial.globelynks.com${firstMedia.url}`;
       }
     }
 
-    const title = post.content?.substring(0, 60) || `${post.user?.name} shared a post on Africbook`;
-    const description = post.content?.substring(0, 150) || "Check this post on Africbook";
-    const url = `https://africbook.globelynks.com/post/${post._id}`;
+    const title = post.content?.substring(0, 60) || `${post.user?.name} shared a post on AfricSocial`;
+    const description = post.content?.substring(0, 150) || "Check this post on AfricSocial";
+    const url = `https://africsocial.globelynks.com/post/${post._id}`;
 
     res.send(`
       <!DOCTYPE html>
@@ -162,7 +162,7 @@ app.get("/post/:id", async (req, res) => {
         <meta property="og:image:height" content="630" />
         <meta property="og:url" content="${url}" />
         <meta property="og:type" content="article" />
-        <meta property="og:site_name" content="Africbook" />
+        <meta property="og:site_name" content="AfricSocial" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${title}" />
         <meta name="twitter:description" content="${description}" />
@@ -170,7 +170,7 @@ app.get("/post/:id", async (req, res) => {
         <meta http-equiv="refresh" content="0; url=/#/post/${post._id}" />
       </head>
       <body>
-        Redirecting to Africbook...
+        Redirecting to AfricSocial...
       </body>
       </html>
     `);
@@ -200,7 +200,7 @@ app.use("/api/stories", storyFeedRoutes);
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
-  res.send("Afribook API running 🚀");
+  res.send("AfricSocial API running 🚀");
 });
 
 /* ================= CREATE HTTP SERVER ================= */
