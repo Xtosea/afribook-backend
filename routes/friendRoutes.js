@@ -169,4 +169,32 @@ router.get(
   }
 );
 
+
+========================================
+   GET FRIEND LIST
+========================================= */
+
+router.get(
+  "/list",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const user = await User.findById(
+        req.user.id
+      ).populate(
+        "friends",
+        "name profilePic bio"
+      );
+
+      res.json(user.friends);
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
+  }
+);
+
 export default router;
