@@ -183,11 +183,11 @@ router.post("/resend-verification", async (req, res) => {
 
     await user.save();
 
-    const verifyUrl = `https://africbook.globelynks.com//verify-email/${verifyToken}`;
+    const verifyUrl = `https://africsocial.globelynks.com//verify-email/${verifyToken}`;
 
     await sendEmail({
       to: user.email,
-      subject: "Verify your Afribook account",
+      subject: "Verify your AfricSocial account",
       html: `
         <h2>Email Verification</h2>
         <p>Click the link below to verify your account:</p>
@@ -221,11 +221,11 @@ router.post("/forgot-password", async (req, res) => {
 
     await user.save();
 
-    const resetUrl = `https://africbook.globelynks.com//reset-password/${token}`;
+    const resetUrl = `https://africsocial.globelynks.com//reset-password/${token}`;
 
     await sendEmail({
       to: user.email,
-      subject: "Afribook Password Reset",
+      subject: "Africsocial Password Reset",
       html: `
         <h2>Password Reset</h2>
         <p>Click the link below:</p>
