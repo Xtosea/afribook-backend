@@ -209,8 +209,7 @@ router.get(
   }
 );
 
-router.post("/sync-contacts", auth, async (req, res) => {
-
+router.post("/sync-contacts", verifyToken, async (req, res) => {
   try {
 
     const { contacts } = req.body;
