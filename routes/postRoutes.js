@@ -701,30 +701,7 @@ router.post(
 );
 
 
-router.get(
-  "/suggestions",
-  verifyToken,
-  async (req, res) => {
 
-    const currentUser =
-      await User.findById(req.user.id);
-
-    const excludedIds = [
-      currentUser._id,
-      ...currentUser.friends,
-      ...currentUser.sentRequests,
-    ];
-
-    const users = await User.find({
-      _id: { $nin: excludedIds },
-    })
-      .select("name profilePic")
-      .limit(20);
-
-    res.json(users);
-
-  }
-);
 
 
 export default router;
