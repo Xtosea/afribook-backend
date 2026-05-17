@@ -131,9 +131,9 @@ router.get(
   verifyToken,
   async (req, res) => {
     try {
-      const currentUser = await User.findById(
-        req.user.id
-      );
+
+      const currentUser =
+        await User.findById(req.user.id);
 
       if (!currentUser) {
         return res.status(404).json({
@@ -141,33 +141,29 @@ router.get(
         });
       }
 
+      // Exclude:
+      // - yourself
+      // - already friends
+      // - already requested
+
       const excludedIds = [
         currentUser._id,
 
         ...(currentUser.friends || []),
 
         ...(currentUser.sentRequests || []),
-
-        ...(currentUser.friendRequests || []),
       ];
-
-      console.log(
-        "EXCLUDED IDS:",
-        excludedIds
-      );
 
       const users = await User.find({
         _id: {
           $nin: excludedIds,
         },
       })
-        .select("name profilePic bio")
-        .limit(20);
-
-      console.log(
-        "SUGGESTED USERS:",
-        users
-      );
+        .select(
+          "name profilePic bio"
+        )
+        .sort({ createdAt: -1 })
+        .limit(50);
 
       res.json(users);
 
