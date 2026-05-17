@@ -39,13 +39,13 @@ router.post("/register", async (req, res) => {
 
     // ✅ safer during debugging
     // Inside router.post("/register", ...)
-const verifyUrl = `https://africbook.globelynks.com/verify-email/${verifyToken}?email=${user.email}`;
+const verifyUrl = `https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${user.email}`;
 
 await sendEmail({
   to: user.email,
-  subject: "Verify your Afribook account",
+  subject: "Verify your AfricSocial account",
   html: `
-    <h2>Welcome to Afribook, ${user.name}</h2>
+    <h2>Welcome to AfricSocial, ${user.name}</h2>
     <p>Please verify your email:</p>
     <a href="${verifyUrl}" target="_blank">Click here to verify your email</a>
     <p>OR copy & paste this link:</p>
