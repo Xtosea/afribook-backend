@@ -124,25 +124,7 @@ router.post("/accept/:id", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= GET FRIENDS ================= */
-router.get("/", verifyToken, async (req, res) => {
-  try {
 
-    const user = await User.findById(req.user.id)
-      .populate("friends", "name profilePic");
-
-    res.json(user.friends);
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: "Server error",
-    });
-
-  }
-});
 
 router.get(
   "/suggestions",
@@ -170,7 +152,7 @@ router.get(
 );
 
 
-========================================
+/*========================================
    GET FRIEND LIST
 ========================================= */
 
