@@ -135,30 +135,56 @@ router.get(
         req.user.id
       );
 
+      if (!currentUser) {
+        return res.status(404).json({
+          error: "User not found",
+        });
+      }
+
       const excludedIds = [
         currentUser._id,
-        ...currentUser.friends,
-        ...currentUser.sentRequests,
+
+        ...(currentUser.friends || []),
+
+        ...(currentUser.sentRequests || []),
+
+        ...(currentUser.friendRequests || []),
       ];
 
+      console.log(
+        "EXCLUDED IDS:",
+        excludedIds
+      );
+
       const users = await User.find({
-        _id: { $nin: excludedIds },
+        _id: {
+          $nin: excludedIds,
+        },
       })
-        .select("name profilePic")
+        .select("name profilePic bio")
         .limit(20);
+
+      console.log(
+        "SUGGESTED USERS:",
+        users
+      );
 
       res.json(users);
 
     } catch (err) {
-      console.error(err);
+
+      console.error(
+        "SUGGESTIONS ERROR:",
+        err
+      );
 
       res.status(500).json({
         error: "Server error",
       });
+
     }
   }
 );
-
 
 /*========================================
    GET FRIEND LIST
