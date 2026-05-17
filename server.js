@@ -126,12 +126,25 @@ app.use("/uploads/media", express.static(path.join(process.cwd(), "public/upload
 app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 
 /* ================= POST SHARE PREVIEW ================= */
+import mongoose from "mongoose";
+
 app.get("/post/:id", async (req, res) => {
   try {
+
+    // VALIDATE ID
+    if (
+      !mongoose.Types.ObjectId.isValid(req.params.id)
+    ) {
+      return res.status(400).send("Invalid post ID");
+    }
 
     const FRONTEND_URL =
       "https://africsocial.globelynks.com";
 
+    const BACKEND_URL =
+      "https://afribook-backend.onrender.com";
+
+    // FIND POST
     const post = await Post.findById(req.params.id)
       .populate("user", "name profilePic");
 
@@ -139,46 +152,88 @@ app.get("/post/:id", async (req, res) => {
       return res.status(404).send("Post not found");
     }
 
-    let image =
-      `${FRONTEND_URL}/social-preview.png`;
+    console.log(
+      "POST MEDIA:",
+      JSON.stringify(post.media, null, 2)
+    );
 
     const firstMedia = post?.media?.[0];
 
-    if (firstMedia?.url) {
+    // DEFAULT PREVIEW IMAGE
+    let image =
+      `${FRONTEND_URL}/social-preview.png`;
 
-      image = firstMedia.url.startsWith("http")
-        ? firstMedia.url
-        : `${FRONTEND_URL}${firstMedia.url}`;
+    // HANDLE IMAGE POSTS
+    if (
+      firstMedia &&
+      firstMedia.type === "image"
+    ) {
+
+      const mediaUrl =
+        firstMedia.url ||
+        firstMedia.secure_url ||
+        firstMedia.src;
+
+      if (mediaUrl) {
+
+        image = mediaUrl.startsWith("http")
+          ? mediaUrl
+          : `${BACKEND_URL}${mediaUrl}`;
+      }
     }
 
+    // HANDLE VIDEO POSTS
+    if (
+      firstMedia &&
+      firstMedia.type === "video"
+    ) {
+
+      const thumb =
+        firstMedia.thumbnailUrl ||
+        firstMedia.thumbnail ||
+        firstMedia.poster;
+
+      if (thumb) {
+
+        image = thumb.startsWith("http")
+          ? thumb
+          : `${BACKEND_URL}${thumb}`;
+      }
+    }
+
+    // TITLE
     const title =
       post.content?.substring(0, 60) ||
       `${post.user?.name} shared a post`;
 
+    // DESCRIPTION
     const description =
       post.content?.substring(0, 150) ||
       "Check this post on AfricSocial";
 
-    // FRONTEND URL
-    const url =
+    // FRONTEND REDIRECT
+    const redirectUrl =
       `${FRONTEND_URL}/post/${post._id}`;
 
+    // SEND HTML WITH OG TAGS
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
 
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <title>${title}</title>
+
+<meta name="description" content="${description}" />
 
 <meta property="og:title" content="${title}" />
 <meta property="og:description" content="${description}" />
 <meta property="og:image" content="${image}" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
-<meta property="og:url" content="${url}" />
+<meta property="og:url" content="${redirectUrl}" />
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="AfricSocial" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${title}" />
@@ -187,24 +242,28 @@ app.get("/post/:id", async (req, res) => {
 
 <script>
 setTimeout(() => {
-  window.location.href = "${url}";
+  window.location.href = "${redirectUrl}";
 }, 1000);
 </script>
 
 </head>
 
 <body>
+
 Redirecting...
+
 </body>
 </html>
 `);
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      "POST SHARE ERROR:",
+      err
+    );
 
     res.status(500).send("Server error");
-
   }
 });
 
