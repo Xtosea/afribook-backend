@@ -126,7 +126,6 @@ app.use("/uploads/media", express.static(path.join(process.cwd(), "public/upload
 app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 
 /* ================= POST SHARE PREVIEW ================= */
-import mongoose from "mongoose";
 
 app.get("/post/:id", async (req, res) => {
   try {
