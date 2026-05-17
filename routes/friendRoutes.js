@@ -209,4 +209,26 @@ router.get(
   }
 );
 
+router.post("/sync-contacts", auth, async (req, res) => {
+
+  try {
+
+    const { contacts } = req.body;
+
+    const users = await User.find({
+      phone: { $in: contacts }
+    }).select("name profilePic");
+
+    res.json(users);
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
 export default router;
