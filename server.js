@@ -42,6 +42,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_BACKUP_URL,
   "https://africsocial.globelynks.com",
+   "https://africbook.globelynks.com",
 ];
 
 app.use(
