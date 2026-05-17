@@ -130,24 +130,32 @@ router.get(
   "/suggestions",
   verifyToken,
   async (req, res) => {
+    try {
+      const currentUser = await User.findById(
+        req.user.id
+      );
 
-    const currentUser =
-      await User.findById(req.user.id);
+      const excludedIds = [
+        currentUser._id,
+        ...currentUser.friends,
+        ...currentUser.sentRequests,
+      ];
 
-    const excludedIds = [
-      currentUser._id,
-      ...currentUser.friends,
-      ...currentUser.sentRequests,
-    ];
+      const users = await User.find({
+        _id: { $nin: excludedIds },
+      })
+        .select("name profilePic")
+        .limit(20);
 
-    const users = await User.find({
-      _id: { $nin: excludedIds },
-    })
-      .select("name profilePic")
-      .limit(20);
+      res.json(users);
 
-    res.json(users);
+    } catch (err) {
+      console.error(err);
 
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
   }
 );
 
