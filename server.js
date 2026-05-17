@@ -31,7 +31,7 @@ import reelRoutes from "./routes/reelRoutes.js";
 import r2Routes from "./routes/r2Routes.js";
 import storyFeedRoutes from "./routes/storyFeedRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
-
+import friendRoutes from "./routes/friendRoutes.js";
 
 
 const app = express();
@@ -240,6 +240,7 @@ app.use("/api/r2", r2Routes);
 app.use("/api/r2stories", r2StoryRoutes);
 app.use("/api/stories", storyFeedRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/friends", friendRoutes);
 
 
 /* ================= TEST ROUTE ================= */
