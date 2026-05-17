@@ -146,23 +146,9 @@ app.get("/post/:id", async (req, res) => {
 
     if (firstMedia?.url) {
 
-      if (firstMedia.type === "image") {
-
-        image = firstMedia.url.startsWith("http")
-          ? firstMedia.url
-          : `${FRONTEND_URL}${firstMedia.url}`;
-      }
-
-      if (
-        firstMedia.type === "video" &&
-        firstMedia.thumbnailUrl
-      ) {
-
-        image =
-          firstMedia.thumbnailUrl.startsWith("http")
-            ? firstMedia.thumbnailUrl
-            : `${FRONTEND_URL}${firstMedia.thumbnailUrl}`;
-      }
+      image = firstMedia.url.startsWith("http")
+        ? firstMedia.url
+        : `${FRONTEND_URL}${firstMedia.url}`;
     }
 
     const title =
@@ -173,8 +159,9 @@ app.get("/post/:id", async (req, res) => {
       post.content?.substring(0, 150) ||
       "Check this post on AfricSocial";
 
+    // FRONTEND URL
     const url =
-  `https://afribook-backend.onrender.com/post/${post._id}`;
+      `${FRONTEND_URL}/post/${post._id}`;
 
     res.send(`
 <!DOCTYPE html>
@@ -201,15 +188,13 @@ app.get("/post/:id", async (req, res) => {
 <script>
 setTimeout(() => {
   window.location.href = "${url}";
-}, 1500);
+}, 1000);
 </script>
 
 </head>
 
 <body>
-
 Redirecting...
-
 </body>
 </html>
 `);
