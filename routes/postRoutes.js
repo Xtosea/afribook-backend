@@ -36,16 +36,37 @@ const s3 = new S3Client({
 
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { content, feeling, location, taggedFriends, media } = req.body;
+    const {
+  content,
+  feeling,
+  location,
+  taggedFriends,
+  media,
+  textColor,
+  backgroundStyle,
+  fontStyle,
+} = req.body;
 
     const post = new Post({
-      user: req.user.id,
-      content: content || "",
-      media: media || [],
-      feeling: feeling || "",
-      location: location || "",
-      taggedFriends: taggedFriends || [],
-    });
+  user: req.user.id,
+
+  content: content || "",
+
+  media: media || [],
+
+  feeling: feeling || "",
+
+  location: location || "",
+
+  taggedFriends: taggedFriends || [],
+
+  textColor: textColor || "#000000",
+
+  backgroundStyle:
+    backgroundStyle || "bg-white",
+
+  fontStyle: fontStyle || "",
+});
 
     await post.save();
 
