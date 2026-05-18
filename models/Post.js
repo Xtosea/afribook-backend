@@ -94,6 +94,22 @@ const postSchema = new mongoose.Schema({
     },
   ],
 
+
+textColor: {
+  type: String,
+  default: "#000000",
+},
+
+backgroundStyle: {
+  type: String,
+  default: "bg-white",
+},
+
+fontStyle: {
+  type: String,
+  default: "font-sans",
+},
+
   comments: [commentSchema],
 
   isReel: {
