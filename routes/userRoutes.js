@@ -17,6 +17,35 @@ const imagekit = new ImageKit({
   urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
 });
 
+router.get("/:userId")
+
+
+
+/* ================= GET ALL USERS ================= */
+
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    const users = await User.find({
+      _id: { $ne: req.user.id },
+    }).select(
+      "_id name profilePic intro"
+    );
+
+    res.json(users);
+
+  } catch (err) {
+    console.error(
+      "GET USERS ERROR:",
+      err
+    );
+
+    res.status(500).json({
+      error: "Server error",
+    });
+  }
+});
+
+
 /* ================= UPDATE PROFILE ================= */
 
 router.put("/:userId", verifyToken, async (req, res) => {
