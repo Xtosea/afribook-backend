@@ -495,4 +495,36 @@ router.put(
 );
 
 
+router.put(
+  "/:storyId/view",
+  verifyToken,
+  async (req, res) => {
+
+    const story =
+      await Story.findById(
+        req.params.storyId
+      );
+
+    if (!story.views.includes(req.user.id)) {
+
+      story.views.push(
+        req.user.id
+      );
+
+      // ADD STORY VIEW POINTS
+      await addPoints(
+        story.user,
+        1,
+        "story_view"
+      );
+    }
+
+    await story.save();
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
 export default router;
