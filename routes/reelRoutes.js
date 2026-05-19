@@ -82,4 +82,78 @@ router.post(
   }
 );
 
+
+router.put(
+  "/:id/like",
+  verifyToken,
+  async (req, res) => {
+
+    const reel =
+      await Reel.findById(
+        req.params.id
+      );
+
+    const alreadyLiked =
+      reel.likes.includes(
+        req.user.id
+      );
+
+    if (!alreadyLiked) {
+
+      reel.likes.push(
+        req.user.id
+      );
+
+      // REEL LIKE POINTS
+      await addPoints(
+        reel.user,
+        3,
+        "reel_like"
+      );
+    }
+
+    await reel.save();
+
+    res.json(reel);
+  }
+);
+
+
+
+router.put(
+  "/:id/view",
+  verifyToken,
+  async (req, res) => {
+
+    const reel =
+      await Reel.findById(
+        req.params.id
+      );
+
+    if (
+      !reel.views.includes(
+        req.user.id
+      )
+    ) {
+
+      reel.views.push(
+        req.user.id
+      );
+
+      // REEL VIEW POINTS
+      await addPoints(
+        reel.user,
+        1,
+        "reel_view"
+      );
+    }
+
+    await reel.save();
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
 export default router;
