@@ -451,4 +451,48 @@ router.get("/analytics/:id", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch analytics" });
   }
 });
+
+
+router.put(
+  "/:storyId/like",
+  verifyToken,
+  async (req, res) => {
+
+    const story =
+      await Story.findById(
+        req.params.storyId
+      );
+
+    if (!story) {
+      return res.status(404).json({
+        error: "Story not found",
+      });
+    }
+
+    const alreadyLiked =
+      story.likes.includes(
+        req.user.id
+      );
+
+    if (!alreadyLiked) {
+
+      story.likes.push(
+        req.user.id
+      );
+
+      // ADD STORY LIKE POINTS
+      await addPoints(
+        story.user,
+        2,
+        "story_like"
+      );
+    }
+
+    await story.save();
+
+    res.json(story);
+  }
+);
+
+
 export default router;
