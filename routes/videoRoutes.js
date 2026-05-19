@@ -85,4 +85,79 @@ router.post("/:videoId/comment", verifyToken, async (req, res) => {
   }
 });
 
+
+router.put(
+  "/:id/like",
+  verifyToken,
+  async (req, res) => {
+
+    const video =
+      await Video.findById(
+        req.params.id
+      );
+
+    const alreadyLiked =
+      video.likes.includes(
+        req.user.id
+      );
+
+    if (!alreadyLiked) {
+
+      video.likes.push(
+        req.user.id
+      );
+
+      // VIDEO LIKE POINTS
+      await addPoints(
+        video.user,
+        5,
+        "video_like"
+      );
+    }
+
+    await video.save();
+
+    res.json(video);
+  }
+);
+
+
+
+
+router.put(
+  "/:id/view",
+  verifyToken,
+  async (req, res) => {
+
+    const video =
+      await Video.findById(
+        req.params.id
+      );
+
+    if (
+      !video.views.includes(
+        req.user.id
+      )
+    ) {
+
+      video.views.push(
+        req.user.id
+      );
+
+      // VIDEO VIEW POINTS
+      await addPoints(
+        video.user,
+        2,
+        "video_view"
+      );
+    }
+
+    await video.save();
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
 export default router;
