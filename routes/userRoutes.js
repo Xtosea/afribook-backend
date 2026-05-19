@@ -17,8 +17,6 @@ const imagekit = new ImageKit({
   urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
 });
 
-router.get("/:userId")
-
 
 
 /* ================= GET ALL USERS ================= */
