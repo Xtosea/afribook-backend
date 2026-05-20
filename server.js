@@ -321,42 +321,135 @@ io.use((socket, next) => {
 let onlineUsers = [];
 
 io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
 
+  console.log(
+    "🟢 Socket connected:",
+    socket.id
+  );
+
+  // JOIN USER ROOM
   socket.on("join", (userId) => {
+
     socket.join(userId);
+
     socket.userId = userId;
 
-    if (!onlineUsers.includes(userId)) {
+    if (
+      !onlineUsers.includes(userId)
+    ) {
       onlineUsers.push(userId);
     }
 
-    io.emit("online-users", onlineUsers);
-
-    console.log(`👤 User ${userId} joined`);
-  });
-
-  socket.on("send-message", async (data) => {
-    try {
-      const message = await Message.create(data);
-
-      io.to(data.receiverId).emit("receive-message", message);
-      io.to(data.senderId).emit("receive-message", message);
-
-    } catch (error) {
-      console.error("Message error:", error);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected:", socket.id);
-
-    onlineUsers = onlineUsers.filter(
-      (id) => id !== socket.userId
+    io.emit(
+      "online-users",
+      onlineUsers
     );
 
-    io.emit("online-users", onlineUsers);
+    console.log(
+      `👤 User ${userId} joined`
+    );
   });
+
+  // SEND MESSAGE
+  socket.on(
+    "send-message",
+    async (data) => {
+
+      try {
+
+        const message =
+          await Message.create(data);
+
+        io.to(
+          data.receiver
+        ).emit(
+          "receive-message",
+          message
+        );
+
+        io.to(
+          data.sender
+        ).emit(
+          "receive-message",
+          message
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Message error:",
+          error
+        );
+      }
+    }
+  );
+
+  // ================= CALL EVENTS =================
+
+  // CALL USER
+  socket.on(
+    "call-user",
+    (data) => {
+
+      io.to(data.to).emit(
+        "incoming-call",
+        {
+          from:
+            data.from,
+          signal:
+            data.signal,
+          callType:
+            data.callType,
+        }
+      );
+    }
+  );
+
+  // ANSWER CALL
+  socket.on(
+    "answer-call",
+    (data) => {
+
+      io.to(data.to).emit(
+        "call-accepted",
+        data.signal
+      );
+    }
+  );
+
+  // END CALL
+  socket.on(
+    "end-call",
+    (data) => {
+
+      io.to(data.to).emit(
+        "call-ended"
+      );
+    }
+  );
+
+  // DISCONNECT
+  socket.on(
+    "disconnect",
+    () => {
+
+      console.log(
+        "🔴 Socket disconnected:",
+        socket.id
+      );
+
+      onlineUsers =
+        onlineUsers.filter(
+          (id) =>
+            id !== socket.userId
+        );
+
+      io.emit(
+        "online-users",
+        onlineUsers
+      );
+    }
+  );
 });
 
 /* ================= START SERVER ================= */
