@@ -90,4 +90,49 @@ router.post(
   }
 );
 
+
+router.post(
+  "/transfer",
+  verifyToken,
+  async (req, res) => {
+
+    try {
+
+      const {
+        proof,
+      } = req.body;
+
+      const verification =
+        await Verification.create({
+          user: req.user._id,
+
+          paymentMethod:
+            "TRANSFER",
+
+          proof,
+        });
+
+      await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          verificationStatus:
+            "PENDING",
+        }
+      );
+
+      res.json({
+        success: true,
+        verification,
+      });
+
+    } catch (err) {
+
+      res.status(500).json({
+        error:
+          "Transfer verification failed",
+      });
+    }
+  }
+);
+
 export default router;
