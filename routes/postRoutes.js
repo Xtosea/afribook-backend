@@ -293,29 +293,35 @@ router.post("/:id/like", verifyToken, async (req, res) => {
 
     } else {
 
-      post.likes.push(req.user.id);
+      
+post.likes.push(req.user.id);
+// CREATE NOTIFICATION
+if (
+  post.user.toString() !==
+  req.user.id
+) {
 
-    }
-
-    await post.save();
-
-    res.json({
-      success: true,
-      likes: post.likes,
-      likesCount: post.likes.length,
+  const notification =
+    await Notification.create({
+      recipient: post.user,
+      sender: req.user.id,
+      type: "LIKE",
+      post: post._id,
+      text: "liked your post",
     });
 
-  } catch (err) {
+  // POPULATE
+  await notification.populate(
+    "sender",
+    "name profilePic"
+  );
 
-    console.error(err);
-
-    res.status(500).json({
-      error: "Like failed",
-    });
-
-  }
-
-});
+  // REALTIME
+  io.to(post.user.toString()).emit(
+    "new-notification",
+    notification
+  );
+}
 
 /* ================= COMMENT ================= */
 router.post("/:id/comment", verifyToken, async (req, res) => {
@@ -335,6 +341,32 @@ router.post("/:id/comment", verifyToken, async (req, res) => {
     };
 
     post.comments.push(comment);
+
+   // CREATE NOTIFICATION
+if (
+  post.user.toString() !==
+  req.user.id
+) {
+
+  const notification =
+    await Notification.create({
+      recipient: post.user,
+      sender: req.user.id,
+      type: "COMMENT",
+      post: post._id,
+      text: "commented on your post",
+    });
+
+  await notification.populate(
+    "sender",
+    "name profilePic"
+  );
+
+  io.to(post.user.toString()).emit(
+    "new-notification",
+    notification
+  );
+}
 
     await post.save();
 
