@@ -1,34 +1,59 @@
 import mongoose from "mongoose";
 
-const messageSchema = new mongoose.Schema({
-  sender: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+const messageSchema =
+  new mongoose.Schema(
+    {
+      sender: {
+        type:
+          mongoose.Schema.Types
+            .ObjectId,
+        ref: "User",
+        required: true,
+      },
 
-  receiver: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+      receiver: {
+        type:
+          mongoose.Schema.Types
+            .ObjectId,
+        ref: "User",
+        required: true,
+      },
 
-  text: String,
+      text: {
+        type: String,
+        default: "",
+      },
 
-  media: String,
+      media: {
+        type: String,
+        default: "",
+      },
 
-  mediaType: {
-    type: String,
-    enum: ["image", "video", "audio"],
-  },
+      mediaType: {
+        type: String,
+        enum: [
+          "image",
+          "video",
+          "audio",
+        ],
+        default: null,
+      },
 
-  callType: {
-    type: String,
-    enum: ["voice", "video"],
-  },
+      callType: {
+        type: String,
+        enum: [
+          "voice",
+          "video",
+        ],
+        default: null,
+      },
+    },
+    {
+      timestamps: true,
+    }
+  );
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-export default mongoose.model("Message", messageSchema);
+export default mongoose.model(
+  "Message",
+  messageSchema
+);
