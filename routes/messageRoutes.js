@@ -4,33 +4,90 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", verifyToken, async (req, res) => {
+/* ================= SEND MESSAGE ================= */
 
-const { receiver, text } = req.body;
+router.post(
+  "/",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const {
+        receiver,
+        text,
+        media,
+        mediaType,
+      } = req.body;
 
-const message = await Message.create({
-sender: req.user.id,
-receiver,
-text
-});
+      const message =
+        await Message.create({
+          sender: req.user.id,
+          receiver,
+          text: text || "",
+          media: media || "",
+          mediaType:
+            mediaType || "",
+        });
 
-res.json(message);
+      // populate sender
+      const populatedMessage =
+        await Message.findById(
+          message._id
+        ).populate(
+          "sender",
+          "name profilePic"
+        );
 
-});
+      res.json(populatedMessage);
+    } catch (err) {
+      console.log(err);
 
-router.get("/:userId", verifyToken, async (req, res) => {
+      res.status(500).json({
+        error:
+          "Failed to send message",
+      });
+    }
+  }
+);
 
-const messages = await Message.find({
+/* ================= GET MESSAGES ================= */
 
-$or: [
-{ sender: req.user.id, receiver: req.params.userId },
-{ sender: req.params.userId, receiver: req.user.id }
-]
+router.get(
+  "/:userId",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const messages =
+        await Message.find({
+          $or: [
+            {
+              sender: req.user.id,
+              receiver:
+                req.params.userId,
+            },
+            {
+              sender:
+                req.params.userId,
+              receiver:
+                req.user.id,
+            },
+          ],
+        })
+          .sort({ createdAt: 1 })
+          .populate(
+            "sender",
+            "name profilePic"
+          );
 
-});
+      res.json(messages);
+    } catch (err) {
+      console.log(err);
 
-res.json(messages);
-
-});
+      res.status(500).json({
+        error:
+          "Failed to load messages",
+      });
+    }
+  }
+);
 
 export default router;
