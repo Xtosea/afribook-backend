@@ -11,6 +11,9 @@ router.post(
   verifyToken,
   async (req, res) => {
     try {
+      console.log("BODY:", req.body);
+      console.log("USER:", req.user);
+
       const {
         receiver,
         text,
@@ -18,17 +21,28 @@ router.post(
         mediaType,
       } = req.body;
 
+      if (!receiver) {
+        return res.status(400).json({
+          error: "Receiver is required",
+        });
+      }
+
       const message =
         await Message.create({
-          sender: req.user.id,
+          sender:
+            req.user._id ||
+            req.user.id,
+
           receiver,
+
           text: text || "",
+
           media: media || "",
+
           mediaType:
             mediaType || "",
         });
 
-      // populate sender
       const populatedMessage =
         await Message.findById(
           message._id
@@ -38,12 +52,18 @@ router.post(
         );
 
       res.json(populatedMessage);
+
     } catch (err) {
-      console.log(err);
+
+      console.log(
+        "SEND MESSAGE ERROR:",
+        err
+      );
 
       res.status(500).json({
         error:
           "Failed to send message",
+        details: err.message,
       });
     }
   }
@@ -56,11 +76,17 @@ router.get(
   verifyToken,
   async (req, res) => {
     try {
+
+      const currentUserId =
+        req.user._id ||
+        req.user.id;
+
       const messages =
         await Message.find({
           $or: [
             {
-              sender: req.user.id,
+              sender:
+                currentUserId,
               receiver:
                 req.params.userId,
             },
@@ -68,19 +94,26 @@ router.get(
               sender:
                 req.params.userId,
               receiver:
-                req.user.id,
+                currentUserId,
             },
           ],
         })
-          .sort({ createdAt: 1 })
+          .sort({
+            createdAt: 1,
+          })
           .populate(
             "sender",
             "name profilePic"
           );
 
       res.json(messages);
+
     } catch (err) {
-      console.log(err);
+
+      console.log(
+        "LOAD MESSAGE ERROR:",
+        err
+      );
 
       res.status(500).json({
         error:
