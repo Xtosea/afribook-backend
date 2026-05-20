@@ -3,6 +3,8 @@ import express from "express";
 import Story from "../models/Story.js";
 import Post from "../models/Post.js";
 import Wallet from "../models/Wallet.js";
+import { addPoints }
+from "../utils/addPoints.js";
 
 import {
   verifyToken,
