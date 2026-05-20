@@ -70,6 +70,21 @@ const postSchema = new mongoose.Schema({
     default: "",
   },
 
+
+savedBy: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+],
+
+pinned: {
+  type: Boolean,
+  default: false,
+},
+
+
+
   // TEMPORARY SIMPLE TAGS
   taggedFriends: [String],
 
