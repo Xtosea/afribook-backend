@@ -40,6 +40,24 @@ router.post("/request/:id", verifyToken, async (req, res) => {
     await receiver.save();
     await sender.save();
 
+   const notification =
+  await Notification.create({
+    recipient: receiver._id,
+    sender: sender._id,
+    type: "FOLLOW",
+    text: "sent you a friend request",
+  });
+
+await notification.populate(
+  "sender",
+  "name profilePic"
+);
+
+io.to(receiver._id.toString()).emit(
+  "new-notification",
+  notification
+);
+
     res.json({
       message: "Friend request sent",
     });
@@ -108,6 +126,24 @@ router.post("/accept/:id", verifyToken, async (req, res) => {
 
     await currentUser.save();
     await requester.save();
+
+    const notification =
+  await Notification.create({
+    recipient: requester._id,
+    sender: currentUser._id,
+    type: "FOLLOW",
+    text: "accepted your friend request",
+  });
+
+await notification.populate(
+  "sender",
+  "name profilePic"
+);
+
+io.to(requester._id.toString()).emit(
+  "new-notification",
+  notification
+);
 
     res.json({
       message: "Friend request accepted",
