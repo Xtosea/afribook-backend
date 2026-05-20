@@ -210,6 +210,27 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
+verified: {
+  type: Boolean,
+  default: false,
+},
+
+verificationStatus: {
+  type: String,
+  enum: [
+    "NONE",
+    "PENDING",
+    "APPROVED",
+    "REJECTED",
+  ],
+  default: "NONE",
+},
+
+verificationBadge: {
+  type: String,
+  default: "blue",
+},
+
 const User = mongoose.model("User", UserSchema);
 
 export default User;
