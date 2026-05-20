@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { sendEmail } from "../utils/mailer.js";
+import { addPoints }
+from "../utils/addPoints.js";
 
 const router = express.Router();
 
