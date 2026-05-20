@@ -201,14 +201,9 @@ const UserSchema = new mongoose.Schema(
 
     // Points system
     points: {
-      type: Number,
-      default: 0,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+  type: Number,
+  default: 0,
+},
 
 verified: {
   type: Boolean,
@@ -231,6 +226,17 @@ verificationBadge: {
   default: "blue",
 },
 
-const User = mongoose.model("User", UserSchema);
+},
+{
+  timestamps: true,
+}
+);
+
+const User = mongoose.model(
+  "User",
+  UserSchema
+);
+
+export default User;
 
 export default User;
