@@ -252,6 +252,8 @@ router.post(
   }
 );
 
+
+
 router.post(
   "/share/:id",
   verifyToken,
@@ -331,6 +333,26 @@ router.post(
       };
 
       story.replies.push(reply);
+
+const notification =
+  await Notification.create({
+    recipient: story.user._id,
+    sender: req.user.id,
+    type: "COMMENT",
+    text: "replied to your story",
+  });
+
+await notification.populate(
+  "sender",
+  "name profilePic"
+);
+
+io.to(
+  story.user._id.toString()
+).emit(
+  "new-notification",
+  notification
+);
 
       // reward creator
       story.engagementPoints += 3;
