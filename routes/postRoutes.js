@@ -283,45 +283,71 @@ router.post("/:id/like", verifyToken, async (req, res) => {
       });
     }
 
-    const alreadyLiked = post.likes.includes(req.user.id);
+    const alreadyLiked =
+      post.likes.includes(req.user.id);
 
     if (alreadyLiked) {
 
-      post.likes = post.likes.filter(
-        id => id.toString() !== req.user.id
-      );
+      post.likes =
+        post.likes.filter(
+          id =>
+            id.toString() !==
+            req.user.id
+        );
 
     } else {
 
-      
-post.likes.push(req.user.id);
-// CREATE NOTIFICATION
-if (
-  post.user.toString() !==
-  req.user.id
-) {
+      post.likes.push(req.user.id);
 
-  const notification =
-    await Notification.create({
-      recipient: post.user,
-      sender: req.user.id,
-      type: "LIKE",
-      post: post._id,
-      text: "liked your post",
+      // CREATE NOTIFICATION
+      if (
+        post.user.toString() !==
+        req.user.id
+      ) {
+
+        const notification =
+          await Notification.create({
+            recipient: post.user,
+            sender: req.user.id,
+            type: "LIKE",
+            post: post._id,
+            text: "liked your post",
+          });
+
+        await notification.populate(
+          "sender",
+          "name profilePic"
+        );
+
+        io.to(
+          post.user.toString()
+        ).emit(
+          "new-notification",
+          notification
+        );
+      }
+    }
+
+    await post.save();
+
+    io.emit("post-liked", {
+      postId: post._id,
+      likes: post.likes,
     });
 
-  // POPULATE
-  await notification.populate(
-    "sender",
-    "name profilePic"
-  );
+    res.json({
+      likes: post.likes,
+    });
 
-  // REALTIME
-  io.to(post.user.toString()).emit(
-    "new-notification",
-    notification
-  );
-}
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
 
 /* ================= COMMENT ================= */
 router.post("/:id/comment", verifyToken, async (req, res) => {
