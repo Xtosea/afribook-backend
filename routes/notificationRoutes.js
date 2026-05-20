@@ -59,4 +59,25 @@ router.put(
   }
 );
 
+
+router.get(
+  "/unread-count",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const count =
+        await Notification.countDocuments({
+          recipient: req.user.id,
+          read: false,
+        });
+
+      res.json({ count });
+    } catch (err) {
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
+  }
+);
+
 export default router;
