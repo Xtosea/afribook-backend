@@ -664,7 +664,6 @@ router.post(
 );
 
 
-
 // =========================
 // SAVED POSTS
 // =========================
@@ -672,20 +671,37 @@ router.get(
   "/saved/all",
   verifyToken,
   async (req, res) => {
-    ...
+    try {
+
+      const posts = await Post.find({
+        savedBy: req.user.id,
+      })
+        .populate(
+          "user",
+          "name profilePic"
+        )
+        .populate(
+          "comments.user",
+          "name profilePic"
+        )
+        .sort({ createdAt: -1 });
+
+      res.json(posts);
+
+    } catch (err) {
+
+      console.error(
+        "GET SAVED POSTS ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
   }
 );
 
-// =========================
-// SAVE POST
-// =========================
-router.put(
-  "/:id/save",
-  verifyToken,
-  async (req, res) => {
-    ...
-  }
-);
 
 // =========================
 // PIN POST
@@ -694,54 +710,16 @@ router.put(
   "/:id/pin",
   verifyToken,
   async (req, res) => {
-    ...
-  }
-);
-
-// =========================
-// REPORT POST
-// =========================
-router.post(
-  "/:id/report",
-  verifyToken,
-  async (req, res) => {
-    ...
-  }
-);
-
-// =========================
-// GET SINGLE POST
-// =========================
-router.get("/:id", async (req, res) => {
-  ...
-});
-
-// =========================
-// EDIT POST
-// =========================
-router.put(
-  "/:id",
-  verifyToken,
-  async (req, res) => {
-    ...
-  }
-);
-
-// =========================
-// DELETE POST
-// =========================
-router.delete(
-  "/:id",
-  verifyToken,
-  async (req, res) => {
     try {
-      const post = await Post.findById(
-        req.params.id
-      );
+
+      const post =
+        await Post.findById(
+          req.params.id
+        );
 
       if (!post) {
         return res.status(404).json({
-          message: "Post not found",
+          error: "Post not found",
         });
       }
 
@@ -751,34 +729,242 @@ router.delete(
         String(req.user.id)
       ) {
         return res.status(403).json({
-          message: "Not authorized",
+          error: "Not authorized",
         });
       }
 
-      // DELETE POST
-      await Post.findByIdAndDelete(
-        req.params.id
-      );
+      post.pinned = !post.pinned;
+
+      await post.save();
 
       res.json({
-        message: "Post deleted",
+        success: true,
+        pinned: post.pinned,
       });
 
     } catch (err) {
 
       console.error(
-        "DELETE POST ERROR:",
+        "PIN POST ERROR:",
         err
       );
 
       res.status(500).json({
-        message: "Server error",
         error: err.message,
       });
     }
   }
 );
 
+
+// =========================
+// REPORT POST
+// =========================
+router.post(
+  "/:id/report",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const {
+        reason,
+        message,
+      } = req.body;
+
+      const post =
+        await Post.findById(
+          req.params.id
+        );
+
+      if (!post) {
+        return res.status(404).json({
+          error: "Post not found",
+        });
+      }
+
+      const report =
+        await Report.create({
+          post: post._id,
+          reportedBy: req.user.id,
+          reason,
+          message,
+        });
+
+      res.json({
+        success: true,
+        report,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "REPORT POST ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
+
+
+// =========================
+// EDIT POST
+// =========================
+router.put(
+  "/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const {
+        content,
+        media,
+        textColor,
+        backgroundStyle,
+        fontStyle,
+      } = req.body;
+
+      const post =
+        await Post.findById(
+          req.params.id
+        );
+
+      if (!post) {
+        return res.status(404).json({
+          error: "Post not found",
+        });
+      }
+
+      // OWNER CHECK
+      if (
+        String(post.user) !==
+        String(req.user.id)
+      ) {
+        return res.status(403).json({
+          error: "Not authorized",
+        });
+      }
+
+      post.content =
+        content ?? post.content;
+
+      post.media =
+        media ?? post.media;
+
+      post.textColor =
+        textColor ??
+        post.textColor;
+
+      post.backgroundStyle =
+        backgroundStyle ??
+        post.backgroundStyle;
+
+      post.fontStyle =
+        fontStyle ??
+        post.fontStyle;
+
+      await post.save();
+
+      await post.populate(
+        "user",
+        "name profilePic"
+      );
+
+      io.emit("post-updated", post);
+
+      res.json(post);
+
+    } catch (err) {
+
+      console.error(
+        "EDIT POST ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
+
+
+// =========================
+// SAVE POST
+// =========================
+router.put(
+  "/:id/save",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const post =
+        await Post.findById(
+          req.params.id
+        );
+
+      if (!post) {
+        return res.status(404).json({
+          error: "Post not found",
+        });
+      }
+
+      // CREATE ARRAY IF MISSING
+      if (!post.savedBy) {
+        post.savedBy = [];
+      }
+
+      const alreadySaved =
+        post.savedBy.some(
+          (id) =>
+            id.toString() ===
+            req.user.id
+        );
+
+      // UNSAVE
+      if (alreadySaved) {
+
+        post.savedBy =
+          post.savedBy.filter(
+            (id) =>
+              id.toString() !==
+              req.user.id
+          );
+
+      }
+
+      // SAVE
+      else {
+
+        post.savedBy.push(
+          req.user.id
+        );
+      }
+
+      await post.save();
+
+      res.json({
+        success: true,
+        saved: !alreadySaved,
+        savedBy: post.savedBy,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "SAVE POST ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
 
 export default router;
 
