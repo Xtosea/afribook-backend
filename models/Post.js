@@ -1,236 +1,287 @@
 import mongoose from "mongoose";
 
-const commentSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+// ================= COMMENTS =================
 
-  text: String,
+const commentSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
+    text: {
+      type: String,
+      default: "",
+    },
   },
-});
+  {
+    timestamps: true,
+  }
+);
+
+// ================= MEDIA =================
 
 const mediaSchema = new mongoose.Schema({
-  url: String,
-  type: String,
-});
-
-const watchSessionSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-
-  duration: {
-    type: Number,
-    default: 0,
-  },
-
-  completed: {
-    type: Boolean,
-    default: false,
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-const postSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-
-  content: {
+  url: {
     type: String,
     default: "",
   },
-
-  media: [mediaSchema],
 
   type: {
     type: String,
-    default: "post",
+    enum: ["image", "video", "audio"],
+    default: "image",
   },
+});
 
-  feeling: {
-    type: String,
-    default: "",
-  },
+// ================= WATCH SESSION =================
 
-  location: {
-    type: String,
-    default: "",
-  },
-
-
-savedBy: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-],
-
-pinned: {
-  type: Boolean,
-  default: false,
-},
-
-
-
-  // TEMPORARY SIMPLE TAGS
-  taggedFriends: [String],
-
-  likes: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-  ],
-
-  reactions: [
+const watchSessionSchema =
+  new mongoose.Schema(
     {
       user: {
-        type: mongoose.Schema.Types.ObjectId,
+        type:
+          mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
 
-      type: {
-        type: String,
-        default: "❤️",
+      duration: {
+        type: Number,
+        default: 0,
+      },
+
+      completed: {
+        type: Boolean,
+        default: false,
       },
     },
-  ],
-
-
-textColor: {
-  type: String,
-  default: "#000000",
-},
-
-backgroundStyle: {
-  type: String,
-  default: "bg-white",
-},
-
-fontStyle: {
-  type: String,
-  default: "font-sans",
-},
-
-  comments: [commentSchema],
-
-  isReel: {
-    type: Boolean,
-    default: false,
-  },
-
-
-sponsored: {
-  type: Boolean,
-  default: false,
-},
-
-sponsor: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-},
-
-promotionBudget: {
-  type: Number,
-  default: 0,
-},
-
-adClicks: {
-  type: Number,
-  default: 0,
-},
-
-
-tags: [
-  String,
-],
-
-category: {
-  type: String,
-  default: "general",
-},
-
-aiScore: {
-  type: Number,
-  default: 0,
-},
-
-viralScore: {
-  type: Number,
-  default: 0,
-},
-
-title: {
-  type: String,
-  default: "",
-},
-
-
-
-  // ================= VIDEO / REEL ANALYTICS =================
-
-  watchTime: {
-    type: Number,
-    default: 0,
-  },
-
-  watchSessions: [watchSessionSchema],
-
-  engagementPoints: {
-    type: Number,
-    default: 0,
-  },
-
-  earnings: {
-    type: Number,
-    default: 0,
-  },
-
-  viral: {
-    type: Boolean,
-    default: false,
-  },
-
-  multiplier: {
-    type: Number,
-    default: 1,
-  },
-
-  shares: {
-    type: Number,
-    default: 0,
-  },
-
-  views: [
     {
-      type: mongoose.Schema.Types.ObjectId,
+      timestamps: true,
+    }
+  );
+
+// ================= POST =================
+
+const postSchema = new mongoose.Schema(
+  {
+    // ================= OWNER =================
+
+    user: {
+      type:
+        mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    // ================= CONTENT =================
+
+    title: {
+      type: String,
+      default: "",
+    },
+
+    content: {
+      type: String,
+      default: "",
+    },
+
+    media: [mediaSchema],
+
+    type: {
+      type: String,
+      default: "post",
+    },
+
+    isReel: {
+      type: Boolean,
+      default: false,
+    },
+
+    // ================= POST STYLE =================
+
+    feeling: {
+      type: String,
+      default: "",
+    },
+
+    location: {
+      type: String,
+      default: "",
+    },
+
+    textColor: {
+      type: String,
+      default: "#000000",
+    },
+
+    backgroundStyle: {
+      type: String,
+      default: "bg-white",
+    },
+
+    fontStyle: {
+      type: String,
+      default: "font-sans",
+    },
+
+    // ================= TAGGING =================
+
+    taggedFriends: [
+      {
+        type: String,
+      },
+    ],
+
+    tags: [String],
+
+    category: {
+      type: String,
+      enum: [
+        "general",
+        "music",
+        "sports",
+        "comedy",
+        "education",
+        "gaming",
+        "movies",
+        "news",
+      ],
+      default: "general",
+    },
+
+    // ================= ENGAGEMENT =================
+
+    likes: [
+      {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    reactions: [
+      {
+        user: {
+          type:
+            mongoose.Schema.Types
+              .ObjectId,
+          ref: "User",
+        },
+
+        type: {
+          type: String,
+          default: "❤️",
+        },
+      },
+    ],
+
+    comments: [commentSchema],
+
+    shares: {
+      type: Number,
+      default: 0,
+    },
+
+    // ================= SAVED / PINNED =================
+
+    savedBy: [
+      {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    pinned: {
+      type: Boolean,
+      default: false,
+    },
+
+    // ================= SPONSORED =================
+
+    sponsored: {
+      type: Boolean,
+      default: false,
+    },
+
+    sponsor: {
+      type:
+        mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-  ],
 
-  viewsCount: {
-    type: Number,
-    default: 0,
-  },
+    promotionBudget: {
+      type: Number,
+      default: 0,
+    },
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
+    adClicks: {
+      type: Number,
+      default: 0,
+    },
+
+    // ================= AI / VIRAL =================
+
+    aiScore: {
+      type: Number,
+      default: 0,
+    },
+
+    viralScore: {
+      type: Number,
+      default: 0,
+    },
+
+    viral: {
+      type: Boolean,
+      default: false,
+    },
+
+    multiplier: {
+      type: Number,
+      default: 1,
+    },
+
+    // ================= VIDEO ANALYTICS =================
+
+    watchTime: {
+      type: Number,
+      default: 0,
+    },
+
+    watchSessions: [
+      watchSessionSchema,
+    ],
+
+    engagementPoints: {
+      type: Number,
+      default: 0,
+    },
+
+    earnings: {
+      type: Number,
+      default: 0,
+    },
+
+    // ================= VIEWS =================
+
+    views: [
+      {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    viewsCount: {
+      type: Number,
+      default: 0,
+    },
   },
-});
+  {
+    timestamps: true,
+  }
+);
 
 const Post = mongoose.model(
   "Post",
