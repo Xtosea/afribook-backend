@@ -966,5 +966,66 @@ router.put(
   }
 );
 
+
+// =========================
+// DELETE POST
+// =========================
+router.delete(
+  "/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+
+      const post = await Post.findById(
+        req.params.id
+      );
+
+      if (!post) {
+        return res.status(404).json({
+          error: "Post not found",
+        });
+      }
+
+      // OWNER CHECK
+      if (
+        post.user.toString() !==
+        req.user.id
+      ) {
+        return res.status(403).json({
+          error: "Not authorized",
+        });
+      }
+
+      // DELETE POST
+      await Post.findByIdAndDelete(
+        req.params.id
+      );
+
+      // OPTIONAL REALTIME UPDATE
+      io.emit("post-deleted", {
+        postId: req.params.id,
+      });
+
+      res.json({
+        success: true,
+        message: "Post deleted",
+      });
+
+    } catch (err) {
+
+      console.error(
+        "DELETE POST ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
+
+
+
 export default router;
 
