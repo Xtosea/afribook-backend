@@ -747,10 +747,50 @@ router.delete(
   "/:id",
   verifyToken,
   async (req, res) => {
-    ...
+    try {
+      const post = await Post.findById(
+        req.params.id
+      );
+
+      if (!post) {
+        return res.status(404).json({
+          message: "Post not found",
+        });
+      }
+
+      // OWNER CHECK
+      if (
+        String(post.user) !==
+        String(req.user.id)
+      ) {
+        return res.status(403).json({
+          message: "Not authorized",
+        });
+      }
+
+      // DELETE POST
+      await Post.findByIdAndDelete(
+        req.params.id
+      );
+
+      res.json({
+        message: "Post deleted",
+      });
+
+    } catch (err) {
+
+      console.error(
+        "DELETE POST ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        message: "Server error",
+        error: err.message,
+      });
+    }
   }
 );
-
 
 
 export default router;
