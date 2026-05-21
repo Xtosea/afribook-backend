@@ -4,6 +4,7 @@ import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 import Post from "../models/Post.js";
+import Report from "../models/Report";
 import Comment from "../models/Comment.js";
 import Notification from "../models/Notification.js";
 
