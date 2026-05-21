@@ -1025,7 +1025,31 @@ router.delete(
   }
 );
 
+router.put("/:id/restore", verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
 
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (String(post.user) !== String(req.user.id)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    post.isDeleted = false;
+    await post.save();
+
+    res.json({
+      message: "Post restored",
+      post,
+    });
+
+  } catch (err) {
+    console.error("RESTORE ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;
 
