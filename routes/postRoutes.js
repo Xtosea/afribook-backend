@@ -421,18 +421,7 @@ if (
   }
 });
 
-/* ================= DELETE ================= */
 
-router.delete("/:postId", verifyToken, async (req, res) => {
-  try {
-
-    const post = await Post.findById(req.params.postId);
-
-    if (post.user.toString() !== req.user.id) {
-      return res.status(403).json({
-        error: "Unauthorized",
-      });
-    }
 
     await post.deleteOne();
 
@@ -688,7 +677,78 @@ router.post(
 
 
 
+// =========================
+// SAVED POSTS
+// =========================
+router.get(
+  "/saved/all",
+  verifyToken,
+  async (req, res) => {
+    ...
+  }
+);
 
+// =========================
+// SAVE POST
+// =========================
+router.put(
+  "/:id/save",
+  verifyToken,
+  async (req, res) => {
+    ...
+  }
+);
+
+// =========================
+// PIN POST
+// =========================
+router.put(
+  "/:id/pin",
+  verifyToken,
+  async (req, res) => {
+    ...
+  }
+);
+
+// =========================
+// REPORT POST
+// =========================
+router.post(
+  "/:id/report",
+  verifyToken,
+  async (req, res) => {
+    ...
+  }
+);
+
+// =========================
+// GET SINGLE POST
+// =========================
+router.get("/:id", async (req, res) => {
+  ...
+});
+
+// =========================
+// EDIT POST
+// =========================
+router.put(
+  "/:id",
+  verifyToken,
+  async (req, res) => {
+    ...
+  }
+);
+
+// =========================
+// DELETE POST
+// =========================
+router.delete(
+  "/:id",
+  verifyToken,
+  async (req, res) => {
+    ...
+  }
+);
 
 
 
