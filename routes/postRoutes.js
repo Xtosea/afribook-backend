@@ -422,20 +422,7 @@ if (
   }
 });
 
-
-
-    await post.deleteOne();
-
-    res.json({
-      message: "Post deleted",
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-
+    
 /* ================= Share ================= */
 
 router.post("/:id/share", verifyToken, async (req, res) => {
