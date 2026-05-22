@@ -462,43 +462,71 @@ router.post("/:id/share", verifyToken, async (req, res) => {
 
 /* ================= RECORD REEL VIEW ================= */
 
-router.post("/reels/view/:id", async (req, res) => {
-  try {
+router.post(
+  "/reels/view/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
 
-    const reel = await Post.findById(req.params.id);
+      const reel =
+        await Post.findById(
+          req.params.id
+        );
 
-    if (!reel) {
-      return res.status(404).json({
-        error: "Reel not found",
+      if (!reel) {
+        return res.status(404).json({
+          error: "Reel not found",
+        });
+      }
+
+      // CREATE ARRAY IF MISSING
+      if (!reel.viewedBy) {
+        reel.viewedBy = [];
+      }
+
+      const alreadyViewed =
+        reel.viewedBy.some(
+          (id) =>
+            id.toString() ===
+            req.user.id
+        );
+
+      // COUNT ONLY ONCE
+      if (!alreadyViewed) {
+
+        reel.viewedBy.push(
+          req.user.id
+        );
+
+        reel.views =
+          (reel.views || 0) + 1;
+
+        await reel.save();
+
+        io.emit("reel-view", {
+          reelId: reel._id,
+          views: reel.views,
+        });
+      }
+
+      res.json({
+        success: true,
+        views: reel.views,
+      });
+
+    } catch (err) {
+
+      console.error(
+        "REEL VIEW ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
       });
     }
-
-    // Increase views
-    reel.views = (reel.views || 0) + 1;
-
-    await reel.save();
-
-    // Optional realtime socket update
-    io.emit("reel-view", {
-      reelId: reel._id,
-      views: reel.views,
-    });
-
-    res.json({
-      success: true,
-      views: reel.views,
-    });
-
-  } catch (err) {
-
-    console.error("REEL VIEW ERROR:", err);
-
-    res.status(500).json({
-      error: err.message,
-    });
-
   }
-});
+);
 
 
 /* ================= GET SINGLE POST ================= */
