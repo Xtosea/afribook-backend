@@ -264,17 +264,10 @@ const postSchema = new mongoose.Schema(
     },
 
 
-viewedBy: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-],
-
 
     // ================= VIEWS =================
 
-    views: [
+    viewedBy: [
       {
         type:
           mongoose.Schema.Types.ObjectId,
@@ -287,6 +280,7 @@ viewedBy: [
       default: 0,
     },
   },
+
   {
     timestamps: true,
   }
