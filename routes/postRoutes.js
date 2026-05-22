@@ -238,6 +238,7 @@ router.post(
 
 router.get("/reels", async (req, res) => {
   try {
+
     const page =
       Number(req.query.page) || 1;
 
@@ -246,14 +247,27 @@ router.get("/reels", async (req, res) => {
     const reels = await Post.find({
       isReel: true,
     })
-      .populate("user", "name profilePic")
+
+      .populate(
+        "user",
+        "name profilePic"
+      )
+
+      .populate(
+        "viewedBy",
+        "name profilePic"
+      )
+
       .sort({ createdAt: -1 })
+
       .skip((page - 1) * limit)
+
       .limit(limit);
 
     res.json(reels);
 
   } catch (err) {
+
     console.error(
       "GET REELS ERROR:",
       err
