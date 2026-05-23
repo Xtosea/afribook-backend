@@ -210,6 +210,25 @@ verified: {
   default: false,
 },
 
+contacts: [
+  {
+    name: {
+      type: String,
+      default: "",
+    },
+    phone: {
+      type: String,
+      default: "",
+    },
+    email: {
+      type: String,
+      default: "",
+    },
+  },
+],
+
+
+
 verificationStatus: {
   type: String,
   enum: [
