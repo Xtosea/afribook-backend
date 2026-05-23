@@ -185,7 +185,9 @@ router.post("/resend-verification", async (req, res) => {
 
     await user.save();
 
-    const verifyUrl = `https://africsocial.globelynks.com//verify-email/${verifyToken}`;
+    // ✅ FIXED URL
+    const verifyUrl =
+      `https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${user.email}`;
 
     await sendEmail({
       to: user.email,
@@ -204,6 +206,7 @@ router.post("/resend-verification", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 /* ================= FORGOT PASSWORD ================= */
 router.post("/forgot-password", async (req, res) => {
