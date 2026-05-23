@@ -1,9 +1,9 @@
 import express from "express";
-import authMiddleware from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 import { syncContacts } from "../controllers/contactController.js";
 
 const router = express.Router();
 
-router.post("/sync", authMiddleware, syncContacts);
+router.post("/sync", verifyToken, syncContacts);
 
 export default router;
