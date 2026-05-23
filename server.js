@@ -33,6 +33,8 @@ import storyFeedRoutes from "./routes/storyFeedRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
 import friendRoutes from "./routes/friendRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import contactRoutes from "./routes/contactRoutes.js";
+
 
 const app = express();
 app.set("trust proxy", 1);
@@ -286,7 +288,7 @@ app.use("/api/stories", storyFeedRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/ai", aiRoutes);
-
+app.use("/api/contacts", contactRoutes);
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
