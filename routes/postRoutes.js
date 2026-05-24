@@ -687,7 +687,7 @@ router.get("/:id", async (req, res) => {
 
 router.post(
   "/:id/share-to-feed",
-  authMiddleware,
+  verifyToken,
   sharePostToFeed
 );
 
