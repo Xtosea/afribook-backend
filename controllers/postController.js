@@ -61,3 +61,26 @@ export const likePost = async (req, res) => {
 
   }
 };
+
+
+export const sharePostToFeed = async (req, res) => {
+  try {
+    const originalPost = await Post.findById(req.params.id);
+
+    if (!originalPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const newPost = await Post.create({
+      user: req.user._id,
+      content: `🔁 Shared: ${originalPost.content || ""}`,
+      media: originalPost.media,
+      sharedFrom: originalPost._id,
+    });
+
+    return res.json({ post: newPost });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Share failed" });
+  }
+};
