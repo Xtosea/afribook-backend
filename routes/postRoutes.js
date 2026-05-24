@@ -19,6 +19,38 @@ const upload = multer({
   dest: "/tmp",
 });
 
+
+/* ================= SHARE TO FEED Function ================= */
+const sharePostToFeed = async (req, res) => {
+  try {
+    const originalPost = await Post.findById(req.params.id);
+
+    if (!originalPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const newPost = await Post.create({
+      user: req.user.id,
+      content: `🔁 Shared: ${originalPost.content || ""}`,
+      media: originalPost.media,
+      sharedFrom: originalPost._id,
+    });
+
+    await newPost.populate("user", "name profilePic");
+
+    io.emit("new-post", newPost);
+
+    res.json({ post: newPost });
+
+  } catch (err) {
+    console.error("SHARE TO FEED ERROR:", err);
+    res.status(500).json({ message: "Share failed" });
+  }
+};
+
+
+
+
 /* ================= R2 CONFIG ================= */
 
 const {
@@ -713,5 +745,14 @@ export const sharePostToFeed = async (req, res) => {
     res.status(500).json({ message: "Share failed" });
   }
 };
+
+
+/* ================= SHARE TO FEED ================= Route*/
+
+router.post(
+  "/:id/share-to-feed",
+  verifyToken,
+  sharePostToFeed
+);
 
 export default router;
