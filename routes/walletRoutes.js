@@ -1,6 +1,7 @@
 import express from "express";
 import Wallet from "../models/Wallet.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import Withdrawal from "../models/Withdrawal.js";
 
 const router = express.Router();
 
