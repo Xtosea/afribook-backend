@@ -6,16 +6,8 @@ const walletSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       unique: true,
+      required: true,
     },
-
-
-    user: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-  unique: true,
-  required: true,
-},
-
 
     points: {
       type: Number,
