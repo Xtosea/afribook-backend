@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { sendEmail } from "../utils/mailer.js";
 import { addPoints }
 from "../utils/addPoints.js";
+import Wallet from "../models/Wallet.js";
 
 const router = express.Router();
 
@@ -48,13 +49,18 @@ router.post("/register", async (req, res) => {
 
     // CREATE USER
     const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      verifyToken,
-      verifyTokenExpiry:
-        Date.now() + 3600000,
-    });
+  name,
+  email,
+  password: hashedPassword,
+  verifyToken,
+  verifyTokenExpiry:
+    Date.now() + 3600000,
+});
+
+// Create wallet for user
+await Wallet.create({
+  user: user._id,
+});
 
     console.log(
       "Generated token:",
