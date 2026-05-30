@@ -67,15 +67,59 @@ router.get(
           user: req.user._id,
         });
 
-      res.json(wallet);
+      if (!wallet) {
+        return res.status(404).json({
+          error: "Wallet not found",
+        });
+      }
+
+      res.json({
+        balance:
+          wallet.balance || 0,
+
+        points:
+          wallet.points || 0,
+
+        storyLikes:
+          wallet.storyLikes || 0,
+
+        storyViews:
+          wallet.storyViews || 0,
+
+        reelLikes:
+          wallet.reelLikes || 0,
+
+        reelViews:
+          wallet.reelViews || 0,
+
+        videoLikes:
+          wallet.videoLikes || 0,
+
+        videoViews:
+          wallet.videoViews || 0,
+
+        referralPoints:
+          wallet.referralPoints || 0,
+
+        leaderboardPoints:
+          wallet.leaderboardPoints || 0,
+
+        lifetimeEarned:
+          wallet.lifetimeEarned || 0,
+
+        pending:
+          wallet.pending || 0,
+      });
+
     } catch (err) {
+      console.error(err);
+
       res.status(500).json({
         error: "Failed to get wallet",
       });
     }
   }
 );
-
 
 router.post(
   "/withdraw",
