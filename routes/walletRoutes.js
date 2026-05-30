@@ -73,12 +73,7 @@ router.post("/convert", verifyToken, async (req, res) => {
 /* ================= WITHDRAW ================= */
 router.post("/withdraw", verifyToken, async (req, res) => {
   try {
-    const {
-      amount,
-      bankName,
-      accountNumber,
-      accountName,
-    } = req.body;
+    const { amount, bankName, accountNumber, accountName } = req.body;
 
     let wallet = await Wallet.findOne({ user: req.user.id });
 
@@ -91,7 +86,7 @@ router.post("/withdraw", verifyToken, async (req, res) => {
     }
 
     if (!bankName || !accountNumber || !accountName) {
-      return res.status(400).json({ error: "Bank details are required" });
+      return res.status(400).json({ error: "Bank details required" });
     }
 
     if (wallet.balance < amount) {
