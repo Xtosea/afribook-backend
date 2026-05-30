@@ -8,64 +8,12 @@ const walletSchema = new mongoose.Schema(
       unique: true,
     },
 
-    // MAIN POINTS
     points: {
       type: Number,
       default: 0,
     },
 
-    // STORY
-    storyLikes: {
-      type: Number,
-      default: 0,
-    },
-
-    storyViews: {
-      type: Number,
-      default: 0,
-    },
-
-    // REELS
-    reelLikes: {
-      type: Number,
-      default: 0,
-    },
-
-    reelViews: {
-      type: Number,
-      default: 0,
-    },
-
-    // VIDEOS
-    videoLikes: {
-      type: Number,
-      default: 0,
-    },
-
-    videoViews: {
-      type: Number,
-      default: 0,
-    },
-
-    // REFERRALS
-    referralPoints: {
-      type: Number,
-      default: 0,
-    },
-
-    // LEADERBOARD
-    leaderboardPoints: {
-      type: Number,
-      default: 0,
-    },
-
-    // MONEY
     balance: {
-      type: Number,
-      default: 0,
-    },
-
-    totalEarned: {
       type: Number,
       default: 0,
     },
@@ -76,6 +24,46 @@ const walletSchema = new mongoose.Schema(
     },
 
     pending: {
+      type: Number,
+      default: 0,
+    },
+
+    storyLikes: {
+      type: Number,
+      default: 0,
+    },
+
+    storyViews: {
+      type: Number,
+      default: 0,
+    },
+
+    reelLikes: {
+      type: Number,
+      default: 0,
+    },
+
+    reelViews: {
+      type: Number,
+      default: 0,
+    },
+
+    videoLikes: {
+      type: Number,
+      default: 0,
+    },
+
+    videoViews: {
+      type: Number,
+      default: 0,
+    },
+
+    referralPoints: {
+      type: Number,
+      default: 0,
+    },
+
+    leaderboardPoints: {
       type: Number,
       default: 0,
     },
