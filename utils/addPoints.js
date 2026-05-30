@@ -9,7 +9,6 @@ export const addPoints = async (userId, amount = 0, type = "") => {
     wallet = await Wallet.create({ user: userId });
   }
 
-  // ensure safe defaults
   wallet.points = (wallet.points || 0) + amount;
 
   switch (type) {
@@ -48,11 +47,12 @@ export const addPoints = async (userId, amount = 0, type = "") => {
 
   await wallet.save();
 
-  console.log("💰 Wallet updated:", {
+  // 🔥 DEBUG LOG (VERY IMPORTANT)
+  console.log("💰 POINTS ADDED:", {
     userId,
     amount,
     type,
-    totalPoints: wallet.points,
+    total: wallet.points,
   });
 
   return wallet;
