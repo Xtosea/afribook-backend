@@ -1,27 +1,30 @@
 import express from "express";
 import Wallet from "../models/Wallet.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
 import Withdrawal from "../models/Withdrawal.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // 10000 points = 5000 NGN
 const RATE = 0.5;
 
+/* ================= CONVERT POINTS ================= */
+
 router.post(
   "/convert",
   verifyToken,
   async (req, res) => {
     try {
-      const wallet =
+      let wallet =
         await Wallet.findOne({
           user: req.user._id,
         });
 
       if (!wallet) {
-        return res.status(404).json({
-          error: "Wallet not found",
-        });
+        wallet =
+          await Wallet.create({
+            user: req.user._id,
+          });
       }
 
       if (wallet.points < 10000) {
@@ -34,9 +37,13 @@ router.post(
       const cash =
         wallet.points * RATE;
 
-      wallet.balance += cash;
+      wallet.balance =
+        (wallet.balance || 0) +
+        cash;
 
-      wallet.lifetimeEarned += cash;
+      wallet.lifetimeEarned =
+        (wallet.lifetimeEarned || 0) +
+        cash;
 
       wallet.points = 0;
 
@@ -48,6 +55,7 @@ router.post(
         points: wallet.points,
         earned: cash,
       });
+
     } catch (err) {
       console.error(err);
 
@@ -58,20 +66,23 @@ router.post(
   }
 );
 
+/* ================= GET WALLET ================= */
+
 router.get(
   "/",
   verifyToken,
   async (req, res) => {
     try {
-      const wallet =
+      let wallet =
         await Wallet.findOne({
           user: req.user._id,
         });
 
       if (!wallet) {
-        return res.status(404).json({
-          error: "Wallet not found",
-        });
+        wallet =
+          await Wallet.create({
+            user: req.user._id,
+          });
       }
 
       res.json({
@@ -122,12 +133,13 @@ router.get(
   }
 );
 
+/* ================= WITHDRAW ================= */
+
 router.post(
   "/withdraw",
   verifyToken,
   async (req, res) => {
     try {
-
       const {
         amount,
         bankName,
@@ -135,16 +147,36 @@ router.post(
         accountName,
       } = req.body;
 
-      const wallet =
+      let wallet =
         await Wallet.findOne({
-          user:
-            req.user._id,
+          user: req.user._id,
         });
 
+      if (!wallet) {
+        wallet =
+          await Wallet.create({
+            user: req.user._id,
+          });
+      }
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({
+          error: "Invalid amount",
+        });
+      }
+
       if (
-        wallet.balance <
-        amount
+        !bankName ||
+        !accountNumber ||
+        !accountName
       ) {
+        return res.status(400).json({
+          error:
+            "Bank details are required",
+        });
+      }
+
+      if (wallet.balance < amount) {
         return res.status(400).json({
           error:
             "Insufficient balance",
@@ -153,36 +185,25 @@ router.post(
 
       wallet.balance -= amount;
 
+      wallet.pending =
+        (wallet.pending || 0) +
+        Number(amount);
+
       await wallet.save();
 
       const withdrawal =
         await Withdrawal.create({
-          user:
-            req.user._id,
-
+          user: req.user._id,
           amount,
-
           bankName,
-
           accountNumber,
-
           accountName,
+          status: "pending",
         });
 
       res.json({
         success: true,
+        message:
+          "Withdrawal request submitted",
         withdrawal,
       });
-
-    } catch (err) {
-      console.error(err);
-
-      res.status(500).json({
-        error:
-          "Withdrawal failed",
-      });
-    }
-  }
-);
-
-export default router;
