@@ -16,12 +16,12 @@ router.post(
   async (req, res) => {
     try {
       let wallet = await Wallet.findOne({
-        user: req.user._id,
+        user: req.user.id,
       });
 
       if (!wallet) {
         wallet = await Wallet.create({
-          user: req.user._id,
+          user: req.user.id,
         });
       }
 
@@ -33,12 +33,8 @@ router.post(
 
       const cash = wallet.points * RATE;
 
-      wallet.balance =
-        (wallet.balance || 0) + cash;
-
-      wallet.lifetimeEarned =
-        (wallet.lifetimeEarned || 0) + cash;
-
+      wallet.balance += cash;
+      wallet.lifetimeEarned += cash;
       wallet.points = 0;
 
       await wallet.save();
@@ -50,7 +46,7 @@ router.post(
         earned: cash,
       });
     } catch (err) {
-      console.error(err);
+      console.error("CONVERT ERROR:", err);
 
       res.status(500).json({
         error: "Conversion failed",
@@ -67,12 +63,12 @@ router.get(
   async (req, res) => {
     try {
       let wallet = await Wallet.findOne({
-        user: req.user._id,
+        user: req.user.id,
       });
 
       if (!wallet) {
         wallet = await Wallet.create({
-          user: req.user._id,
+          user: req.user.id,
         });
       }
 
@@ -91,10 +87,11 @@ router.get(
           wallet.leaderboardPoints || 0,
         lifetimeEarned:
           wallet.lifetimeEarned || 0,
-        pending: wallet.pending || 0,
+        pending:
+          wallet.pending || 0,
       });
     } catch (err) {
-      console.error(err);
+      console.error("GET WALLET ERROR:", err);
 
       res.status(500).json({
         error: "Failed to get wallet",
@@ -118,12 +115,12 @@ router.post(
       } = req.body;
 
       let wallet = await Wallet.findOne({
-        user: req.user._id,
+        user: req.user.id,
       });
 
       if (!wallet) {
         wallet = await Wallet.create({
-          user: req.user._id,
+          user: req.user.id,
         });
       }
 
@@ -151,15 +148,13 @@ router.post(
 
       wallet.balance -= Number(amount);
 
-      wallet.pending =
-        (wallet.pending || 0) +
-        Number(amount);
+      wallet.pending += Number(amount);
 
       await wallet.save();
 
       const withdrawal =
         await Withdrawal.create({
-          user: req.user._id,
+          user: req.user.id,
           amount,
           bankName,
           accountNumber,
@@ -174,7 +169,10 @@ router.post(
         withdrawal,
       });
     } catch (err) {
-      console.error(err);
+      console.error(
+        "WITHDRAW ERROR:",
+        err
+      );
 
       res.status(500).json({
         error: "Withdrawal failed",
