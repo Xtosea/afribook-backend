@@ -478,6 +478,17 @@ router.post(
       } else {
         post.likes.push(req.user.id);
 
+        
+        if (!post.isReel) {
+
+  await addPoints(
+    post.user,
+    2,
+    "video_like"
+  );
+}
+
+
         if (
           post.user.toString() !==
           req.user.id
@@ -730,6 +741,56 @@ router.post(
   "/:id/share-to-feed",
   verifyToken,
   sharePostToFeed
+);
+
+
+
+router.post(
+  "/:id/view",
+  verifyToken,
+  async (req, res) => {
+
+    const post =
+      await Post.findById(
+        req.params.id
+      );
+
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
+
+    if (!post.viewedBy) {
+      post.viewedBy = [];
+    }
+
+    const alreadyViewed =
+      post.viewedBy.includes(
+        req.user.id
+      );
+
+    if (!alreadyViewed) {
+
+      post.viewedBy.push(
+        req.user.id
+      );
+
+      post.viewsCount += 1;
+
+      await addPoints(
+        post.user,
+        1,
+        "video_view"
+      );
+
+      await post.save();
+    }
+
+    res.json({
+      success: true,
+    });
+  }
 );
 
 export default router;
