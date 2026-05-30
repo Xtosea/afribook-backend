@@ -9,48 +9,54 @@ export const addPoints = async (
     user: userId,
   });
 
-  // CREATE WALLET IF NONE
   if (!wallet) {
     wallet = await Wallet.create({
       user: userId,
     });
   }
 
-  wallet.points += amount;
+  wallet.points =
+    (wallet.points || 0) + amount;
 
-  // TRACK TYPES
   switch (type) {
-
     case "story_like":
-      wallet.storyLikes += amount;
+      wallet.storyLikes =
+        (wallet.storyLikes || 0) + amount;
       break;
 
     case "story_view":
-      wallet.storyViews += amount;
+      wallet.storyViews =
+        (wallet.storyViews || 0) + amount;
       break;
 
     case "reel_like":
-      wallet.reelLikes += amount;
+      wallet.reelLikes =
+        (wallet.reelLikes || 0) + amount;
       break;
 
     case "reel_view":
-      wallet.reelViews += amount;
+      wallet.reelViews =
+        (wallet.reelViews || 0) + amount;
       break;
 
     case "video_like":
-      wallet.videoLikes += amount;
+      wallet.videoLikes =
+        (wallet.videoLikes || 0) + amount;
       break;
 
     case "video_view":
-      wallet.videoViews += amount;
+      wallet.videoViews =
+        (wallet.videoViews || 0) + amount;
       break;
 
     case "referral":
-      wallet.referralPoints += amount;
+      wallet.referralPoints =
+        (wallet.referralPoints || 0) + amount;
       break;
 
     case "leaderboard":
-      wallet.leaderboardPoints += amount;
+      wallet.leaderboardPoints =
+        (wallet.leaderboardPoints || 0) + amount;
       break;
 
     default:
