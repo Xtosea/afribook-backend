@@ -135,63 +135,7 @@ router.get(
 
 /* ================= WITHDRAW ================= */
 
-router.post(
-  "/withdraw",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const {
-        amount,
-        bankName,
-        accountNumber,
-        accountName,
-      } = req.body;
-
-      let wallet =
-        await Wallet.findOne({
-          user: req.user._id,
-        });
-
-      if (!wallet) {
-        wallet =
-          await Wallet.create({
-            user: req.user._id,
-          });
-      }
-
-      if (!amount || amount <= 0) {
-        return res.status(400).json({
-          error: "Invalid amount",
-        });
-      }
-
-      if (
-        !bankName ||
-        !accountNumber ||
-        !accountName
-      ) {
-        return res.status(400).json({
-          error:
-            "Bank details are required",
-        });
-      }
-
-      if (wallet.balance < amount) {
-        return res.status(400).json({
-          error:
-            "Insufficient balance",
-        });
-      }
-
-      wallet.balance -= amount;
-
-      wallet.pending =
-        (wallet.pending || 0) +
-        Number(amount);
-
-      await wallet.save();
-
-      const withdrawal =
+const withdrawal =
         await Withdrawal.create({
           user: req.user._id,
           amount,
@@ -207,3 +151,16 @@ router.post(
           "Withdrawal request submitted",
         withdrawal,
       });
+
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Withdrawal failed",
+      });
+    }
+  }
+);
+
+export default router;
