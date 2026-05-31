@@ -198,30 +198,32 @@ router.post(
       }
 
       // remove previous reaction from same user
-      story.reactions =
-        story.reactions.filter(
-          (r) =>
-            r.user.toString() !==
-            req.user._id.toString()
-        );
+      const alreadyReacted =
+  story.reactions.some(
+    (r) =>
+      r.user.toString() ===
+      req.user._id.toString()
+  );
 
-      // add new reaction
-      story.reactions.push({
-        user: req.user._id,
-        type: reaction,
-      });
+story.reactions =
+  story.reactions.filter(
+    (r) =>
+      r.user.toString() !==
+      req.user._id.toString()
+  );
 
-      // reward creator
-      story.engagementPoints += 2;
+story.reactions.push({
+  user: req.user._id,
+  type: reaction,
+});
 
-      await story.save();
-
-      // ✅ UPDATE WALLET
-      await addPoints(
-  story.user,
-  2,
-  "story_like"
-);
+if (!alreadyReacted) {
+  await addPoints(
+    story.user,
+    2,
+    "story_like"
+  );
+}
 
       // socket update
       io.emit(
