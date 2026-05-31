@@ -2,6 +2,8 @@ import express from "express";
 import Message from "../models/Message.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { sendNotification } from "../utils/sendNotification.js";
+import User from "../models/User.js";
+
 
 const router = express.Router();
 
@@ -33,12 +35,14 @@ router.post("/", verifyToken, async (req, res) => {
     );
 
     // 🔔 FIXED NOTIFICATION
-    await sendNotification({
-      recipient: receiver,
-      sender: req.user._id || req.user.id,
-      type: "MESSAGE",
-      text: "sent you a message",
-    });
+    const senderUser = await User.findById(req.user._id).select("name");
+
+await sendNotification({
+  recipient: receiver,
+  sender: req.user._id,
+  type: "MESSAGE",
+  text: `${senderUser?.name || "Someone"} sent you a message`,
+});
 
     return res.json(populatedMessage);
   } catch (err) {
