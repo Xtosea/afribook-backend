@@ -98,6 +98,21 @@ router.post("/withdraw", verifyToken, async (req, res) => {
 
     await wallet.save();
 
+    await sendNotification({
+  recipient: userId,
+  type: "WITHDRAWAL_APPROVED",
+  text: "Your withdrawal has been approved",
+});
+
+
+
+await sendNotification({
+  recipient: userId,
+  type: "WITHDRAWAL_REJECTED",
+  text: "Your withdrawal was rejected",
+});
+
+
     const withdrawal = await Withdrawal.create({
       user: req.user.id,
       amount,
