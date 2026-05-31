@@ -2,6 +2,7 @@ import express from "express";
 import User from "../models/User.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Notification from "../models/Notification.js";
+import { io } from "../server.js";
 import { sendNotification } from "../utils/sendNotification.js";
 
 const router = express.Router();
