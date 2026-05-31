@@ -819,15 +819,4 @@ res.json({
 );
 
 
-
-req.user.id !== req.params.id
-) {
-await sendNotification({
-recipient: req.params.id,
-sender: req.user.id,
-type: "PROFILE_VIEW",
-text: "viewed your profile",
-});
-}
-
 export default router;
