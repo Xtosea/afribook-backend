@@ -16,6 +16,10 @@ router.get("/", verifyToken, async (req, res) => {
           "name profilePic"
         )
         .populate(
+          "senders",
+          "name profilePic"
+        )
+        .populate(
           "post",
           "content media"
         )
@@ -52,6 +56,8 @@ router.put(
           "Notifications marked as read",
       });
     } catch (err) {
+      console.error(err);
+
       res.status(500).json({
         error: "Server error",
       });
@@ -59,7 +65,7 @@ router.put(
   }
 );
 
-
+// UNREAD COUNT
 router.get(
   "/unread-count",
   verifyToken,
@@ -73,6 +79,8 @@ router.get(
 
       res.json({ count });
     } catch (err) {
+      console.error(err);
+
       res.status(500).json({
         error: "Server error",
       });
