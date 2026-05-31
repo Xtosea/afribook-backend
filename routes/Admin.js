@@ -1,79 +1,33 @@
 import express from "express";
-import Verification from "../models/Verification.js";
-import User from "../models/User.js";
-import Withdrawal from "../models/Withdrawal.js";
+
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { sendNotification } from "../utils/sendNotification.js";
 
+import Verification from "../models/Verification.js";
+import User from "../models/User.js";
+import Withdrawal from "../models/Withdrawal.js";
 
+const router = express.Router();
+
+/* =================================================
+   VERIFY ADMIN ACCESS (basic placeholder)
+   You can later replace with role-based check
+================================================= */
+const isAdmin = (req, res, next) => {
+  // Example: if (req.user.role !== "admin") return res.status(403)...
+  next();
+};
+
+/* =================================================
+   APPROVE VERIFICATION
+================================================= */
 router.put(
-  "/approve/:id",
+  "/verification/:id/approve",
   verifyToken,
-  async (req, res) => {
-
-    try {
-
-      const verification =
-        await Verification.findById(
-          req.params.id
-        );
-
-      verification.status =
-        "APPROVED";
-
-      await verification.save();
-
-      await User.findByIdAndUpdate(
-        verification.user,
-        {
-          verified: true,
-
-          verificationStatus:
-            "APPROVED",
-        }
-      );
-
-      res.json({
-        success: true,
-      });
-
-    } catch (err) {
-
-      res.status(500).json({
-        error:
-          "Approval failed",
-      });
-    }
-  }
-);
-
-
-const withdrawal = await Withdrawal.create({
-  user: req.user.id,
-  amount,
-  bankName,
-  accountNumber,
-  accountName,
-  status: "pending",
-});
-
-res.json({
-  success: true,
-  message: "Withdrawal submitted",
-  withdrawal,
-});
-
-
-router.put(
-  "/approve/:id",
-  verifyToken,
+  isAdmin,
   async (req, res) => {
     try {
-
-      const verification =
-        await Verification.findById(
-          req.params.id
-        );
+      const verification = await Verification.findById(req.params.id);
 
       if (!verification) {
         return res.status(404).json({
@@ -82,36 +36,180 @@ router.put(
       }
 
       verification.status = "APPROVED";
-
       await verification.save();
 
-      await User.findByIdAndUpdate(
-        verification.user,
-        {
-          verified: true,
-          verificationStatus: "APPROVED",
-        }
-      );
+      await User.findByIdAndUpdate(verification.user, {
+        verified: true,
+        verificationStatus: "APPROVED",
+      });
 
-      // SEND NOTIFICATION
       await sendNotification({
         recipient: verification.user,
         type: "VERIFICATION_APPROVED",
         text: "Your account has been verified",
       });
 
-      res.json({
-        success: true,
-      });
+      res.json({ success: true });
 
     } catch (err) {
-
-      console.error(err);
-
-      res.status(500).json({
-        error: "Approval failed",
-      });
-
+      console.error("VERIFY APPROVAL ERROR:", err);
+      res.status(500).json({ error: "Approval failed" });
     }
   }
 );
+
+/* =================================================
+   REJECT VERIFICATION
+================================================= */
+router.put(
+  "/verification/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const verification = await Verification.findById(req.params.id);
+
+      if (!verification) {
+        return res.status(404).json({
+          error: "Verification not found",
+        });
+      }
+
+      verification.status = "REJECTED";
+      await verification.save();
+
+      await User.findByIdAndUpdate(verification.user, {
+        verified: false,
+        verificationStatus: "REJECTED",
+      });
+
+      await sendNotification({
+        recipient: verification.user,
+        type: "POINT_REWARD",
+        text: "Your verification was not approved",
+      });
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("VERIFY REJECT ERROR:", err);
+      res.status(500).json({ error: "Rejection failed" });
+    }
+  }
+);
+
+/* =================================================
+   APPROVE WITHDRAWAL
+================================================= */
+router.put(
+  "/withdrawals/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const withdrawal = await Withdrawal.findById(req.params.id);
+
+      if (!withdrawal) {
+        return res.status(404).json({
+          error: "Withdrawal not found",
+        });
+      }
+
+      withdrawal.status = "approved";
+      await withdrawal.save();
+
+      await sendNotification({
+        recipient: withdrawal.user,
+        type: "WITHDRAWAL_APPROVED",
+        text: "Your withdrawal has been approved",
+      });
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("WITHDRAWAL APPROVE ERROR:", err);
+      res.status(500).json({ error: "Approval failed" });
+    }
+  }
+);
+
+/* =================================================
+   REJECT WITHDRAWAL
+================================================= */
+router.put(
+  "/withdrawals/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const withdrawal = await Withdrawal.findById(req.params.id);
+
+      if (!withdrawal) {
+        return res.status(404).json({
+          error: "Withdrawal not found",
+        });
+      }
+
+      withdrawal.status = "rejected";
+      await withdrawal.save();
+
+      await sendNotification({
+        recipient: withdrawal.user,
+        type: "WITHDRAWAL_REJECTED",
+        text: "Your withdrawal was rejected",
+      });
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("WITHDRAWAL REJECT ERROR:", err);
+      res.status(500).json({ error: "Rejection failed" });
+    }
+  }
+);
+
+/* =================================================
+   GET ALL VERIFICATIONS (ADMIN PANEL)
+================================================= */
+router.get(
+  "/verifications",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const verifications = await Verification.find()
+        .populate("user", "name profilePic verified")
+        .sort({ createdAt: -1 });
+
+      res.json(verifications);
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch verifications" });
+    }
+  }
+);
+
+/* =================================================
+   GET ALL WITHDRAWALS (ADMIN PANEL)
+================================================= */
+router.get(
+  "/withdrawals",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const withdrawals = await Withdrawal.find()
+        .populate("user", "name profilePic")
+        .sort({ createdAt: -1 });
+
+      res.json(withdrawals);
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch withdrawals" });
+    }
+  }
+);
+
+export default router;
