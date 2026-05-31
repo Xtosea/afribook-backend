@@ -9,6 +9,7 @@ import {
 import Post from "../models/Post.js";
 import Report from "../models/Report.js";
 import Notification from "../models/Notification.js";
+import { addPoints } from "../utils/addPoints.js";
 
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
