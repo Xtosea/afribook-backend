@@ -342,20 +342,28 @@ router.post(
         );
 
       if (!alreadyViewed) {
-        reel.viewedBy.push(
-          req.user.id
-        );
+  reel.viewedBy.push(req.user.id);
 
-        reel.viewsCount =
-          (reel.viewsCount || 0) + 1;
+  reel.viewsCount =
+    (reel.viewsCount || 0) + 1;
 
-        await reel.save();
+  await addPoints(
+    reel.user,
+    1,
+    "reel_view"
+  );
 
-        io.emit("reel-view", {
-          reelId: reel._id,
-          views: reel.viewsCount,
-        });
-      }
+  console.log(
+    "💰 REEL VIEW POINT ADDED"
+  );
+
+  await reel.save();
+
+  io.emit("reel-view", {
+    reelId: reel._id,
+    views: reel.viewsCount,
+  });
+}
 
       res.json({
         success: true,
@@ -480,12 +488,28 @@ router.post(
         post.likes.push(req.user.id);
 
         
-        if (!post.isReel) {
+        if (post.isReel) {
+
+  await addPoints(
+    post.user,
+    3,
+    "reel_like"
+  );
+
+  console.log(
+    "💰 REEL LIKE POINT ADDED"
+  );
+
+} else {
 
   await addPoints(
     post.user,
     2,
     "video_like"
+  );
+
+  console.log(
+    "💰 VIDEO LIKE POINT ADDED"
   );
 }
 
