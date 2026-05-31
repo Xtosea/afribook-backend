@@ -1,13 +1,8 @@
 import Wallet from "../models/Wallet.js";
 import { sendNotification } from "./sendNotification.js";
 
-
-
-
 export const addPoints = async (userId, amount = 0, type = "") => {
-
-console.log("🔥 addPoints CALLED");
-
+  console.log("🔥 addPoints CALLED");
 
   if (!userId) throw new Error("userId is required");
 
@@ -55,7 +50,6 @@ console.log("🔥 addPoints CALLED");
 
   await wallet.save();
 
-  // 🔥 DEBUG LOG (VERY IMPORTANT)
   console.log("💰 POINTS ADDED:", {
     userId,
     amount,
@@ -63,24 +57,12 @@ console.log("🔥 addPoints CALLED");
     total: wallet.points,
   });
 
+  // SEND NOTIFICATION
+  await sendNotification({
+    recipient: userId,
+    type: "POINT_REWARD",
+    text: `You earned ${amount} points`,
+  });
+
   return wallet;
 };
-
-
-await wallet.save();
-
-// SEND NOTIFICATION
-await sendNotification({
-  recipient: userId,
-  type: "POINT_REWARD",
-  text: `You earned ${amount} points`,
-});
-
-console.log("💰 POINTS ADDED:", {
-  userId,
-  amount,
-  type,
-  total: wallet.points,
-});
-
-return wallet;
