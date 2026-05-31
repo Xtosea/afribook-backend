@@ -146,6 +146,13 @@ router.post("/view/:id", verifyToken, async (req, res) => {
 
       await story.save();
 
+   await sendNotification({
+  recipient: story.user,
+  sender: req.user.id,
+  type: "STORY_VIEW",
+  text: "viewed your story",
+});
+
       // ✅ wallet update (ONLY after successful save)
       await addPoints(
   story.user,
@@ -515,6 +522,13 @@ router.put(
     }
 
     await story.save();
+
+await sendNotification({
+  recipient: story.user,
+  sender: req.user.id,
+  type: "STORY_LIKE",
+  text: "liked your story",
+});
 
     res.json(story);
   }
