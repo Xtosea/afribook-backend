@@ -123,4 +123,20 @@ router.post("/withdraw", verifyToken, async (req, res) => {
   }
 });
 
+
+const withdrawal = await Withdrawal.create({
+  user: req.user.id,
+  amount,
+  bankName,
+  accountNumber,
+  accountName,
+  status: "pending",
+});
+
+res.json({
+  success: true,
+  message: "Withdrawal submitted",
+  withdrawal,
+});
+
 export default router;
