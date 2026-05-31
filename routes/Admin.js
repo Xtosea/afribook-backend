@@ -1,3 +1,11 @@
+import express from "express";
+import Verification from "../models/Verification.js";
+import User from "../models/User.js";
+import Withdrawal from "../models/Withdrawal.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
+import { sendNotification } from "../utils/sendNotification.js";
+
+
 router.put(
   "/approve/:id",
   verifyToken,
@@ -56,20 +64,54 @@ res.json({
 });
 
 
-router.put("/withdrawals/:id/approve", async (req, res) => {
-  const withdrawal =
-    await Withdrawal.findById(req.params.id);
+router.put(
+  "/approve/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
 
-  withdrawal.status = "approved";
+      const verification =
+        await Verification.findById(
+          req.params.id
+        );
 
-  await withdrawal.save();
+      if (!verification) {
+        return res.status(404).json({
+          error: "Verification not found",
+        });
+      }
 
-  await sendNotification({
-    recipient: withdrawal.user,
-    type: "WITHDRAWAL_APPROVED",
-    text: "Your withdrawal has been approved",
-  });
+      verification.status = "APPROVED";
 
-  res.json({ success: true });
-});
+      await verification.save();
 
+      await User.findByIdAndUpdate(
+        verification.user,
+        {
+          verified: true,
+          verificationStatus: "APPROVED",
+        }
+      );
+
+      // SEND NOTIFICATION
+      await sendNotification({
+        recipient: verification.user,
+        type: "VERIFICATION_APPROVED",
+        text: "Your account has been verified",
+      });
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error: "Approval failed",
+      });
+
+    }
+  }
+);
