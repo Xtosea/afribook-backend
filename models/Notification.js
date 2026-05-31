@@ -14,10 +14,30 @@ const notificationSchema = new mongoose.Schema(
     },
 
     type: {
-      type: String,
-      enum: ["LIKE", "COMMENT", "FOLLOW"],
-      required: true,
-    },
+  type: String,
+  enum: [
+    "LIKE",
+    "COMMENT",
+    "FOLLOW",
+    "SHARE",
+    "POST_VIEW",
+    "PROFILE_VIEW",
+    "REEL_VIEW",
+    "REEL_LIKE",
+    "REEL_COMMENT",
+    "STORY_VIEW",
+    "STORY_LIKE",
+    "FRIEND_REQUEST",
+    "FRIEND_ACCEPT",
+    "MESSAGE",
+    "MENTION",
+    "CHALLENGE_WIN",
+    "POINT_REWARD",
+    "WITHDRAWAL_APPROVED",
+    "WITHDRAWAL_REJECTED"
+  ],
+  required: true,
+},
 
     post: {
       type: mongoose.Schema.Types.ObjectId,
