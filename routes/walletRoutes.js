@@ -2,9 +2,6 @@ import express from "express";
 import Wallet from "../models/Wallet.js";
 import Withdrawal from "../models/Withdrawal.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { sendNotification }
-from "../utils/sendNotification.js";
-
 
 const router = express.Router();
 
@@ -101,7 +98,6 @@ router.post("/withdraw", verifyToken, async (req, res) => {
 
     await wallet.save();
 
-    
     const withdrawal = await Withdrawal.create({
       user: req.user.id,
       amount,
@@ -111,7 +107,7 @@ router.post("/withdraw", verifyToken, async (req, res) => {
       status: "pending",
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: "Withdrawal submitted",
       withdrawal,
@@ -121,22 +117,6 @@ router.post("/withdraw", verifyToken, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Withdrawal failed" });
   }
-});
-
-
-const withdrawal = await Withdrawal.create({
-  user: req.user.id,
-  amount,
-  bankName,
-  accountNumber,
-  accountName,
-  status: "pending",
-});
-
-res.json({
-  success: true,
-  message: "Withdrawal submitted",
-  withdrawal,
 });
 
 export default router;
