@@ -67,41 +67,20 @@ console.log("🔥 addPoints CALLED");
 };
 
 
-export const addPoints = async (
+await wallet.save();
+
+// SEND NOTIFICATION
+await sendNotification({
+  recipient: userId,
+  type: "POINT_REWARD",
+  text: `You earned ${amount} points`,
+});
+
+console.log("💰 POINTS ADDED:", {
   userId,
-  points,
-  reason = ""
-) => {
-  try {
+  amount,
+  type,
+  total: wallet.points,
+});
 
-    let wallet = await Wallet.findOne({
-      user: userId,
-    });
-
-    if (!wallet) {
-      wallet = await Wallet.create({
-        user: userId,
-        points: 0,
-      });
-    }
-
-    wallet.points += points;
-
-    await wallet.save();
-
-    // SEND NOTIFICATION
-    await sendNotification({
-      recipient: userId,
-      type: "POINT_REWARD",
-      text: `You earned ${points} points`,
-    });
-
-    return wallet;
-
-  } catch (err) {
-    console.error(
-      "ADD POINTS ERROR:",
-      err
-    );
-  }
-};
+return wallet;
