@@ -836,4 +836,61 @@ res.json({
 );
 
 
+router.post(
+  "/:id/comment",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const post = await Post.findById(req.params.id);
+
+      if (!post) {
+        return res.status(404).json({
+          error: "Post not found",
+        });
+      }
+
+      const comment = {
+        user: req.user.id,
+        text: req.body.text,
+      };
+
+      post.comments.push(comment);
+
+      await post.save();
+
+      // SEND NOTIFICATION
+      if (
+        post.user.toString() !== req.user.id
+      ) {
+        await sendNotification({
+          recipient: post.user,
+          sender: req.user.id,
+          type: "COMMENT",
+          text: "commented on your post",
+          post: post._id,
+        });
+      }
+
+      io.emit("post-commented", {
+        postId: post._id,
+      });
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
+
+
+
+
+
 export default router;
