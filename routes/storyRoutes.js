@@ -5,6 +5,9 @@ import Post from "../models/Post.js";
 import Wallet from "../models/Wallet.js";
 import { addPoints }
 from "../utils/addPoints.js";
+import Notification from "../models/Notification.js";
+import { sendNotification } from "../utils/sendNotification.js";
+
 
 import {
   verifyToken,
@@ -146,12 +149,16 @@ router.post("/view/:id", verifyToken, async (req, res) => {
 
       await story.save();
 
-   await sendNotification({
-  recipient: story.user,
-  sender: req.user.id,
-  type: "STORY_VIEW",
-  text: "viewed your story",
-});
+   if (
+  story.user.toString() !== req.user.id
+) {
+  await sendNotification({
+    recipient: story.user,
+    sender: req.user.id,
+    type: "STORY_VIEW",
+    text: "viewed your story",
+  });
+}
 
       // ✅ wallet update (ONLY after successful save)
       await addPoints(
@@ -224,6 +231,19 @@ story.reactions.push({
   type: reaction,
 });
 
+if (
+  story.user.toString() !== req.user.id
+) {
+  await sendNotification({
+    recipient: story.user,
+    sender: req.user.id,
+    type: "STORY_LIKE",
+    text: "reacted to your story",
+  });
+}
+
+await story.save();
+
 if (!alreadyReacted) {
   await addPoints(
     story.user,
@@ -231,6 +251,8 @@ if (!alreadyReacted) {
     "story_like"
   );
 }
+
+   
 
       // socket update
       io.emit(
@@ -523,12 +545,16 @@ router.put(
 
     await story.save();
 
-await sendNotification({
-  recipient: story.user,
-  sender: req.user.id,
-  type: "STORY_LIKE",
-  text: "liked your story",
-});
+if (
+  story.user.toString() !== req.user.id
+) {
+  await sendNotification({
+    recipient: story.user,
+    sender: req.user.id,
+    type: "STORY_LIKE",
+    text: "liked your story",
+  });
+}
 
     res.json(story);
   }
