@@ -1,6 +1,13 @@
 import Wallet from "../models/Wallet.js";
 
+
+
+
 export const addPoints = async (userId, amount = 0, type = "") => {
+
+console.log("🔥 addPoints CALLED");
+
+
   if (!userId) throw new Error("userId is required");
 
   let wallet = await Wallet.findOne({ user: userId });
