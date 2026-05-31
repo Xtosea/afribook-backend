@@ -28,6 +28,13 @@ const s3 = new S3Client({
   },
 });
 
+
+console.log("REEL FOUND:", reel._id);
+console.log("VIEWS:", reel.views);
+console.log("USER:", req.user.id);
+
+
+
 /* ================= UPLOAD REEL ================= */
 router.post(
   "/upload",
