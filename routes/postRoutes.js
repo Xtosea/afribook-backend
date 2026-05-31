@@ -13,6 +13,9 @@ import { addPoints } from "../utils/addPoints.js";
 
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
+import { sendNotification }
+  from "../utils/sendNotification.js";
+
 
 const router = express.Router();
 
@@ -35,6 +38,19 @@ const newPost = await Post.create({
   media: originalPost.media,  
   sharedFrom: originalPost._id,  
 });  
+
+if (
+  originalPost.user.toString() !==
+  req.user.id
+) {
+  await sendNotification({
+    recipient: originalPost.user,
+    sender: req.user.id,
+    type: "SHARE",
+    text: "shared your post",
+    post: originalPost._id,
+  });
+}
 
 await newPost.populate("user", "name profilePic");  
 
@@ -522,25 +538,13 @@ if (
       req.user.id  
     ) {  
       const notification =  
-        await Notification.create({  
-          recipient: post.user,  
-          sender: req.user.id,  
-          type: "LIKE",  
-          post: post._id,  
-          text: "liked your post",  
-        });  
-
-      await notification.populate(  
-        "sender",  
-        "name profilePic"  
-      );  
-
-      io.to(  
-        post.user.toString()  
-      ).emit(  
-        "new-notification",  
-        notification  
-      );  
+        await sendNotification({
+  recipient: post.user,
+  sender: req.user.id,
+  type: "LIKE",
+  text: "liked your post",
+  post: post._id,
+});
     }  
   }  
 
@@ -810,6 +814,19 @@ if (!alreadyViewed) {
 
   await post.save();  
 }  
+
+if (
+  post.user.toString() !==
+  req.user.id
+) {
+  await sendNotification({
+    recipient: post.user,
+    sender: req.user.id,
+    type: "POST_VIEW",
+    text: "viewed your post",
+    post: post._id,
+  });
+}
 
 res.json({  
   success: true,  
