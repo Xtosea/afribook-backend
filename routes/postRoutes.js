@@ -1,322 +1,833 @@
 import express from "express";
 import multer from "multer";
 import fs from "fs";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+S3Client,
+PutObjectCommand,
+} from "@aws-sdk/client-s3";
 
 import Post from "../models/Post.js";
+import Report from "../models/Report.js";
 import Notification from "../models/Notification.js";
 import { addPoints } from "../utils/addPoints.js";
+
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 
 const router = express.Router();
 
-const upload = multer({ dest: "/tmp" });
+const upload = multer({
+dest: "/tmp",
+});
+
+/* ================= SHARE TO FEED Function ================= */
+const sharePostToFeed = async (req, res) => {
+try {
+const originalPost = await Post.findById(req.params.id);
+
+if (!originalPost) {  
+  return res.status(404).json({ message: "Post not found" });  
+}  
+
+const newPost = await Post.create({  
+  user: req.user.id,  
+  content: `🔁 Shared: ${originalPost.content || ""}`,  
+  media: originalPost.media,  
+  sharedFrom: originalPost._id,  
+});  
+
+await newPost.populate("user", "name profilePic");  
+
+io.emit("new-post", newPost);  
+
+res.json({ post: newPost });
+
+} catch (err) {
+console.error("SHARE TO FEED ERROR:", err);
+res.status(500).json({ message: "Share failed" });
+}
+};
 
 /* ================= R2 CONFIG ================= */
 
 const {
-  R2_BUCKET_NAME,
-  R2_ENDPOINT,
-  R2_ACCESS_KEY_ID,
-  R2_SECRET_ACCESS_KEY,
-  R2_CUSTOM_DOMAIN,
+R2_BUCKET_NAME,
+R2_ENDPOINT,
+R2_ACCESS_KEY_ID,
+R2_SECRET_ACCESS_KEY,
+R2_CUSTOM_DOMAIN,
 } = process.env;
 
 const s3 = new S3Client({
-  region: "auto",
-  endpoint: R2_ENDPOINT,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
+region: "auto",
+
+endpoint: R2_ENDPOINT,
+
+credentials: {
+accessKeyId: R2_ACCESS_KEY_ID,
+secretAccessKey: R2_SECRET_ACCESS_KEY,
+},
 });
-
-/* ================= HELPERS ================= */
-
-const notify = async (data) => {
-  try {
-    const notification = await Notification.create(data);
-
-    const populated = await notification.populate(
-      "sender",
-      "name profilePic"
-    );
-
-    io.to(data.recipient.toString()).emit(
-      "new-notification",
-      populated
-    );
-
-    return populated;
-  } catch (err) {
-    console.error("NOTIFICATION ERROR:", err);
-  }
-};
-
-/* ================= SHARE TO FEED ================= */
-
-const sharePostToFeed = async (req, res) => {
-  try {
-    const originalPost = await Post.findById(req.params.id);
-
-    if (!originalPost) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    const newPost = await Post.create({
-      user: req.user.id,
-      content: `🔁 Shared: ${originalPost.content || ""}`,
-      media: originalPost.media,
-      sharedFrom: originalPost._id,
-    });
-
-    await newPost.populate("user", "name profilePic");
-
-    io.emit("new-post", newPost);
-
-    res.json({ post: newPost });
-  } catch (err) {
-    console.error("SHARE ERROR:", err);
-    res.status(500).json({ message: "Share failed" });
-  }
-};
 
 /* ================= CREATE POST ================= */
 
 router.post("/", verifyToken, async (req, res) => {
-  try {
-    const post = await Post.create({
-      user: req.user.id,
-      content: req.body.content || "",
-      media: req.body.media || [],
-      feeling: req.body.feeling || "",
-      location: req.body.location || "",
-      taggedFriends: req.body.taggedFriends || [],
-      textColor: req.body.textColor || "#000000",
-      backgroundStyle: req.body.backgroundStyle || "bg-white",
-      fontStyle: req.body.fontStyle || "font-sans",
-    });
+try {
+const {
+content,
+feeling,
+location,
+taggedFriends,
+media,
+textColor,
+backgroundStyle,
+fontStyle,
+} = req.body;
 
-    await post.populate([
-      { path: "user", select: "name profilePic" },
-      { path: "taggedFriends", select: "name profilePic" },
-    ]);
+const post = await Post.create({  
+  user: req.user.id,  
 
-    io.emit("new-post", post);
+  content: content || "",  
 
-    res.status(201).json({ success: true, post });
-  } catch (err) {
-    console.error("CREATE POST ERROR:", err);
-    res.status(500).json({ error: "Server error" });
-  }
+  media: media || [],  
+
+  feeling: feeling || "",  
+
+  location: location || "",  
+
+  taggedFriends: taggedFriends || [],  
+
+  textColor: textColor || "#000000",  
+
+  backgroundStyle:  
+    backgroundStyle || "bg-white",  
+
+  fontStyle: fontStyle || "font-sans",  
+});  
+
+await post.populate([  
+  {  
+    path: "user",  
+    select: "name profilePic",  
+  },  
+  {  
+    path: "taggedFriends",  
+    select: "name profilePic",  
+  },  
+]);  
+
+io.emit("new-post", post);  
+
+res.status(201).json({  
+  success: true,  
+  post,  
+});
+
+} catch (err) {
+console.error("CREATE POST ERROR:", err);
+
+res.status(500).json({  
+  error: "Server error",  
+});
+
+}
 });
 
 /* ================= VIDEO UPLOAD ================= */
 
 router.post(
-  "/upload",
-  verifyToken,
-  upload.single("video"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No video uploaded" });
-      }
+"/upload",
+verifyToken,
+upload.single("video"),
+async (req, res) => {
+try {
+const file = req.file;
 
-      const fileBuffer = fs.readFileSync(req.file.path);
+if (!file) {  
+    return res.status(400).json({  
+      error: "No video uploaded",  
+    });  
+  }  
 
-      const fileName = `videos/${Date.now()}-${req.file.originalname}`;
+  const fileBuffer = fs.readFileSync(  
+    file.path  
+  );  
 
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: fileName,
-          Body: fileBuffer,
-          ContentType: req.file.mimetype,
-        })
-      );
+  const fileName = `videos/${Date.now()}-${  
+    file.originalname  
+  }`;  
 
-      fs.unlinkSync(req.file.path);
+  await s3.send(  
+    new PutObjectCommand({  
+      Bucket: R2_BUCKET_NAME,  
 
-      const post = await Post.create({
-        user: req.user.id,
-        content: req.body.caption || "",
-        media: [
-          {
-            url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
-            type: "video",
-          },
-        ],
-      });
+      Key: fileName,  
 
-      await post.populate("user", "name profilePic");
+      Body: fileBuffer,  
 
-      io.emit("new-post", post);
+      ContentType: file.mimetype,  
+    })  
+  );  
 
-      res.json({ success: true, post });
-    } catch (err) {
-      console.error("UPLOAD ERROR:", err);
-      res.status(500).json({ error: "Upload failed" });
-    }
-  }
+  fs.unlinkSync(file.path);  
+
+  const { caption } = req.body;  
+
+  const post = await Post.create({  
+    user: req.user.id,  
+
+    content: caption || "",  
+
+    media: [  
+      {  
+        url: `${R2_CUSTOM_DOMAIN}/${fileName}`,  
+        type: "video",  
+      },  
+    ],  
+  });  
+
+  await post.populate(  
+    "user",  
+    "name profilePic"  
+  );  
+
+  io.emit("new-post", post);  
+
+  res.json({  
+    success: true,  
+    post,  
+  });  
+
+} catch (err) {  
+  console.error(  
+    "UPLOAD VIDEO ERROR:",  
+    err  
+  );  
+
+  res.status(500).json({  
+    error: "Failed to upload video",  
+  });  
+}
+
+}
 );
 
-/* ================= REELS ================= */
+/* ================= CREATE REEL ================= */
 
-router.post("/reels", verifyToken, async (req, res) => {
-  try {
-    const reel = await Post.create({
-      user: req.user.id,
-      content: req.body.caption || "",
-      isReel: true,
-      media: [
-        {
-          url: req.body.videoUrl,
-          type: "video",
-        },
-      ],
-    });
+router.post(
+"/reels",
+verifyToken,
+async (req, res) => {
+try {
+const { caption, videoUrl } =
+req.body;
 
-    await reel.populate("user", "name profilePic");
+if (!videoUrl) {  
+    return res.status(400).json({  
+      error: "Video URL missing",  
+    });  
+  }  
 
-    io.emit("new-reel", reel);
+  const reel = await Post.create({  
+    user: req.user.id,  
 
-    res.status(201).json(reel);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    content: caption || "",  
+
+    isReel: true,  
+
+    media: [  
+      {  
+        url: videoUrl,  
+        type: "video",  
+      },  
+    ],  
+  });  
+
+  await reel.populate(  
+    "user",  
+    "name profilePic"  
+  );  
+
+  io.emit("new-reel", reel);  
+
+  res.status(201).json(reel);  
+
+} catch (err) {  
+  console.error(  
+    "CREATE REEL ERROR:",  
+    err  
+  );  
+
+  res.status(500).json({  
+    error: err.message,  
+  });  
+}
+
+}
+);
+
+/* ================= GET REELS ================= */
+
+router.get("/reels", async (req, res) => {
+try {
+
+const page =  
+  Number(req.query.page) || 1;  
+
+const limit = 5;  
+
+const reels = await Post.find({  
+  isReel: true,  
+})  
+
+  .populate(  
+    "user",  
+    "name profilePic"  
+  )  
+
+  .populate(  
+    "viewedBy",  
+    "name profilePic"  
+  )  
+
+  .sort({ createdAt: -1 })  
+
+  .skip((page - 1) * limit)  
+
+  .limit(limit);  
+
+res.json(reels);
+
+} catch (err) {
+
+console.error(  
+  "GET REELS ERROR:",  
+  err  
+);  
+
+res.status(500).json({  
+  error: err.message,  
 });
 
-/* ================= REEL VIEW ================= */
+}
+});
 
-router.post("/reels/view/:id", verifyToken, async (req, res) => {
-  try {
-    const reel = await Post.findById(req.params.id);
+/* ================= RECORD REEL VIEW ================= */
 
-    if (!reel) return res.status(404).json({ error: "Reel not found" });
+router.post(
+"/reels/view/:id",
+verifyToken,
+async (req, res) => {
+try {
+const reel =
+await Post.findById(
+req.params.id
+);
 
-    reel.viewedBy = reel.viewedBy || [];
+if (!reel) {  
+    return res.status(404).json({  
+      error: "Reel not found",  
+    });  
+  }  
 
-    const already = reel.viewedBy.some(
-      (id) => id.toString() === req.user.id
-    );
+  if (!reel.viewedBy) {  
+    reel.viewedBy = [];  
+  }  
 
-    if (!already) {
-      reel.viewedBy.push(req.user.id);
-      reel.viewsCount = (reel.viewsCount || 0) + 1;
+  const alreadyViewed =  
+    reel.viewedBy.some(  
+      (id) =>  
+        id.toString() ===  
+        req.user.id  
+    );  
 
-      await addPoints(reel.user, 1, "reel_view");
+  if (!alreadyViewed) {
 
-      await reel.save();
+reel.viewedBy.push(req.user.id);
 
-      io.emit("reel-view", {
-        reelId: reel._id,
-        views: reel.viewsCount,
-      });
-    }
+reel.viewsCount =
+(reel.viewsCount || 0) + 1;
 
-    res.json({ success: true, views: reel.viewsCount });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+await addPoints(
+reel.user,
+1,
+"reel_view"
+);
+
+console.log(
+"💰 REEL VIEW POINT ADDED"
+);
+
+await reel.save();
+
+io.emit("reel-view", {
+reelId: reel._id,
+views: reel.viewsCount,
+});
+}
+
+res.json({  
+    success: true,  
+    views: reel.viewsCount,  
+  });  
+
+} catch (err) {  
+  console.error(  
+    "REEL VIEW ERROR:",  
+    err  
+  );  
+
+  res.status(500).json({  
+    error: err.message,  
+  });  
+}
+
+}
+);
+
+/* ================= GET USER POSTS ================= */
+
+router.get(
+"/user/:userId",
+verifyToken,
+async (req, res) => {
+try {
+const posts = await Post.find({
+user: req.params.userId,
+})
+.populate(
+"user",
+"name profilePic"
+)
+.sort({ createdAt: -1 });
+
+res.json(posts);  
+
+} catch (err) {  
+  res.status(500).json({  
+    error: "Server error",  
+  });  
+}
+
+}
+);
+
+/* ================= GET ALL POSTS ================= */
+
+router.get("/", verifyToken, async (req, res) => {
+try {
+let posts = await Post.find()
+.populate("user", "name profilePic")
+.populate(
+"taggedFriends",
+"name profilePic"
+)
+.populate(
+"comments.user",
+"name profilePic"
+)
+.sort({ createdAt: -1 });
+
+posts = posts.sort((a, b) => {  
+  const scoreA =  
+    (a.likes?.length || 0) * 3 +  
+    (a.comments?.length || 0) * 2 +  
+    (a.viewsCount || 0);  
+
+  const scoreB =  
+    (b.likes?.length || 0) * 3 +  
+    (b.comments?.length || 0) * 2 +  
+    (b.viewsCount || 0);  
+
+  return scoreB - scoreA;  
+});  
+
+res.json(posts);
+
+} catch (err) {
+console.error(
+"GET POSTS ERROR:",
+err
+);
+
+res.status(500).json({  
+  error: "Server error",  
+});
+
+}
 });
 
 /* ================= LIKE ================= */
 
-router.post("/:id/like", verifyToken, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ error: "Post not found" });
+router.post(
+"/:id/like",
+verifyToken,
+async (req, res) => {
+try {
+const post = await Post.findById(
+req.params.id
+);
 
-    const liked = post.likes.includes(req.user.id);
+if (!post) {  
+    return res.status(404).json({  
+      error: "Post not found",  
+    });  
+  }  
 
-    if (liked) {
-      post.likes = post.likes.filter(
-        (id) => id.toString() !== req.user.id
-      );
-    } else {
-      post.likes.push(req.user.id);
+  const alreadyLiked =  
+    post.likes.some(  
+      (id) =>  
+        id.toString() ===  
+        req.user.id  
+    );  
 
-      if (post.isReel) {
-        await addPoints(post.user, 3, "reel_like");
-      } else {
-        await addPoints(post.user, 2, "video_like");
-      }
+  if (alreadyLiked) {  
+    post.likes =  
+      post.likes.filter(  
+        (id) =>  
+          id.toString() !==  
+          req.user.id  
+      );  
+  } else {  
+    post.likes.push(req.user.id);  
 
-      if (post.user.toString() !== req.user.id) {
-        await notify({
-          recipient: post.user,
-          sender: req.user.id,
-          type: "LIKE",
-          post: post._id,
-          text: "liked your post",
-        });
-      }
-    }
+      
+    if (post.isReel) {
 
-    await post.save();
+await addPoints(
+post.user,
+3,
+"reel_like"
+);
 
-    io.emit("post-liked", {
-      postId: post._id,
-      likes: post.likes,
-    });
+console.log(
+"💰 REEL LIKE POINT ADDED"
+);
 
-    res.json({ likes: post.likes });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+} else {
+
+await addPoints(
+post.user,
+2,
+"video_like"
+);
+
+console.log(
+"💰 VIDEO LIKE POINT ADDED"
+);
+}
+
+if (  
+      post.user.toString() !==  
+      req.user.id  
+    ) {  
+      const notification =  
+        await Notification.create({  
+          recipient: post.user,  
+          sender: req.user.id,  
+          type: "LIKE",  
+          post: post._id,  
+          text: "liked your post",  
+        });  
+
+      await notification.populate(  
+        "sender",  
+        "name profilePic"  
+      );  
+
+      io.to(  
+        post.user.toString()  
+      ).emit(  
+        "new-notification",  
+        notification  
+      );  
+    }  
+  }  
+
+  await post.save();  
+
+  io.emit("post-liked", {  
+    postId: post._id,  
+    likes: post.likes,  
+  });  
+
+  res.json({  
+    likes: post.likes,  
+  });  
+
+} catch (err) {  
+  console.error(err);  
+
+  res.status(500).json({  
+    error: err.message,  
+  });  
+}
+
+}
+);
+
+/* ================= SHARE ================= */
+
+router.post(
+"/:id/share",
+verifyToken,
+async (req, res) => {
+try {
+const post = await Post.findById(
+req.params.id
+);
+
+if (!post) {  
+    return res.status(404).json({  
+      error: "Post not found",  
+    });  
+  }  
+
+  post.shares =  
+    (post.shares || 0) + 1;  
+
+  await post.save();  
+
+  io.emit("post-shared", {  
+    postId: post._id,  
+    shares: post.shares,  
+  });  
+
+  res.json({  
+    shares: post.shares,  
+  });  
+
+} catch (err) {  
+  console.error(err);  
+
+  res.status(500).json({  
+    error: err.message,  
+  });  
+}
+
+}
+);
+
+/* ================= SAVE POST ================= */
+
+router.put(
+"/:id/save",
+verifyToken,
+async (req, res) => {
+try {
+const post = await Post.findById(
+req.params.id
+);
+
+if (!post) {  
+    return res.status(404).json({  
+      error: "Post not found",  
+    });  
+  }  
+
+  if (!post.savedBy) {  
+    post.savedBy = [];  
+  }  
+
+  const alreadySaved =  
+    post.savedBy.some(  
+      (id) =>  
+        id.toString() ===  
+        req.user.id  
+    );  
+
+  if (alreadySaved) {  
+    post.savedBy =  
+      post.savedBy.filter(  
+        (id) =>  
+          id.toString() !==  
+          req.user.id  
+      );  
+  } else {  
+    post.savedBy.push(  
+      req.user.id  
+    );  
+  }  
+
+  await post.save();  
+
+  res.json({  
+    success: true,  
+    saved: !alreadySaved,  
+    savedBy: post.savedBy,  
+  });  
+
+} catch (err) {  
+  console.error(  
+    "SAVE POST ERROR:",  
+    err  
+  );  
+
+  res.status(500).json({  
+    error: err.message,  
+  });  
+}
+
+}
+);
+
+/* ================= DELETE POST ================= */
+
+router.delete(
+"/:id",
+verifyToken,
+async (req, res) => {
+try {
+const post = await Post.findById(
+req.params.id
+);
+
+if (!post) {  
+    return res.status(404).json({  
+      error: "Post not found",  
+    });  
+  }  
+
+  if (  
+    post.user.toString() !==  
+    req.user.id  
+  ) {  
+    return res.status(403).json({  
+      error: "Not authorized",  
+    });  
+  }  
+
+  await Post.findByIdAndDelete(  
+    req.params.id  
+  );  
+
+  io.emit("post-deleted", {  
+    postId: req.params.id,  
+  });  
+
+  res.json({  
+    success: true,  
+  });  
+
+} catch (err) {  
+  console.error(  
+    "DELETE POST ERROR:",  
+    err  
+  );  
+
+  res.status(500).json({  
+    error: err.message,  
+  });  
+}
+
+}
+);
+
+/* ================= GET SINGLE POST ================= */
+
+router.get("/:id", async (req, res) => {
+try {
+const post = await Post.findById(
+req.params.id
+)
+.populate("user", "name profilePic")
+.populate(
+"taggedFriends",
+"name profilePic"
+)
+.populate(
+"comments.user",
+"name profilePic"
+);
+
+if (!post) {  
+  return res.status(404).json({  
+    error: "Post not found",  
+  });  
+}  
+
+res.json(post);
+
+} catch (err) {
+console.error(
+"GET SINGLE POST ERROR:",
+err
+);
+
+res.status(500).json({  
+  error: "Server error",  
 });
 
-/* ================= SHARE / SAVE / DELETE / GET ================= */
-
-router.post("/:id/share", verifyToken, async (req, res) => {
-  const post = await Post.findById(req.params.id);
-  if (!post) return res.status(404).json({ error: "Post not found" });
-
-  post.shares = (post.shares || 0) + 1;
-  await post.save();
-
-  io.emit("post-shared", { postId: post._id, shares: post.shares });
-
-  res.json({ shares: post.shares });
+}
 });
 
-router.put("/:id/save", verifyToken, async (req, res) => {
-  const post = await Post.findById(req.params.id);
-  if (!post) return res.status(404).json({ error: "Post not found" });
+/* ================= SHARE TO FEED ================= Route*/
 
-  post.savedBy = post.savedBy || [];
+router.post(
+"/:id/share-to-feed",
+verifyToken,
+sharePostToFeed
+);
 
-  const saved = post.savedBy.includes(req.user.id);
+router.post(
+"/:id/view",
+verifyToken,
+async (req, res) => {
 
-  post.savedBy = saved
-    ? post.savedBy.filter((id) => id.toString() !== req.user.id)
-    : [...post.savedBy, req.user.id];
+const post =  
+  await Post.findById(  
+    req.params.id  
+  );  
 
-  await post.save();
+if (!post) {  
+  return res.status(404).json({  
+    error: "Post not found",  
+  });  
+}  
 
-  res.json({ success: true, saved: !saved });
+if (!post.viewedBy) {  
+  post.viewedBy = [];  
+}  
+
+const alreadyViewed =  
+  post.viewedBy.includes(  
+    req.user.id  
+  );  
+
+if (!alreadyViewed) {  
+
+  post.viewedBy.push(  
+    req.user.id  
+  );  
+
+  post.viewsCount += 1;  
+
+  await addPoints(  
+    post.user,  
+    1,  
+    "video_view"  
+  );  
+
+  await post.save();  
+}  
+
+res.json({  
+  success: true,  
 });
 
-router.delete("/:id", verifyToken, async (req, res) => {
-  const post = await Post.findById(req.params.id);
+}
+);
 
-  if (!post) return res.status(404).json({ error: "Post not found" });
 
-  if (post.user.toString() !== req.user.id) {
-    return res.status(403).json({ error: "Not authorized" });
-  }
 
-  await Post.findByIdAndDelete(req.params.id);
-
-  io.emit("post-deleted", { postId: req.params.id });
-
-  res.json({ success: true });
+req.user.id !== req.params.id
+) {
+await sendNotification({
+recipient: req.params.id,
+sender: req.user.id,
+type: "PROFILE_VIEW",
+text: "viewed your profile",
 });
-
-/* ================= SHARE TO FEED ================= */
-
-router.post("/:id/share-to-feed", verifyToken, sharePostToFeed);
+}
 
 export default router;
