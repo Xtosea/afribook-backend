@@ -1,11 +1,12 @@
-// routes/reelRoutes.js (upload route)
 import express from "express";
 import multer from "multer";
 import fs from "fs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
 import Post from "../models/Post.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
+import { addPoints } from "../utils/addPoints.js";
 
 const router = express.Router();
 const upload = multer({ dest: "/tmp" });
@@ -41,7 +42,6 @@ router.post(
         return res.status(400).json({ error: "No video uploaded" });
       }
 
-      // Upload video to R2
       const fileBuffer = fs.readFileSync(file.path);
       const fileName = `reels/${Date.now()}-${file.originalname}`;
 
@@ -54,20 +54,18 @@ router.post(
         })
       );
 
-      fs.unlinkSync(file.path); // remove local temp file
+      fs.unlinkSync(file.path);
 
-      // Use the same video URL as placeholder thumbnail
       const reel = await Post.create({
         user: req.user.id,
         content: caption || "",
+        isReel: true,
         media: [
           {
             url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
             type: "video",
-            thumbnailUrl: `${R2_CUSTOM_DOMAIN}/${fileName}`, // placeholder
           },
         ],
-        isReel: true,
       });
 
       await reel.populate("user", "name profilePic");
@@ -76,84 +74,58 @@ router.post(
 
       res.status(201).json(reel);
     } catch (err) {
-      console.error("Reel upload error:", err);
-      res.status(500).json({ error: "Failed to upload reel" });
+      console.error(err);
+      res.status(500).json({ error: "Reel upload failed" });
     }
   }
 );
 
+/* ================= LIKE REEL ================= */
+router.put("/:id/like", verifyToken, async (req, res) => {
+  try {
+    const reel = await Post.findById(req.params.id);
 
-router.put(
-  "/:id/like",
-  verifyToken,
-  async (req, res) => {
+    if (!reel) {
+      return res.status(404).json({ error: "Reel not found" });
+    }
 
-    const reel =
-      await Reel.findById(
-        req.params.id
-      );
+    if (!reel.likes.includes(req.user.id)) {
+      reel.likes.push(req.user.id);
 
-    const alreadyLiked =
-      reel.likes.includes(
-        req.user.id
-      );
-
-    if (!alreadyLiked) {
-
-      reel.likes.push(
-        req.user.id
-      );
-
-      // REEL LIKE POINTS
-      await addPoints(
-        reel.user,
-        3,
-        "reel_like"
-      );
+      await addPoints(reel.user, 3, "reel_like");
     }
 
     await reel.save();
 
     res.json(reel);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Like failed" });
   }
-);
+});
 
+/* ================= VIEW REEL ================= */
+router.put("/:id/view", verifyToken, async (req, res) => {
+  try {
+    const reel = await Post.findById(req.params.id);
 
+    if (!reel) {
+      return res.status(404).json({ error: "Reel not found" });
+    }
 
-router.put(
-  "/:id/view",
-  verifyToken,
-  async (req, res) => {
+    if (!reel.views.includes(req.user.id)) {
+      reel.views.push(req.user.id);
 
-    const reel =
-      await Reel.findById(
-        req.params.id
-      );
-
-    if (
-      !reel.views.includes(
-        req.user.id
-      )
-    ) {
-
-      reel.views.push(
-        req.user.id
-      );
-
-      // REEL VIEW POINTS
-      await addPoints(
-        reel.user,
-        1,
-        "reel_view"
-      );
+      await addPoints(reel.user, 1, "reel_view");
     }
 
     await reel.save();
 
-    res.json({
-      success: true,
-    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "View failed" });
   }
-);
+});
 
 export default router;
