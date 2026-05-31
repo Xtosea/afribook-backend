@@ -9,6 +9,16 @@ import Withdrawal from "../models/Withdrawal.js";
 
 const router = express.Router();
 
+
+router.put(
+  "/withdrawals/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    // admin logic
+  }
+);
+
 /* =================================================
    VERIFY ADMIN ACCESS (basic placeholder)
    You can later replace with role-based check
