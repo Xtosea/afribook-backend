@@ -128,4 +128,19 @@ router.put("/:id/view", verifyToken, async (req, res) => {
   }
 });
 
+
+router.get("/:id/view", async (req, res) => {
+  res.json({
+    message: "View route exists",
+    reelId: req.params.id,
+  });
+});
+
+router.get("/:id/like", async (req, res) => {
+  res.json({
+    message: "Like route exists",
+    reelId: req.params.id,
+  });
+});
+
 export default router;
