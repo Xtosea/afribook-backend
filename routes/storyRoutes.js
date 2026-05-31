@@ -147,11 +147,11 @@ router.post("/view/:id", verifyToken, async (req, res) => {
       await story.save();
 
       // ✅ wallet update (ONLY after successful save)
-      await Wallet.findOneAndUpdate(
-        { user: story.user },
-        { $inc: { points: 1 } },
-        { new: true }
-      );
+      await addPoints(
+  story.user,
+  1,
+  "story_view"
+);
 
       io.emit("story-view", {
         storyId: story._id,
@@ -217,11 +217,11 @@ router.post(
       await story.save();
 
       // ✅ UPDATE WALLET
-      await Wallet.findOneAndUpdate(
-        { user: story.user },
-        { $inc: { points: 2 } },
-        { new: true }
-      );
+      await addPoints(
+  story.user,
+  2,
+  "story_like"
+);
 
       // socket update
       io.emit(
