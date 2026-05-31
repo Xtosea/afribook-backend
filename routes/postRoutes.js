@@ -818,4 +818,139 @@ router.post(
   }
 );
 
+
+await sendNotification({
+  recipient: post.user,
+  sender: req.user.id,
+  type: "LIKE",
+  text: "liked your post",
+  post: post._id,
+});
+
+
+await sendNotification({
+  recipient: post.user,
+  sender: req.user.id,
+  type: "COMMENT",
+  text: "commented on your post",
+  post: post._id,
+});
+
+
+await sendNotification({
+  recipient: post.user,
+  sender: req.user.id,
+  type: "SHARE",
+  text: "shared your post",
+  post: post._id,
+});
+
+
+if (await sendNotification({
+  recipient: post.user,
+  sender: req.user.id,
+  type: "POST_VIEW",
+  text: "viewed your post",
+  post: post._id,
+});
+
+
+await sendNotification({
+  recipient: reel.user,
+  sender: req.user.id,
+  type: "REEL_LIKE",
+  text: "liked your reel",
+});
+
+
+await sendNotification({
+  recipient: reel.user,
+  sender: req.user.id,
+  type: "REEL_VIEW",
+  text: "viewed your reel",
+});
+
+
+await sendNotification({
+  recipient: story.user,
+  sender: req.user.id,
+  type: "STORY_VIEW",
+  text: "viewed your story",
+});
+
+
+await sendNotification({
+  recipient: story.user,
+  sender: req.user.id,
+  type: "STORY_LIKE",
+  text: "liked your story",
+});
+
+
+await sendNotification({
+  recipient: friendId,
+  sender: req.user.id,
+  type: "FRIEND_REQUEST",
+  text: "sent you a friend request",
+});
+
+
+
+await sendNotification({
+  recipient: requesterId,
+  sender: req.user.id,
+  type: "FRIEND_ACCEPT",
+  text: "accepted your friend request",
+});
+
+
+
+await sendNotification({
+  recipient: receiverId,
+  sender: req.user.id,
+  type: "MESSAGE",
+  text: "sent you a message",
+});
+
+
+
+await sendNotification({
+  recipient: userId,
+  type: "WITHDRAWAL_APPROVED",
+  text: "Your withdrawal has been approved",
+});
+
+
+
+
+await sendNotification({
+  recipient: userId,
+  type: "WITHDRAWAL_REJECTED",
+  text: "Your withdrawal was rejected",
+});
+
+
+
+await sendNotification({
+  recipient: userId,
+  type: "POINT_REWARD",
+  text: `You earned ${points} points`,
+});
+
+
+
+
+  req.user.id !== req.params.id
+) {
+  await sendNotification({
+    recipient: req.params.id,
+    sender: req.user.id,
+    type: "PROFILE_VIEW",
+    text: "viewed your profile",
+  });
+}
+
+
+
+
 export default router;
