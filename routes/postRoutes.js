@@ -537,8 +537,7 @@ if (
       post.user.toString() !==  
       req.user.id  
     ) {  
-      const notification =  
-        await sendNotification({
+      await sendNotification({
   recipient: post.user,
   sender: req.user.id,
   type: "LIKE",
@@ -793,27 +792,27 @@ if (!post.viewedBy) {
   post.viewedBy = [];  
 }  
 
-const alreadyViewed =  
-  post.viewedBy.includes(  
-    req.user.id  
-  );  
+const alreadyViewed =
+  post.viewedBy.includes(
+    req.user.id
+  );
 
-if (!alreadyViewed) {  
+if (!alreadyViewed) {
 
-  post.viewedBy.push(  
-    req.user.id  
-  );  
+  post.viewedBy.push(
+    req.user.id
+  );
 
-  post.viewsCount += 1;  
+  post.viewsCount += 1;
 
-  await addPoints(  
-    post.user,  
-    1,  
-    "video_view"  
-  );  
+  await addPoints(
+    post.user,
+    1,
+    "video_view"
+  );
 
-  await post.save();  
-}  
+  await post.save();
+}
 
 if (
   post.user.toString() !==
