@@ -51,6 +51,14 @@ router.post(
           "name profilePic"
         );
 
+
+  await sendNotification({
+  recipient: receiverId,
+  sender: req.user.id,
+  type: "MESSAGE",
+  text: "sent you a message",
+});
+
       res.json(populatedMessage);
 
     } catch (err) {
