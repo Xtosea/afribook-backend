@@ -34,7 +34,8 @@ const notificationSchema = new mongoose.Schema(
     "CHALLENGE_WIN",
     "POINT_REWARD",
     "WITHDRAWAL_APPROVED",
-    "WITHDRAWAL_REJECTED"
+    "WITHDRAWAL_REJECTED",
+    "VERIFICATION_APPROVED" // 👈 add here
   ],
   required: true,
 },
