@@ -239,6 +239,9 @@ View on AfricSocial
     const redirectUrl =
       `${FRONTEND_URL}/post/${post._id}`;
   
+const socialCardImage =
+  `https://afribook-backend.onrender.com/post-card/${post._id}`;
+
 
     const safeTitle =
       escapeHtml(title);
