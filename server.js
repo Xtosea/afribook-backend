@@ -238,9 +238,7 @@ View on AfricSocial
 
     const redirectUrl =
       `${FRONTEND_URL}/post/${post._id}`;
-
-   const image =
-  `https://afribook-backend.onrender.com/post-card/${post._id}`;
+  
 
     const safeTitle =
       escapeHtml(title);
@@ -284,10 +282,7 @@ property="og:description"
 content="${safeDescription}"
 />
 
-<meta
-property="og:image"
-content="${image}"
-/>
+<meta property="og:image" content="${socialCardImage}" />
 
 <meta
 property="og:image:width"
@@ -331,10 +326,8 @@ name="twitter:description"
 content="${safeDescription}"
 />
 
-<meta
-name="twitter:image"
-content="${image}"
-/>
+<meta name="twitter:image" content="${socialCardImage}" />
+
 
 ${
   videoUrl
@@ -370,7 +363,7 @@ content="1280"
  "@type":"SocialMediaPosting",
  "headline":"${safeTitle}",
  "description":"${safeDescription}",
- "image":"${image}"
+ "image":"${socialCardImage}"
 }
 </script>
 
