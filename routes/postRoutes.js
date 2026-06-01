@@ -55,7 +55,7 @@ if (
 await newPost.populate(
   "user",
   "name profilePic verified verificationBadge"
-)
+);
 
 io.emit("new-post", newPost);  
 
@@ -124,16 +124,17 @@ const post = await Post.create({
   fontStyle: fontStyle || "font-sans",  
 });  
 
-await post{
-  path: "user",
-  select:
-    "name profilePic verified verificationBadge",
-}
-  {  
-    path: "taggedFriends",  
-    select: "name profilePic",  
-  },  
-]);  
+await post.populate([
+  {
+    path: "user",
+    select:
+      "name profilePic verified verificationBadge",
+  },
+  {
+    path: "taggedFriends",
+    select: "name profilePic",
+  },
+]);
 
 io.emit("new-post", post);  
 
