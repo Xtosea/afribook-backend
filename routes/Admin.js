@@ -222,4 +222,95 @@ router.get(
   }
 );
 
+
+
+/* =================================================
+   BADGE APPROVAL(ADMIN PANEL)
+================================================= */
+router.put(
+  "/approve/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const verification =
+        await Verification.findById(
+          req.params.id
+        );
+
+      if (!verification) {
+        return res.status(404).json({
+          error: "Verification not found",
+        });
+      }
+
+      verification.status =
+        "APPROVED";
+
+      await verification.save();
+
+      await User.findByIdAndUpdate(
+        verification.user,
+        {
+          verified: true,
+          verificationStatus:
+            "APPROVED",
+          verificationBadge:
+            "blue",
+        }
+      );
+
+      res.json({
+        success: true,
+      });
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error: "Approval failed",
+      });
+    }
+  }
+);
+
+
+/* =================================================
+   BADGE REJECTION(ADMIN PANEL)
+================================================= */
+router.put(
+  "/reject/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const verification =
+        await Verification.findById(
+          req.params.id
+        );
+
+      verification.status =
+        "REJECTED";
+
+      await verification.save();
+
+      await User.findByIdAndUpdate(
+        verification.user,
+        {
+          verified: false,
+          verificationStatus:
+            "REJECTED",
+        }
+      );
+
+      res.json({
+        success: true,
+      });
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error: "Reject failed",
+      });
+    }
+  }
+);
+
 export default router;
