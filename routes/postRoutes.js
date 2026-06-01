@@ -52,7 +52,10 @@ if (
   });
 }
 
-await newPost.populate("user", "name profilePic");  
+await newPost.populate(
+  "user",
+  "name profilePic verified verificationBadge"
+)
 
 io.emit("new-post", newPost);  
 
@@ -121,11 +124,11 @@ const post = await Post.create({
   fontStyle: fontStyle || "font-sans",  
 });  
 
-await post.populate([  
-  {  
-    path: "user",  
-    select: "name profilePic",  
-  },  
+await post{
+  path: "user",
+  select:
+    "name profilePic verified verificationBadge",
+}
   {  
     path: "taggedFriends",  
     select: "name profilePic",  
@@ -202,10 +205,10 @@ if (!file) {
     ],  
   });  
 
-  await post.populate(  
-    "user",  
-    "name profilePic"  
-  );  
+  await post.populate(
+  "user",
+  "name profilePic verified verificationBadge"
+);
 
   io.emit("new-post", post);  
 
@@ -259,10 +262,10 @@ if (!videoUrl) {
     ],  
   });  
 
-  await reel.populate(  
-    "user",  
-    "name profilePic"  
-  );  
+  await reel.populate(
+  "user",
+  "name profilePic verified verificationBadge"
+); 
 
   io.emit("new-reel", reel);  
 
@@ -296,10 +299,10 @@ const reels = await Post.find({
   isReel: true,  
 })  
 
-  .populate(  
-    "user",  
-    "name profilePic"  
-  )  
+  .populate(
+  "user",
+  "name profilePic verified verificationBadge"
+)
 
   .populate(  
     "viewedBy",  
@@ -412,8 +415,8 @@ const posts = await Post.find({
 user: req.params.userId,
 })
 .populate(
-"user",
-"name profilePic"
+  "user",
+  "name profilePic verified verificationBadge"
 )
 .sort({ createdAt: -1 });
 
@@ -433,7 +436,10 @@ res.json(posts);
 router.get("/", verifyToken, async (req, res) => {
 try {
 let posts = await Post.find()
-.populate("user", "name profilePic")
+  .populate(
+    "user",
+    "name profilePic verified verificationBadge"
+  )
 .populate(
 "taggedFriends",
 "name profilePic"
@@ -733,7 +739,10 @@ try {
 const post = await Post.findById(
 req.params.id
 )
-.populate("user", "name profilePic")
+.populate(
+  "user",
+  "name profilePic verified verificationBadge"
+)
 .populate(
 "taggedFriends",
 "name profilePic"
