@@ -34,6 +34,9 @@ import walletRoutes from "./routes/walletRoutes.js";
 import friendRoutes from "./routes/friendRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import socialCardRoutes
+from "./routes/socialCardRoutes.js";
+
 
 
 const app = express();
@@ -235,6 +238,9 @@ View on AfricSocial
 
     const redirectUrl =
       `${FRONTEND_URL}/post/${post._id}`;
+
+   const image =
+  `https://afribook-backend.onrender.com/post-card/${post._id}`;
 
     const safeTitle =
       escapeHtml(title);
@@ -442,6 +448,11 @@ app.use("/api/wallet", walletRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/contacts", contactRoutes);
+app.use("/post-card",socialCardRoutes);
+          
+  
+
+                   
 
 /* ================= TEST ROUTE ================= */
 app.get("/", (req, res) => {
