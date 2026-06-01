@@ -22,6 +22,24 @@ router.get("/:id", async (req, res) => {
     (post.content || "")
       .slice(0, 120);
 
+router.get("/:id", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("user", "name");
+
+    if (!post) {
+      return res.status(404).send("Post not found");
+    }
+
+    // generate card
+
+  } catch (err) {
+    console.error("SOCIAL CARD ERROR:", err);
+
+    res.status(500).send("Server error");
+  }
+});
+
   const svg = `
 <svg width="1200" height="630"
 xmlns="http://www.w3.org/2000/svg">
