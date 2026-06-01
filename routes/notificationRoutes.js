@@ -20,9 +20,9 @@ router.get("/", verifyToken, async (req, res) => {
           "name profilePic"
         )
         .populate(
-          "post",
-          "content media"
-        )
+  "post",
+  "content media images video thumbnail"
+)
         .sort({ createdAt: -1 });
 
     res.json(notifications);
