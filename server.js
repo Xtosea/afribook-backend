@@ -128,16 +128,27 @@ app.use("/uploads/media", express.static(path.join(process.cwd(), "public/upload
 // Default profile/cover images
 app.use("/profile", express.static(path.join(process.cwd(), "public/profile")));
 
+
+const escapeHtml = (str = "") =>
+  String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
 /* ================= POST SHARE PREVIEW ================= */
 
 app.get("/post/:id", async (req, res) => {
   try {
-
-    // VALIDATE ID
     if (
-      !mongoose.Types.ObjectId.isValid(req.params.id)
+      !mongoose.Types.ObjectId.isValid(
+        req.params.id
+      )
     ) {
-      return res.status(400).send("Invalid post ID");
+      return res
+        .status(400)
+        .send("Invalid post ID");
     }
 
     const FRONTEND_URL =
@@ -146,128 +157,270 @@ app.get("/post/:id", async (req, res) => {
     const BACKEND_URL =
       "https://afribook-backend.onrender.com";
 
-    // FIND POST
-    const post = await Post.findById(req.params.id)
-      .populate("user", "name profilePic");
+    const post =
+      await Post.findById(req.params.id)
+        .populate(
+          "user",
+          "name profilePic"
+        );
 
     if (!post) {
-      return res.status(404).send("Post not found");
+      return res
+        .status(404)
+        .send("Post not found");
     }
 
-    console.log(
-      "POST MEDIA:",
-      JSON.stringify(post.media, null, 2)
-    );
+    const firstMedia =
+      post?.media?.[0];
 
-    const firstMedia = post?.media?.[0];
-
-    // DEFAULT PREVIEW IMAGE
     let image =
       `${FRONTEND_URL}/social-preview.png`;
 
-    // HANDLE IMAGE POSTS
+    let videoUrl = null;
+
+    // IMAGE POST
     if (
       firstMedia &&
       firstMedia.type === "image"
     ) {
-
       const mediaUrl =
         firstMedia.url ||
         firstMedia.secure_url ||
         firstMedia.src;
 
       if (mediaUrl) {
-
-        image = mediaUrl.startsWith("http")
-          ? mediaUrl
-          : `${BACKEND_URL}${mediaUrl}`;
+        image =
+          mediaUrl.startsWith("http")
+            ? mediaUrl
+            : `${BACKEND_URL}${mediaUrl}`;
       }
     }
 
-    // HANDLE VIDEO POSTS
+    // VIDEO POST
     if (
       firstMedia &&
       firstMedia.type === "video"
     ) {
+      videoUrl =
+        firstMedia.url ||
+        firstMedia.secure_url ||
+        firstMedia.src;
 
-      const thumb =
+      const thumbnail =
         firstMedia.thumbnailUrl ||
         firstMedia.thumbnail ||
         firstMedia.poster;
 
-      if (thumb) {
-
-        image = thumb.startsWith("http")
-          ? thumb
-          : `${BACKEND_URL}${thumb}`;
+      if (thumbnail) {
+        image =
+          thumbnail.startsWith("http")
+            ? thumbnail
+            : `${BACKEND_URL}${thumbnail}`;
       }
     }
 
-    // TITLE
     const title =
-      post.content?.substring(0, 60) ||
-      `${post.user?.name} shared a post`;
+      post.content
+        ? `${post.user?.name}: ${post.content.substring(
+            0,
+            80
+          )}`
+        : `${post.user?.name} shared a post`;
 
-    // DESCRIPTION
-    const description =
-      post.content?.substring(0, 150) ||
-      "Check this post on AfricSocial";
+    const description = `
+${post.likes?.length || 0} likes •
+${post.comments?.length || 0} comments •
+View on AfricSocial
+`;
 
-    // FRONTEND REDIRECT
     const redirectUrl =
       `${FRONTEND_URL}/post/${post._id}`;
 
-    // SEND HTML WITH OG TAGS
+    const safeTitle =
+      escapeHtml(title);
+
+    const safeDescription =
+      escapeHtml(description);
+
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
 
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>${title}</title>
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1"
+/>
 
-<meta name="description" content="${description}" />
+<title>${safeTitle}</title>
 
-<meta property="og:title" content="${title}" />
-<meta property="og:description" content="${description}" />
-<meta property="og:image" content="${image}" />
-<meta property="og:url" content="${redirectUrl}" />
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="AfricSocial" />
+<meta
+name="description"
+content="${safeDescription}"
+/>
 
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${title}" />
-<meta name="twitter:description" content="${description}" />
-<meta name="twitter:image" content="${image}" />
+<link
+rel="icon"
+href="${FRONTEND_URL}/favicon.ico"
+/>
 
-<script>
-setTimeout(() => {
-  window.location.href = "${redirectUrl}";
-}, 1000);
+<!-- Open Graph -->
+
+<meta
+property="og:title"
+content="${safeTitle}"
+/>
+
+<meta
+property="og:description"
+content="${safeDescription}"
+/>
+
+<meta
+property="og:image"
+content="${image}"
+/>
+
+<meta
+property="og:image:width"
+content="1200"
+/>
+
+<meta
+property="og:image:height"
+content="630"
+/>
+
+<meta
+property="og:url"
+content="${redirectUrl}"
+/>
+
+<meta
+property="og:type"
+content="article"
+/>
+
+<meta
+property="og:site_name"
+content="AfricSocial"
+/>
+
+<!-- Twitter -->
+
+<meta
+name="twitter:card"
+content="summary_large_image"
+/>
+
+<meta
+name="twitter:title"
+content="${safeTitle}"
+/>
+
+<meta
+name="twitter:description"
+content="${safeDescription}"
+/>
+
+<meta
+name="twitter:image"
+content="${image}"
+/>
+
+${
+  videoUrl
+    ? `
+<meta
+property="og:video"
+content="${videoUrl}"
+/>
+
+<meta
+property="og:video:type"
+content="video/mp4"
+/>
+
+<meta
+property="og:video:width"
+content="720"
+/>
+
+<meta
+property="og:video:height"
+content="1280"
+/>
+`
+    : ""
+}
+
+<!-- Structured Data -->
+
+<script type="application/ld+json">
+{
+ "@context":"https://schema.org",
+ "@type":"SocialMediaPosting",
+ "headline":"${safeTitle}",
+ "description":"${safeDescription}",
+ "image":"${image}"
+}
 </script>
+
+<meta
+http-equiv="refresh"
+content="3;url=${redirectUrl}"
+/>
 
 </head>
 
 <body>
 
-Redirecting...
+<div
+style="
+font-family:sans-serif;
+padding:30px;
+text-align:center;
+"
+>
+
+<h2>${safeTitle}</h2>
+
+<img
+src="${image}"
+style="
+max-width:100%;
+border-radius:12px;
+"
+/>
+
+<p>
+Redirecting to AfricSocial...
+</p>
+
+<a href="${redirectUrl}">
+Open Post
+</a>
+
+</div>
 
 </body>
 </html>
 `);
-
   } catch (err) {
-
     console.error(
       "POST SHARE ERROR:",
       err
     );
 
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send("Server error");
   }
 });
+
+
 
 /* ================= API ROUTES ================= */
 app.use("/api/auth", authRoutes);
