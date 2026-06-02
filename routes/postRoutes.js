@@ -191,20 +191,24 @@ if (!file) {
 
   fs.unlinkSync(file.path);  
 
-  const { caption } = req.body;  
+  const {
+  caption,
+  thumbnailUrl,
+} = req.body;
 
-  const post = await Post.create({  
-    user: req.user.id,  
+const post = await Post.create({
+  user: req.user.id,
 
-    content: caption || "",  
+  content: caption || "",
 
-    media: [  
-      {  
-        url: `${R2_CUSTOM_DOMAIN}/${fileName}`,  
-        type: "video",  
-      },  
-    ],  
-  });  
+  media: [
+    {
+      url: `${R2_CUSTOM_DOMAIN}/${fileName}`,
+      type: "video",
+      thumbnailUrl,
+    },
+  ],
+});
 
   await post.populate(
   "user",
