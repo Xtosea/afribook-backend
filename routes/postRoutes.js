@@ -906,7 +906,37 @@ router.post(
 );
 
 
+router.get("/thumbnail-signed-url", async (req, res) => {
+  try {
+    const fileName =
+      `thumbnails/${Date.now()}.jpg`;
 
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: fileName,
+      ContentType: "image/jpeg",
+    });
+
+    const uploadUrl = await getSignedUrl(
+      s3,
+      command,
+      { expiresIn: 300 }
+    );
+
+    res.json({
+      uploadUrl,
+      thumbnailUrl:
+        `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to generate thumbnail URL",
+    });
+  }
+});
 
 
 export default router;
