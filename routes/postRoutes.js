@@ -1,10 +1,14 @@
 import express from "express";
 import multer from "multer";
 import fs from "fs";
+
 import {
-S3Client,
-PutObjectCommand,
+  S3Client,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
+
+import { getSignedUrl }
+from "@aws-sdk/s3-request-presigner";
 
 import Post from "../models/Post.js";
 import Report from "../models/Report.js";
@@ -15,11 +19,6 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 import { sendNotification }
   from "../utils/sendNotification.js";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import {
-  S3Client,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
 
 
 const router = express.Router();
