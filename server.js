@@ -173,74 +173,62 @@ app.get("/post/:id", async (req, res) => {
         .send("Post not found");
     }
 
-    const firstMedia =
-      post?.media?.[0];
+    const firstMedia = post?.media?.[0];
 
-    let image =
-      `${FRONTEND_URL}/social-preview.png`;
+let image =
+  `${FRONTEND_URL}/social-preview.png`;
 
-    let videoUrl = null;
+let videoUrl = null;
 
-    // IMAGE POST
-    if (
-      firstMedia &&
-      firstMedia.type === "image"
-    ) {
-      const mediaUrl =
-        firstMedia.url ||
-        firstMedia.secure_url ||
-        firstMedia.src;
+/* IMAGE POST */
+if (
+  firstMedia &&
+  firstMedia.type === "image"
+) {
+  image =
+    firstMedia.url ||
+    firstMedia.secure_url ||
+    firstMedia.src ||
+    image;
+}
 
-      if (mediaUrl) {
-        image =
-          mediaUrl.startsWith("http")
-            ? mediaUrl
-            : `${BACKEND_URL}${mediaUrl}`;
-      }
-    }
+/* VIDEO POST */
+if (
+  firstMedia &&
+  firstMedia.type === "video"
+) {
+  videoUrl =
+    firstMedia.url ||
+    firstMedia.secure_url ||
+    firstMedia.src;
 
-    // VIDEO POST
-    if (
-      firstMedia &&
-      firstMedia.type === "video"
-    ) {
-      videoUrl =
-        firstMedia.url ||
-        firstMedia.secure_url ||
-        firstMedia.src;
+  image =
+    firstMedia.thumbnailUrl ||
+    firstMedia.thumbnail ||
+    firstMedia.poster ||
+    `${FRONTEND_URL}/social-preview.png`;
+}
 
-      const thumbnail =
-        firstMedia.thumbnailUrl ||
-        firstMedia.thumbnail ||
-        firstMedia.poster;
+/* TEXT POST */
+if (!firstMedia) {
+  image =
+    `https://afribook-backend.onrender.com/post-card/${post._id}`;
+}
 
-      if (thumbnail) {
-        image =
-          thumbnail.startsWith("http")
-            ? thumbnail
-            : `${BACKEND_URL}${thumbnail}`;
-      }
-    }
 
-    const title =
-      post.content
-        ? `${post.user?.name}: ${post.content.substring(
-            0,
-            80
-          )}`
-        : `${post.user?.name} shared a post`;
+const title =
+  post.content
+    ? `${post.user?.name}: ${post.content.slice(0, 80)}`
+    : `${post.user?.name} shared a post`;
 
-    const description = `
+const description = `
 ${post.likes?.length || 0} likes •
 ${post.comments?.length || 0} comments •
 View on AfricSocial
 `;
 
-    const redirectUrl =
-      `${FRONTEND_URL}/post/${post._id}`;
-  
-const socialCardImage =
-  `https://afribook-backend.onrender.com/post-card/${post._id}`;
+const redirectUrl =
+  `${FRONTEND_URL}/post/${post._id}`;
 
 
     const safeTitle =
@@ -285,16 +273,9 @@ property="og:description"
 content="${safeDescription}"
 />
 
-<meta property="og:image" content="${socialCardImage}" />
-
 <meta
-property="og:image:width"
-content="1200"
-/>
-
-<meta
-property="og:image:height"
-content="630"
+property="og:image"
+content="${image}"
 />
 
 <meta
@@ -329,7 +310,10 @@ name="twitter:description"
 content="${safeDescription}"
 />
 
-<meta name="twitter:image" content="${socialCardImage}" />
+<meta
+name="twitter:image"
+content="${image}"
+/>
 
 
 ${
@@ -366,7 +350,7 @@ content="1280"
  "@type":"SocialMediaPosting",
  "headline":"${safeTitle}",
  "description":"${safeDescription}",
- "image":"${socialCardImage}"
+ "image":"${image}"
 }
 </script>
 
