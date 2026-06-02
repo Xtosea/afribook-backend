@@ -235,55 +235,58 @@ if (!file) {
 /* ================= CREATE REEL ================= */
 
 router.post(
-"/reels",
-verifyToken,
-async (req, res) => {
-try {
-const { caption, videoUrl } =
-req.body;
+  "/reels",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const {
+        caption,
+        videoUrl,
+        thumbnailUrl,
+      } = req.body;
 
-if (!videoUrl) {  
-    return res.status(400).json({  
-      error: "Video URL missing",  
-    });  
-  }  
+      if (!videoUrl) {
+        return res.status(400).json({
+          error: "Video URL missing",
+        });
+      }
 
-  const reel = await Post.create({  
-    user: req.user.id,  
+      const reel = await Post.create({
+        user: req.user.id,
 
-    content: caption || "",  
+        content: caption || "",
 
-    isReel: true,  
+        isReel: true,
 
-    media: [  
-      {  
-        url: videoUrl,  
-        type: "video",  
-      },  
-    ],  
-  });  
+        media: [
+          {
+            url: videoUrl,
+            type: "video",
+            thumbnailUrl,
+          },
+        ],
+      });
 
-  await reel.populate(
-  "user",
-  "name profilePic verified verificationBadge"
-); 
+      await reel.populate(
+        "user",
+        "name profilePic verified verificationBadge"
+      );
 
-  io.emit("new-reel", reel);  
+      io.emit("new-reel", reel);
 
-  res.status(201).json(reel);  
+      res.status(201).json(reel);
 
-} catch (err) {  
-  console.error(  
-    "CREATE REEL ERROR:",  
-    err  
-  );  
+    } catch (err) {
+      console.error(
+        "CREATE REEL ERROR:",
+        err
+      );
 
-  res.status(500).json({  
-    error: err.message,  
-  });  
-}
-
-}
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
 );
 
 /* ================= GET REELS ================= */
