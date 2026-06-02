@@ -15,6 +15,7 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import { io } from "../server.js";
 import { sendNotification }
   from "../utils/sendNotification.js";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 
 const router = express.Router();
