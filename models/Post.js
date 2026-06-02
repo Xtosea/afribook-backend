@@ -32,6 +32,11 @@ const mediaSchema = new mongoose.Schema({
     enum: ["image", "video", "audio"],
     default: "image",
   },
+
+  thumbnailUrl: {
+    type: String,
+    default: "",
+  },
 });
 
 // ================= WATCH SESSION =================
