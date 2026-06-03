@@ -36,6 +36,10 @@ import aiRoutes from "./routes/aiRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import socialCardRoutes
 from "./routes/socialCardRoutes.js";
+import storyMusicRoutes
+from "./routes/storyMusicRoutes.js";
+
+
 
 
 
@@ -429,7 +433,9 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/post-card",socialCardRoutes);
-          
+app.use("/api/story-music",storyMusicRoutes
+        
+  
   
 
                    
