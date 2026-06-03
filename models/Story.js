@@ -63,6 +63,31 @@ const storySchema =
         },
       ],
 
+     music: {
+  title: String,
+  artist: String,
+  audioUrl: String,
+  coverUrl: String,
+},
+
+text: {
+  type: String,
+  default: "",
+},
+
+stickers: [
+  {
+    emoji: String,
+    x: String,
+    y: String,
+  },
+],
+
+backgroundColor: {
+  type: String,
+  default: "#000000",
+},
+      
       caption: {
         type: String,
         default: "",
