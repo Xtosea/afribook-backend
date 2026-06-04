@@ -42,6 +42,10 @@ from "./routes/storyMusicRoutes.js";
 import storyMusicAdminRoutes
 from "./routes/storyMusicAdminRoutes.js";
 
+import storyR2Controllers.js
+from "./routes/storyR2Controllers.js";
+
+
 
 
 
@@ -445,6 +449,7 @@ app.use(
   storyMusicAdminRoutes
 );
         
+app.use"/api/storyR2", storyR2Controllers.js);
   
   
 
