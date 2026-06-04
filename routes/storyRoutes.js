@@ -20,70 +20,66 @@ const router = express.Router();
 /* ================= CREATE STORY ================= */
 
 router.post(
-  "/",
-  verifyToken,
-  async (req, res) => {
+"/",
+verifyToken,
+async (req, res) => {
+try {
+const {
+media = [],
+caption = "",
+text = "",
+music = null,
+stickers = [],
+backgroundColor = "#000000",
+} = req.body;
 
-    try {
-
-      const {
-        media,
-        caption,
-      } = req.body;
-
-      if (
-        !media ||
-        !media.length
-      ) {
-        return res.status(400).json({
-          error: "Media required",
-        });
-      }
-
-      const story =
-        await Story.create({
-
-          user: req.user.id,
-
-          media,
-
-          caption,
-
-          expiresAt:
-            new Date(
-              Date.now() +
-              24 * 60 * 60 * 1000
-            ),
-        });
-
-      // IMPORTANT
-      await story.populate(
-        "user",
-        "name profilePic"
-      );
-
-      io.emit(
-        "new-story",
-        story
-      );
-
-      res.status(201).json(
-        story
-      );
-
-    } catch (err) {
-
-      console.error(
-        "Create story error:",
-        err
-      );
-
-      res.status(500).json({
-        error:
-          "Failed to create story",
-      });
-    }
+  // Require at least some story content
+  if (
+    (!media || media.length === 0) &&
+    !text &&
+    !music &&
+    (!stickers || stickers.length === 0)
+  ) {
+    return res.status(400).json({
+      error: "Story content required",
+    });
   }
+
+  const story = await Story.create({
+    user: req.user.id,
+
+    media,
+    caption,
+    text,
+    music,
+    stickers,
+    backgroundColor,
+
+    expiresAt: new Date(
+      Date.now() + 24 * 60 * 60 * 1000
+    ),
+  });
+
+  await story.populate(
+    "user",
+    "name profilePic"
+  );
+
+  io.emit("new-story", story);
+
+  res.status(201).json(story);
+} catch (err) {
+  console.error(
+    "Create story error:",
+    err
+  );
+
+  res.status(500).json({
+    error: "Failed to create story",
+  });
+}
+
+}
 );
 
 /* ================= GET STORIES ================= */
