@@ -27,34 +27,48 @@ router.post(
     try {
 
       const {
-        media,
-        caption,
-      } = req.body;
+  media = [],
+  caption = "",
+  text = "",
+  music = null,
+  stickers = [],
+  backgroundColor = "#000000",
+} = req.body;
 
       if (
-        !media ||
-        !media.length
-      ) {
-        return res.status(400).json({
-          error: "Media required",
-        });
-      }
+  (!media || media.length === 0) &&
+  !text &&
+  !music &&
+  (!stickers || stickers.length === 0)
+) {
+  return res.status(400).json({
+    error: "Story content required",
+  });
+}
 
       const story =
-        await Story.create({
+  await Story.create({
 
-          user: req.user.id,
+    user: req.user.id,
 
-          media,
+    media,
 
-          caption,
+    caption,
 
-          expiresAt:
-            new Date(
-              Date.now() +
-              24 * 60 * 60 * 1000
-            ),
-        });
+    text,
+
+    music,
+
+    stickers,
+
+    backgroundColor,
+
+    expiresAt:
+      new Date(
+        Date.now() +
+        24 * 60 * 60 * 1000
+      ),
+  });
 
       // IMPORTANT
       await story.populate(
