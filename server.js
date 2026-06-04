@@ -434,7 +434,7 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/post-card",socialCardRoutes);
-app.use("/api/story-music",storyMusicRoutes
+app.use("/api/story-music", storyMusicRoutes);
 app.use(
   "/api/story-music-admin",
   storyMusicAdminRoutes
