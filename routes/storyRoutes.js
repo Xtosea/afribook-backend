@@ -20,66 +20,63 @@ const router = express.Router();
 /* ================= CREATE STORY ================= */
 
 router.post(
-"/",
-verifyToken,
-async (req, res) => {
-try {
-const {
-media = [],
-caption = "",
-text = "",
-music = null,
-stickers = [],
-backgroundColor = "#000000",
-} = req.body;
+  "/",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const {
+        media = [],
+        caption = "",
+        text = "",
+        music = null,
+        stickers = [],
+        backgroundColor = "#000000",
+      } = req.body;
 
-  // Require at least some story content
-  if (
-    (!media || media.length === 0) &&
-    !text &&
-    !music &&
-    (!stickers || stickers.length === 0)
-  ) {
-    return res.status(400).json({
-      error: "Story content required",
-    });
+      if (
+        media.length === 0 &&
+        !text &&
+        !music &&
+        stickers.length === 0
+      ) {
+        return res.status(400).json({
+          error: "Story content required",
+        });
+      }
+
+      const story = await Story.create({
+        user: req.user.id,
+        media,
+        caption,
+        text,
+        music,
+        stickers,
+        backgroundColor,
+        expiresAt: new Date(
+          Date.now() + 24 * 60 * 60 * 1000
+        ),
+      });
+
+      await story.populate(
+        "user",
+        "name profilePic"
+      );
+
+      io.emit("new-story", story);
+
+      res.status(201).json(story);
+
+    } catch (err) {
+      console.error(
+        "Create story error:",
+        err
+      );
+
+      res.status(500).json({
+        error: "Failed to create story",
+      });
+    }
   }
-
-  const story = await Story.create({
-    user: req.user.id,
-
-    media,
-    caption,
-    text,
-    music,
-    stickers,
-    backgroundColor,
-
-    expiresAt: new Date(
-      Date.now() + 24 * 60 * 60 * 1000
-    ),
-  });
-
-  await story.populate(
-    "user",
-    "name profilePic"
-  );
-
-  io.emit("new-story", story);
-
-  res.status(201).json(story);
-} catch (err) {
-  console.error(
-    "Create story error:",
-    err
-  );
-
-  res.status(500).json({
-    error: "Failed to create story",
-  });
-}
-
-}
 );
 
 /* ================= GET STORIES ================= */
