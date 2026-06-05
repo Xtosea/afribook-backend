@@ -246,6 +246,23 @@ verificationBadge: {
 },
 
 },
+
+  isMonetized: {
+  type: Boolean,
+  default: false,
+},
+
+monetizationStatus: {
+  type: String,
+  enum: [
+    "none",
+    "pending",
+    "approved",
+    "rejected",
+  ],
+  default: "none",
+},
+    
 {
   timestamps: true,
 }
