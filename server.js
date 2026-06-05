@@ -448,7 +448,7 @@ app.use(
   storyMusicAdminRoutes
 );
         
-app.use"/api/storyR2", storyR2Controllers.js);
+app.use("/api/storyR2", storyR2Routes);
   
   
 
