@@ -25,6 +25,15 @@ const withdrawalSchema =
         required: true,
       },
 
+      type: {
+  type: String,
+  enum: [
+    "points",
+    "creator",
+  ],
+  default: "points",
+},
+
       accountName: {
         type: String,
         required: true,
