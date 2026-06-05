@@ -7,6 +7,12 @@ import Verification from "../models/Verification.js";
 import User from "../models/User.js";
 import Withdrawal from "../models/Withdrawal.js";
 
+import Wallet from "../models/Wallet.js";
+import AdCampaign from "../models/AdCampaign.js";
+import {
+  isAdmin,
+} from "../middleware/adminMiddleware.js";
+
 const router = express.Router();
 
 
@@ -312,5 +318,205 @@ router.put(
     }
   }
 );
+
+/* =================================================
+   Add Monetization Fields To User
+================================================= */
+isMonetized: {
+  type: Boolean,
+  default: false,
+},
+
+monetizationStatus: {
+  type: String,
+  enum: [
+    "none",
+    "pending",
+    "approved",
+    "rejected",
+  ],
+  default: "none",
+},
+
+isAdvertiser: {
+  type: Boolean,
+  default: false,
+},
+
+advertiserStatus: {
+  type: String,
+  enum: [
+    "none",
+    "pending",
+    "approved",
+    "rejected",
+  ],
+  default: "none",
+},
+
+
+/* =================================================
+   Approve Creator Monetization
+================================================= */
+router.put(
+  "/creator/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        isMonetized: true,
+        monetizationStatus:
+          "approved",
+      }
+    );
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
+
+/* =================================================
+   Reject Creator Monetization
+================================================= */
+router.put(
+  "/creator/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        isMonetized: false,
+        monetizationStatus:
+          "rejected",
+      }
+    );
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
+
+/* =================================================
+   Approve Advertiser
+================================================= */
+router.put(
+  "/advertiser/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        isAdvertiser: true,
+        advertiserStatus:
+          "approved",
+      }
+    );
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
+
+
+/* =================================================
+   Reject Advertiser(ADMIN PANEL)
+================================================= */
+router.put(
+  "/advertiser/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        isAdvertiser: false,
+        advertiserStatus:
+          "rejected",
+      }
+    );
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
+
+/* =================================================
+   ADMIN STATS
+================================================= */
+router.get(
+  "/stats",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    const users =
+      await User.countDocuments();
+
+    const creators =
+      await User.countDocuments({
+        isMonetized: true,
+      });
+
+    const advertisers =
+      await User.countDocuments({
+        isAdvertiser: true,
+      });
+
+    const campaigns =
+      await AdCampaign.countDocuments();
+
+    const pendingWithdrawals =
+      await Withdrawal.countDocuments({
+        status: "pending",
+      });
+
+    res.json({
+      users,
+      creators,
+      advertisers,
+      campaigns,
+      pendingWithdrawals,
+    });
+  }
+);
+
+/* =================================================
+   Fraud Detection Endpoint
+================================================= */
+const suspicious =
+await AdImpression.aggregate([
+  {
+    $group: {
+      _id: "$viewer",
+      count: {
+        $sum: 1,
+      },
+    },
+  },
+  {
+    $match: {
+      count: {
+        $gt: 100,
+      },
+    },
+  },
+]);
+
 
 export default router;
