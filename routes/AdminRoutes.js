@@ -635,5 +635,118 @@ router.get(
 );
 
 
+router.put(
+  "/campaign/:id/pause",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    try {
+
+      const campaign =
+        await AdCampaign.findById(
+          req.params.id
+        );
+
+      if (!campaign) {
+        return res.status(404).json({
+          error:
+            "Campaign not found",
+        });
+      }
+
+      campaign.status =
+        "paused";
+
+      await campaign.save();
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Pause failed",
+      });
+    }
+  }
+);
+
+router.put(
+  "/campaign/:id/resume",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    try {
+
+      const campaign =
+        await AdCampaign.findById(
+          req.params.id
+        );
+
+      if (!campaign) {
+        return res.status(404).json({
+          error:
+            "Campaign not found",
+        });
+      }
+
+      campaign.status =
+        "active";
+
+      await campaign.save();
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Resume failed",
+      });
+    }
+  }
+);
+
+router.delete(
+  "/campaign/:id",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    try {
+
+      await AdCampaign.findByIdAndDelete(
+        req.params.id
+      );
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Delete failed",
+      });
+    }
+  }
+);
+
+
+
+
 
 export default router;
