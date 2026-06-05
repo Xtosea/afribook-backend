@@ -73,6 +73,23 @@ adRevenueEarned: {
   type: Number,
   default: 0
 }
+
+  creatorBalance: {
+  type: Number,
+  default: 0,
+},
+
+adRevenueEarned: {
+  type: Number,
+  default: 0,
+},
+
+adViews: {
+  type: Number,
+  default: 0,
+},
+
+
     
     leaderboardPoints: {
       type: Number,
