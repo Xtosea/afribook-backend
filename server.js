@@ -49,6 +49,9 @@ import creatorRoutes
 from "./routes/creatorRoutes.js";
 import adminRoutes
 from "./routes/adminRoutes.js";
+import adRoutes
+from "./routes/adRoutes.js";
+
 
 
 
@@ -461,6 +464,7 @@ app.use("/api/storyR2", storyR2Routes);
   "/api/creator",
   creatorRoutes
 app.use("/admin",adminRoutes);
+app.use("/api/ad", adRoutes);
 
   
 
