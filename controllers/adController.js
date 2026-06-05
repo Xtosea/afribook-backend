@@ -250,3 +250,51 @@ export const recordClick = async (
     });
   }
 };
+
+/* ================= CAMPAIGN ANALYTICS ================= */
+
+export const getCampaignAnalytics =
+async (req, res) => {
+  try {
+    const campaign =
+      await AdCampaign.findOne({
+        _id: req.params.id,
+        advertiser: req.user.id,
+      });
+
+    if (!campaign) {
+      return res.status(404).json({
+        error: "Campaign not found",
+      });
+    }
+
+    const ctr =
+      campaign.impressions > 0
+        ? (
+            (campaign.clicks /
+              campaign.impressions) *
+            100
+          ).toFixed(2)
+        : 0;
+
+    res.json({
+      title: campaign.title,
+      budget: campaign.budget,
+      remainingBudget:
+        campaign.remainingBudget,
+      spent: campaign.spent,
+      impressions:
+        campaign.impressions,
+      clicks: campaign.clicks,
+      ctr,
+      status: campaign.status,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to load analytics",
+    });
+  }
+};
