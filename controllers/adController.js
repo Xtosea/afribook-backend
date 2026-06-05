@@ -1,0 +1,252 @@
+import AdCampaign from "../models/AdCampaign.js";
+import AdImpression from "../models/AdImpression.js";
+import CreatorRevenue from "../models/CreatorRevenue.js";
+import Wallet from "../models/Wallet.js";
+
+const COST_PER_VIEW = 2;
+const CREATOR_SHARE = 0.7;
+
+/* ================= CREATE CAMPAIGN ================= */
+
+export const createCampaign = async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      mediaUrl,
+      adType,
+      budget,
+    } = req.body;
+
+    if (!title || !budget) {
+      return res.status(400).json({
+        error: "Title and budget required",
+      });
+    }
+
+    const campaign =
+      await AdCampaign.create({
+        advertiser: req.user.id,
+        title,
+        description,
+        mediaUrl,
+        adType,
+        budget,
+        remainingBudget: budget,
+      });
+
+    res.status(201).json(campaign);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to create campaign",
+    });
+  }
+};
+
+/* ================= MY CAMPAIGNS ================= */
+
+export const getMyCampaigns = async (
+  req,
+  res
+) => {
+  try {
+    const campaigns =
+      await AdCampaign.find({
+        advertiser: req.user.id,
+      }).sort({
+        createdAt: -1,
+      });
+
+    res.json(campaigns);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to load campaigns",
+    });
+  }
+};
+
+/* ================= SERVE AD ================= */
+
+export const serveAd = async (
+  req,
+  res
+) => {
+  try {
+    const ads =
+      await AdCampaign.aggregate([
+        {
+          $match: {
+            status: "active",
+
+            remainingBudget: {
+              $gt: 0,
+            },
+          },
+        },
+
+        {
+          $sample: {
+            size: 1,
+          },
+        },
+      ]);
+
+    if (!ads.length) {
+      return res.json(null);
+    }
+
+    res.json(ads[0]);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to serve ad",
+    });
+  }
+};
+
+/* ================= RECORD IMPRESSION ================= */
+
+export const recordImpression =
+  async (req, res) => {
+    try {
+      const {
+        campaignId,
+        creatorId,
+        postId,
+      } = req.body;
+
+      const campaign =
+        await AdCampaign.findById(
+          campaignId
+        );
+
+      if (!campaign) {
+        return res.status(404).json({
+          error: "Campaign not found",
+        });
+      }
+
+      if (
+        campaign.remainingBudget <
+        COST_PER_VIEW
+      ) {
+        return res.status(400).json({
+          error:
+            "Campaign budget exhausted",
+        });
+      }
+
+      campaign.impressions += 1;
+
+      campaign.spent +=
+        COST_PER_VIEW;
+
+      campaign.remainingBudget -=
+        COST_PER_VIEW;
+
+      await campaign.save();
+
+      let wallet =
+        await Wallet.findOne({
+          user: creatorId,
+        });
+
+      if (!wallet) {
+        wallet =
+          await Wallet.create({
+            user: creatorId,
+          });
+      }
+
+      const creatorEarned =
+        COST_PER_VIEW *
+        CREATOR_SHARE;
+
+      wallet.creatorBalance =
+        (wallet.creatorBalance || 0) +
+        creatorEarned;
+
+      wallet.adRevenueEarned =
+        (wallet.adRevenueEarned || 0) +
+        creatorEarned;
+
+      wallet.adViews =
+        (wallet.adViews || 0) + 1;
+
+      await wallet.save();
+
+      await AdImpression.create({
+        campaign: campaignId,
+        creator: creatorId,
+        viewer: req.user.id,
+        post: postId,
+        valid: true,
+      });
+
+      await CreatorRevenue.create({
+        creator: creatorId,
+        campaign: campaignId,
+        post: postId,
+        views: 1,
+        earnings: creatorEarned,
+      });
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Failed to record impression",
+      });
+    }
+  };
+
+/* ================= RECORD CLICK ================= */
+
+export const recordClick = async (
+  req,
+  res
+) => {
+  try {
+    const { campaignId } =
+      req.body;
+
+    const campaign =
+      await AdCampaign.findById(
+        campaignId
+      );
+
+    if (!campaign) {
+      return res.status(404).json({
+        error: "Campaign not found",
+      });
+    }
+
+    campaign.clicks += 1;
+
+    await campaign.save();
+
+    res.json({
+      success: true,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to record click",
+    });
+  }
+};
