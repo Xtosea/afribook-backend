@@ -2,7 +2,8 @@ import express from "express";
 import AdImpression
 from "../models/AdImpression.js";
 import { sendNotification } from "../utils/sendNotification.js";
-
+import { verifyToken }
+from "../middleware/authMiddleware.js";
 import Verification from "../models/Verification.js";
 import User from "../models/User.js";
 import Withdrawal from "../models/Withdrawal.js";
@@ -312,40 +313,6 @@ router.put(
   }
 );
 
-/* =================================================
-   Add Monetization Fields To User
-================================================= */
-isMonetized: {
-  type: Boolean,
-  default: false,
-},
-
-monetizationStatus: {
-  type: String,
-  enum: [
-    "none",
-    "pending",
-    "approved",
-    "rejected",
-  ],
-  default: "none",
-},
-
-isAdvertiser: {
-  type: Boolean,
-  default: false,
-},
-
-advertiserStatus: {
-  type: String,
-  enum: [
-    "none",
-    "pending",
-    "approved",
-    "rejected",
-  ],
-  default: "none",
-},
 
 
 /* =================================================
