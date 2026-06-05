@@ -25,14 +25,7 @@ router.put(
   }
 );
 
-/* =================================================
-   VERIFY ADMIN ACCESS (basic placeholder)
-   You can later replace with role-based check
-================================================= */
-const isAdmin = (req, res, next) => {
-  // Example: if (req.user.role !== "admin") return res.status(403)...
-  next();
-};
+
 
 /* =================================================
    APPROVE VERIFICATION
