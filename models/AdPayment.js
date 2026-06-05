@@ -1,0 +1,31 @@
+// models/AdPayment.js
+
+import mongoose from "mongoose";
+
+const adPaymentSchema = new mongoose.Schema({
+  advertiser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+
+  campaign: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "AdCampaign",
+  },
+
+  amount: Number,
+
+  reference: String,
+
+  status: {
+    type: String,
+    default: "pending",
+  },
+}, {
+  timestamps: true,
+});
+
+export default mongoose.model(
+  "AdPayment",
+  adPaymentSchema
+);
