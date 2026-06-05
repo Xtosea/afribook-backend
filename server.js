@@ -47,8 +47,8 @@ import adRoutes
 from "./routes/adRoutes.js";
 import creatorRoutes
 from "./routes/creatorRoutes.js";
-import AdminRoutes
-from "./routes/AdminRoutes.js";
+import adminRoutes
+from "./routes/adminRoutes.js";
 
 
 
