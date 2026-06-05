@@ -518,5 +518,93 @@ await AdImpression.aggregate([
   },
 ]);
 
+/* =================================================
+   GET CREATOR MONETIZATION REQUESTS
+================================================= */
+router.get(
+  "/creators",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+
+      const creators =
+        await User.find({
+          monetizationStatus: {
+            $in: [
+              "pending",
+              "approved",
+              "rejected",
+            ],
+          },
+        })
+        .select(
+          "name email profilePic isMonetized monetizationStatus createdAt"
+        )
+        .sort({
+          createdAt: -1,
+        });
+
+      res.json(creators);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Failed to fetch creators",
+      });
+    }
+  }
+);
+
+/* =================================================
+   GET ADVERTISERS
+================================================= */
+router.get(
+  "/advertisers",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+
+    try {
+
+      const advertisers =
+        await User.find({
+          advertiserStatus: {
+            $in: [
+              "pending",
+              "approved",
+              "rejected",
+            ],
+          },
+        })
+        .select(
+          "name email profilePic isAdvertiser advertiserStatus createdAt"
+        )
+        .sort({
+          createdAt: -1,
+        });
+
+      res.json(
+        advertisers
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Failed to fetch advertisers",
+      });
+    }
+  }
+);
+
+
+
+
 
 export default router;
