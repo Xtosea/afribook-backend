@@ -603,7 +603,36 @@ router.get(
   }
 );
 
+router.get(
+  "/campaigns",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
 
+      const campaigns =
+        await AdCampaign.find()
+          .populate(
+            "advertiser",
+            "name profilePic email"
+          )
+          .sort({
+            createdAt: -1,
+          });
+
+      res.json(campaigns);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Failed to fetch campaigns",
+      });
+    }
+  }
+);
 
 
 
