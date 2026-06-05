@@ -456,15 +456,14 @@ app.use(
 );
         
 app.use("/api/storyR2", storyR2Routes);
-  app.use(
-  "/api/ads",
-  adRoutes
 
-    app.use(
-  "/api/creator",
-  creatorRoutes
-app.use("/admin",adminRoutes);
 app.use("/api/ad", adRoutes);
+
+app.use("/api/creator", creatorRoutes);
+
+app.use("/admin", adminRoutes);
+
+
 
   
 
