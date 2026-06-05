@@ -9,6 +9,12 @@ const adImpressionSchema = new mongoose.Schema({
     required: true,
   },
 
+campaign: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "AdCampaign",
+      },
+
   creator: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -31,6 +37,11 @@ const adImpressionSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+
+clicked: {
+        type: Boolean,
+        default: false,
+      },
 
   valid: {
     type: Boolean,
