@@ -68,6 +68,55 @@ router.delete(
   deleteCampaign
 );
 
+/* =================================================
+    CREATORS APPLY
+================================================= */
+router.post(
+  "/apply",
+  verifyToken,
+  async (req, res) => {
+
+    const user =
+      await User.findById(
+        req.user.id
+      );
+
+    user.monetizationStatus =
+      "pending";
+
+    await user.save();
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
+
+/* =================================================
+    ADVERTISERS APPLY
+================================================= */
+router.post(
+  "/advertiser/apply",
+  verifyToken,
+  async (req, res) => {
+
+    const user =
+      await User.findById(
+        req.user.id
+      );
+
+    user.advertiserStatus =
+      "pending";
+
+    await user.save();
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
 
 
 export default router;
