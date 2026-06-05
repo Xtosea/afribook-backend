@@ -262,6 +262,38 @@ monetizationStatus: {
   ],
   default: "none",
 },
+
+isMonetized: {
+  type: Boolean,
+  default: false,
+},
+
+monetizationStatus: {
+  type: String,
+  enum: [
+    "none",
+    "pending",
+    "approved",
+    "rejected",
+  ],
+  default: "none",
+},
+
+isAdvertiser: {
+  type: Boolean,
+  default: false,
+},
+
+advertiserStatus: {
+  type: String,
+  enum: [
+    "none",
+    "pending",
+    "approved",
+    "rejected",
+  ],
+  default: "none",
+},
     
 {
   timestamps: true,
