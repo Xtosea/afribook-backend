@@ -549,11 +549,8 @@ router.get(
           },
         })
         .select(
-          "name email profilePic
-
- isAdvertiser advertiserStatus createdAt"
-
-        )
+  "name email profilePic isAdvertiser advertiserStatus createdAt"
+)
         .sort({
           createdAt: -1,
         });
