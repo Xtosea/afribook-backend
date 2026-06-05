@@ -298,3 +298,100 @@ async (req, res) => {
     });
   }
 };
+
+
+export const pauseCampaign =
+async (req, res) => {
+  try {
+    const campaign =
+      await AdCampaign.findOne({
+        _id: req.params.id,
+        advertiser: req.user.id,
+      });
+
+    if (!campaign) {
+      return res.status(404).json({
+        error: "Campaign not found",
+      });
+    }
+
+    campaign.status = "paused";
+
+    await campaign.save();
+
+    res.json({
+      success: true,
+      status: campaign.status,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to pause",
+    });
+  }
+};
+
+export const resumeCampaign =
+async (req, res) => {
+  try {
+    const campaign =
+      await AdCampaign.findOne({
+        _id: req.params.id,
+        advertiser: req.user.id,
+      });
+
+    if (!campaign) {
+      return res.status(404).json({
+        error: "Campaign not found",
+      });
+    }
+
+    campaign.status = "active";
+
+    await campaign.save();
+
+    res.json({
+      success: true,
+      status: campaign.status,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to resume",
+    });
+  }
+};
+
+  export const deleteCampaign =
+async (req, res) => {
+  try {
+    const campaign =
+      await AdCampaign.findOneAndDelete({
+        _id: req.params.id,
+        advertiser: req.user.id,
+      });
+
+    if (!campaign) {
+      return res.status(404).json({
+        error: "Campaign not found",
+      });
+    }
+
+    res.json({
+      success: true,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to delete",
+    });
+  }
+};
+
+is
