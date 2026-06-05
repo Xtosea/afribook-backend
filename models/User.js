@@ -229,28 +229,6 @@ contacts: [
 
 
 
-verificationStatus: {
-  type: String,
-  enum: [
-    "NONE",
-    "PENDING",
-    "APPROVED",
-    "REJECTED",
-  ],
-  default: "NONE",
-},
-
-verificationStatus: {
-  type: String,
-  enum: [
-    "NONE",
-    "PENDING",
-    "APPROVED",
-    "REJECTED",
-  ],
-  default: "NONE",
-},
-
 verificationBadge: {
   type: String,
   default: "blue",
@@ -287,7 +265,9 @@ advertiserStatus: {
   ],
   default: "none",
 },
-    
+
+}, // <-- important
+
 {
   timestamps: true,
 }
@@ -297,7 +277,5 @@ const User = mongoose.model(
   "User",
   UserSchema
 );
-
-
 
 export default User;
