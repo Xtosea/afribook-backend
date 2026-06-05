@@ -64,6 +64,16 @@ const walletSchema = new mongoose.Schema(
       default: 0,
     },
 
+   creatorBalance: {
+  type: Number,
+  default: 0
+},
+
+adRevenueEarned: {
+  type: Number,
+  default: 0
+}
+    
     leaderboardPoints: {
       type: Number,
       default: 0,
