@@ -456,29 +456,37 @@ router.get(
   }
 );
 
-/* =================================================
-   Fraud Detection Endpoint
-================================================= */
-const suspicious =
-await AdImpression.aggregate([
-  {
-    $group: {
-      _id: "$viewer",
-      count: {
-        $sum: 1,
-      },
-    },
-  },
-  {
-    $match: {
-      count: {
-        $gt: 100,
-      },
-    },
-  },
-]);
+router.get(
+  "/fraud",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const suspicious =
+        await AdImpression.aggregate([
+          {
+            $group: {
+              _id: "$viewer",
+              count: { $sum: 1 },
+            },
+          },
+          {
+            $match: {
+              count: { $gt: 100 },
+            },
+          },
+        ]);
 
-/* =================================================
+      res.json(suspicious);
+    } catch (err) {
+      res.status(500).json({
+        error: "Failed to fetch fraud data",
+      });
+    }
+  }
+);
+
+ =================================================
    GET CREATOR MONETIZATION REQUESTS
 ================================================= */
 router.get(
@@ -541,7 +549,10 @@ router.get(
           },
         })
         .select(
-          "name email profilePic isAdvertiser advertiserStatus createdAt"
+          "name email profilePic
+
+ isAdvertiser advertiserStatus createdAt"
+
         )
         .sort({
           createdAt: -1,
@@ -638,6 +649,7 @@ router.put(
     }
   }
 );
+
 
 router.put(
   "/campaign/:id/resume",
