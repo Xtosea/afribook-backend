@@ -44,4 +44,30 @@ router.post(
   recordClick
 );
 
+router.get(
+  "/analytics/:id",
+  verifyToken,
+  getCampaignAnalytics
+);
+
+router.put(
+  "/pause/:id",
+  verifyToken,
+  pauseCampaign
+);
+
+router.put(
+  "/resume/:id",
+  verifyToken,
+  resumeCampaign
+);
+
+router.delete(
+  "/:id",
+  verifyToken,
+  deleteCampaign
+);
+
+
+
 export default router;
