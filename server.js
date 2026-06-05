@@ -42,9 +42,8 @@ from "./routes/storyMusicRoutes.js";
 import storyMusicAdminRoutes
 from "./routes/storyMusicAdminRoutes.js";
 
-import storyR2Controllers.js
-from "./routes/storyR2Controllers.js";
-
+import storyMusicAdminRoutes
+from "./routes/storyMusicAdminRoutes.js"
 
 
 
