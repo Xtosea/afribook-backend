@@ -240,27 +240,20 @@ verificationStatus: {
   default: "NONE",
 },
 
+verificationStatus: {
+  type: String,
+  enum: [
+    "NONE",
+    "PENDING",
+    "APPROVED",
+    "REJECTED",
+  ],
+  default: "NONE",
+},
+
 verificationBadge: {
   type: String,
   default: "blue",
-},
-
-},
-
-  isMonetized: {
-  type: Boolean,
-  default: false,
-},
-
-monetizationStatus: {
-  type: String,
-  enum: [
-    "none",
-    "pending",
-    "approved",
-    "rejected",
-  ],
-  default: "none",
 },
 
 isMonetized: {
