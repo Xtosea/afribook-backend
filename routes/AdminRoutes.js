@@ -1,6 +1,6 @@
 import express from "express";
-
-
+import AdImpression
+from "../models/AdImpression.js";
 import { sendNotification } from "../utils/sendNotification.js";
 
 import Verification from "../models/Verification.js";
