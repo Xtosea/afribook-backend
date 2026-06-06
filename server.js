@@ -51,6 +51,9 @@ import adminRoutes
 from "./routes/adminRoutes.js";
 import earningRoutes
 from "./routes/earningRoutes.js";
+import adminStatsRoutes from "./routes/adminStatsRoutes.js";
+
+
 
 
 
@@ -466,6 +469,11 @@ app.use("/admin", adminRoutes);
 app.use(
   "/api/earnings",
   earningRoutes
+);
+
+app.use(
+  "/api/admin",
+  adminStatsRoutes
 );
 
 
