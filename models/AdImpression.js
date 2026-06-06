@@ -1,55 +1,58 @@
-// models/AdImpression.js
-
 import mongoose from "mongoose";
 
-const adImpressionSchema = new mongoose.Schema({
-  campaign: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "AdCampaign",
-    required: true,
-  },
-
-campaign: {
+const adImpressionSchema =
+  new mongoose.Schema(
+    {
+      campaign: {
         type:
           mongoose.Schema.Types.ObjectId,
         ref: "AdCampaign",
+        required: true,
       },
 
-  creator: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
+      creator: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
 
-  viewer: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+      viewer: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
 
-  post: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Post",
-  },
+      post: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
 
-  ipAddress: String,
+      ipAddress: {
+        type: String,
+        default: "",
+      },
 
-  watchTime: {
-    type: Number,
-    default: 0,
-  },
+      watchTime: {
+        type: Number,
+        default: 0,
+      },
 
-clicked: {
+      clicked: {
         type: Boolean,
         default: false,
       },
 
-  valid: {
-    type: Boolean,
-    default: false,
-  },
-}, {
-  timestamps: true,
-});
+      valid: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    {
+      timestamps: true,
+    }
+  );
 
 export default mongoose.model(
   "AdImpression",
