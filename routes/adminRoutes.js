@@ -7,12 +7,15 @@ from "../middleware/authMiddleware.js";
 import Verification from "../models/Verification.js";
 import User from "../models/User.js";
 import Withdrawal from "../models/Withdrawal.js";
-
 import Wallet from "../models/Wallet.js";
 import AdCampaign from "../models/AdCampaign.js";
 import {
   isAdmin,
 } from "../middleware/adminMiddleware.js";
+import CreatorEarning
+from "../models/CreatorEarning.js";
+
+
 
 const router = express.Router();
 
@@ -712,6 +715,182 @@ router.delete(
       res.status(500).json({
         error:
           "Delete failed",
+      });
+    }
+  }
+);
+
+
+/* =================================================
+   APPROVE CREATOR EARNING
+================================================= */
+
+router.put(
+  "/earnings/:id/approve",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+
+      const earning =
+        await CreatorEarning.findById(
+          req.params.id
+        );
+
+      if (!earning) {
+        return res.status(404).json({
+          error:
+            "Earning not found",
+        });
+      }
+
+      if (
+        earning.status === "paid"
+      ) {
+        return res.status(400).json({
+          error:
+            "Already paid",
+        });
+      }
+
+      if (
+        earning.status === "rejected"
+      ) {
+        return res.status(400).json({
+          error:
+            "Already rejected",
+        });
+      }
+
+      let wallet =
+        await Wallet.findOne({
+          user:
+            earning.creator,
+        });
+
+      if (!wallet) {
+        wallet =
+          await Wallet.create({
+            user:
+              earning.creator,
+          });
+      }
+
+      wallet.balance =
+        (wallet.balance || 0) +
+        earning.amount;
+
+      wallet.lifetimeEarned =
+        (wallet.lifetimeEarned || 0) +
+        earning.amount;
+
+      await wallet.save();
+
+      earning.status = "paid";
+
+      await earning.save();
+
+      res.json({
+        success: true,
+        amount:
+          earning.amount,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Approval failed",
+      });
+    }
+  }
+);
+
+
+/* =================================================
+   REJECT CREATOR EARNING
+================================================= */
+
+router.put(
+  "/earnings/:id/reject",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+
+      const earning =
+        await CreatorEarning.findById(
+          req.params.id
+        );
+
+      if (!earning) {
+        return res.status(404).json({
+          error:
+            "Earning not found",
+        });
+      }
+
+      earning.status =
+        "rejected";
+
+      await earning.save();
+
+      res.json({
+        success: true,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Rejection failed",
+      });
+    }
+  }
+);
+
+
+
+/* =================================================
+   ALL CREATOR EARNINGS
+================================================= */
+
+router.get(
+  "/earnings",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+
+      const earnings =
+        await CreatorEarning.find()
+          .populate(
+            "creator",
+            "name profilePic"
+          )
+          .populate(
+            "campaign",
+            "title"
+          )
+          .sort({
+            createdAt: -1,
+          });
+
+      res.json(
+        earnings
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Failed to load earnings",
       });
     }
   }
