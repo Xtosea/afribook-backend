@@ -204,6 +204,82 @@ router.get(
 );
 
 /* =================================================
+   ADMIN REVENUE DASHBOARD
+================================================= */
+
+router.get(
+  "/revenue",
+  verifyToken,
+  isAdmin,
+  async (req, res) => {
+    try {
+
+      const campaigns =
+        await AdCampaign.find();
+
+      const earnings =
+        await CreatorEarning.find({
+          status: "paid",
+        });
+
+      const pendingEarnings =
+        await CreatorEarning.find({
+          status: "pending",
+        });
+
+      const totalCampaignSpend =
+        campaigns.reduce(
+          (sum, c) =>
+            sum + (c.spent || 0),
+          0
+        );
+
+      const totalCreatorPayouts =
+        earnings.reduce(
+          (sum, e) =>
+            sum + (e.amount || 0),
+          0
+        );
+
+      const totalPendingEarnings =
+        pendingEarnings.reduce(
+          (sum, e) =>
+            sum + (e.amount || 0),
+          0
+        );
+
+      const africSocialRevenue =
+        totalCampaignSpend -
+        totalCreatorPayouts;
+
+      const activeCampaigns =
+        campaigns.filter(
+          c =>
+            c.status === "active"
+        ).length;
+
+      res.json({
+        totalCampaignSpend,
+        totalCreatorPayouts,
+        totalPendingEarnings,
+        africSocialRevenue,
+        activeCampaigns,
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "Failed to load revenue",
+      });
+    }
+  }
+);
+
+
+/* =================================================
    GET ALL WITHDRAWALS (ADMIN PANEL)
 ================================================= */
 router.get(
