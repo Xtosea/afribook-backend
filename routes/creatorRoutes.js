@@ -37,4 +37,11 @@ router.post(
   creatorWithdraw
 );
 
+
+router.get(
+  "/eligibility",
+  verifyToken,
+  getEligibility
+);
+
 export default router;
