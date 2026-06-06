@@ -2,6 +2,9 @@ import AdCampaign from "../models/AdCampaign.js";
 import AdImpression from "../models/AdImpression.js";
 import CreatorRevenue from "../models/CreatorRevenue.js";
 import Wallet from "../models/Wallet.js";
+import CreatorEarning
+from "../models/CreatorEarning.js";
+
 
 const COST_PER_VIEW = 2;
 const CREATOR_SHARE = 0.7;
