@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-
 const creatorRevenueSchema =
 new mongoose.Schema({
   creator: {
@@ -10,6 +8,11 @@ new mongoose.Schema({
   campaign: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "AdCampaign",
+  },
+
+  post: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Post",
   },
 
   impressions: {
@@ -24,8 +27,3 @@ new mongoose.Schema({
 }, {
   timestamps: true,
 });
-
-export default mongoose.model(
-  "CreatorRevenue",
-  creatorRevenueSchema
-);
