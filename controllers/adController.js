@@ -126,6 +126,17 @@ export const recordImpression =
         postId,
       } = req.body;
 
+          if (
+  creatorId?.toString() ===
+  req.user.id?.toString()
+) {
+  return res.status(400).json({
+    error:
+      "Self views not allowed",
+  });
+}
+
+
       const campaign =
         await AdCampaign.findById(
           campaignId
@@ -157,34 +168,9 @@ export const recordImpression =
 
       await campaign.save();
 
-      let wallet =
-        await Wallet.findOne({
-          user: creatorId,
-        });
-
-      if (!wallet) {
-        wallet =
-          await Wallet.create({
-            user: creatorId,
-          });
-      }
-
       const creatorEarned =
-        COST_PER_VIEW *
-        CREATOR_SHARE;
-
-      wallet.creatorBalance =
-        (wallet.creatorBalance || 0) +
-        creatorEarned;
-
-      wallet.adRevenueEarned =
-        (wallet.adRevenueEarned || 0) +
-        creatorEarned;
-
-      wallet.adViews =
-        (wallet.adViews || 0) + 1;
-
-      await wallet.save();
+  COST_PER_VIEW *
+  CREATOR_SHARE;
 
       await AdImpression.create({
         campaign: campaignId,
@@ -193,6 +179,15 @@ export const recordImpression =
         post: postId,
         valid: true,
       });
+
+      await CreatorEarning.create({
+  creator: creatorId,
+  campaign: campaignId,
+  impressionId:
+    impression._id,
+  amount:
+    creatorEarned,
+});
 
       await CreatorRevenue.create({
   creator: creatorId,
