@@ -48,6 +48,11 @@ const adCampaignSchema = new mongoose.Schema(
       min: 0,
     },
 
+    remainingBudget: {
+  type: Number,
+  default: 0,
+},
+
     spent: {
       type: Number,
       default: 0,
