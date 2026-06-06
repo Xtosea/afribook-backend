@@ -192,12 +192,12 @@ export const recordImpression =
       });
 
       await CreatorRevenue.create({
-        creator: creatorId,
-        campaign: campaignId,
-        post: postId,
-        views: 1,
-        earnings: creatorEarned,
-      });
+  creator: creatorId,
+  campaign: campaignId,
+  post: postId,
+  impressions: 1,
+  earnings: creatorEarned,
+});
 
       res.json({
         success: true,
