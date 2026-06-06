@@ -465,7 +465,8 @@ app.use("/api/ad", adRoutes);
 
 app.use("/api/creator", creatorRoutes);
 
-app.use("/admin", adminRoutes);
+app.use("/api/admin", adminRoutes);
+
 app.use(
   "/api/earnings",
   earningRoutes
