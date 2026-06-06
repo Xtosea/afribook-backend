@@ -6,8 +6,12 @@ import {
   serveAd,
   recordImpression,
   recordClick,
+  getCampaignAnalytics,
+  pauseCampaign,
+  resumeCampaign,
+  deleteCampaign,
 } from "../controllers/adController.js";
-
+import User from "../models/User.js";
 import {
   verifyToken,
 } from "../middleware/authMiddleware.js";
