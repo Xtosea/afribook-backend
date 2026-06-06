@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const creatorRevenueSchema =
 new mongoose.Schema({
   creator: {
