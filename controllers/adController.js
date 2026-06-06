@@ -164,7 +164,8 @@ export const recordImpression =
         COST_PER_VIEW;
 
       campaign.remainingBudget -=
-        COST_PER_VIEW;
+        const COST_PER_VIEW =
+  campaign.costPerView;
 
       await campaign.save();
 
