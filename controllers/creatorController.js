@@ -177,3 +177,60 @@ async (req, res) => {
   }
 };
 
+
+export const getEligibility =
+async (req, res) => {
+
+  const user =
+    await User.findById(
+      req.user.id
+    );
+
+  const requirements = {
+    followers: 1000,
+    views: 10000,
+    accountAge: 30,
+  };
+
+  const accountAge =
+    Math.floor(
+      (
+        Date.now() -
+        new Date(
+          user.createdAt
+        )
+      ) /
+      (
+        1000 *
+        60 *
+        60 *
+        24
+      )
+    );
+
+  const eligible =
+    user.followersCount >=
+      requirements.followers &&
+    user.totalViews >=
+      requirements.views &&
+    accountAge >=
+      requirements.accountAge &&
+    user.policyViolations === 0;
+
+  res.json({
+    eligible,
+
+    followers:
+      user.followersCount,
+
+    views:
+      user.totalViews,
+
+    accountAge,
+
+    violations:
+      user.policyViolations,
+
+    requirements,
+  });
+};
