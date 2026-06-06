@@ -12,7 +12,7 @@ import { verifyToken }
 
 import {
   getSignedUploadUrl,
-} from "../controllers/storyR2Controllers.js";
+} from "../controller/storyR2Controller.js";
 
 const router = express.Router();
 
