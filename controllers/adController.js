@@ -1,12 +1,12 @@
 import AdCampaign from "../models/AdCampaign.js";
 import AdImpression from "../models/AdImpression.js";
 import CreatorRevenue from "../models/CreatorRevenue.js";
-import Wallet from "../models/Wallet.js";
+
 import CreatorEarning
 from "../models/CreatorEarning.js";
 
 
-const COST_PER_VIEW = 2;
+
 const CREATOR_SHARE = 0.7;
 
 /* ================= CREATE CAMPAIGN ================= */
@@ -126,16 +126,17 @@ export const recordImpression =
         postId,
       } = req.body;
 
-          if (
-  creatorId?.toString() ===
-  req.user.id?.toString()
-) {
-  return res.status(400).json({
-    error:
-      "Self views not allowed",
-  });
-}
+      /* Prevent self views */
 
+      if (
+        creatorId?.toString() ===
+        req.user.id?.toString()
+      ) {
+        return res.status(400).json({
+          error:
+            "Self views not allowed",
+        });
+      }
 
       const campaign =
         await AdCampaign.findById(
@@ -144,9 +145,13 @@ export const recordImpression =
 
       if (!campaign) {
         return res.status(404).json({
-          error: "Campaign not found",
+          error:
+            "Campaign not found",
         });
       }
+
+      const COST_PER_VIEW =
+        campaign.costPerView || 1;
 
       if (
         campaign.remainingBudget <
@@ -158,45 +163,56 @@ export const recordImpression =
         });
       }
 
+      /* Deduct campaign budget */
+
       campaign.impressions += 1;
 
       campaign.spent +=
         COST_PER_VIEW;
 
       campaign.remainingBudget -=
-        const COST_PER_VIEW =
-  campaign.costPerView;
+        COST_PER_VIEW;
 
       await campaign.save();
 
-      const creatorEarned =
-  COST_PER_VIEW *
-  CREATOR_SHARE;
+      /* Creator share */
 
-      await AdImpression.create({
-        campaign: campaignId,
-        creator: creatorId,
-        viewer: req.user.id,
-        post: postId,
-        valid: true,
-      });
+      const creatorEarned =
+        COST_PER_VIEW *
+        CREATOR_SHARE;
+
+      /* Record impression */
+
+      const impression =
+        await AdImpression.create({
+          campaign: campaignId,
+          creator: creatorId,
+          viewer: req.user.id,
+          post: postId,
+          valid: true,
+        });
+
+      /* Create earning ledger */
 
       await CreatorEarning.create({
-  creator: creatorId,
-  campaign: campaignId,
-  impressionId:
-    impression._id,
-  amount:
-    creatorEarned,
-});
+        creator: creatorId,
+        campaign: campaignId,
+        impressionId:
+          impression._id,
+        amount:
+          creatorEarned,
+      });
+
+      /* Analytics record */
 
       await CreatorRevenue.create({
-  creator: creatorId,
-  campaign: campaignId,
-  post: postId,
-  impressions: 1,
-  earnings: creatorEarned,
-});
+        creator: creatorId,
+        campaign: campaignId,
+        post: postId,
+        impressions: 1,
+        earnings:
+          creatorEarned,
+      });
 
       res.json({
         success: true,
@@ -211,7 +227,6 @@ export const recordImpression =
       });
     }
   };
-
 /* ================= RECORD CLICK ================= */
 
 export const recordClick = async (
