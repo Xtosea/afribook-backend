@@ -1,90 +1,161 @@
-import express from "express";
-import multer from "multer";
-import fs from "fs";
+import { useState } from "react";
+import axios from "axios";
 
-import {
-  S3Client,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
+const API_BASE =
+  import.meta.env.VITE_API_BASE;
 
-import { verifyToken }
-  from "../middleware/authMiddleware.js";
+export function useStoryUpload() {
+  const [loading, setLoading] =
+    useState(false);
 
-import {
-  getSignedUploadUrl,
-} from "../controllers/storyR2Controller.js";
+  const [progress, setProgress] =
+    useState(0);
 
-const router = express.Router();
+  const [error, setError] =
+    useState(null);
 
-const upload = multer({
-  dest: "/tmp",
-});
-
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId:
-      process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey:
-      process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
-
-router.get(
-  "/signed-url",
-  getSignedUploadUrl
-);
-
-router.post(
-  "/upload-thumbnail",
-  verifyToken,
-  upload.single("file"),
-  async (req, res) => {
+  const uploadStory = async ({
+    file,
+    text,
+    music,
+    stickers,
+    backgroundColor,
+  }) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({
-          error: "No file uploaded",
-        });
+      if (!file) {
+        throw new Error(
+          "No file selected"
+        );
       }
 
-      const buffer =
-        fs.readFileSync(req.file.path);
+      setLoading(true);
+      setProgress(0);
+      setError(null);
 
-      const fileName =
-        `thumbnails/${Date.now()}-${
-          req.file.originalname
-        }`;
+      // GET SIGNED URL
 
-      await s3.send(
-        new PutObjectCommand({
-          Bucket:
-            process.env.R2_BUCKET_NAME,
-          Key: fileName,
-          Body: buffer,
-          ContentType:
-            req.file.mimetype,
-        })
+      const signedRes =
+        await fetch(
+          `${API_BASE}/api/r2/signed-url?contentType=${encodeURIComponent(
+            file.type
+          )}`
+        );
+
+      const signedData =
+        await signedRes.json();
+
+      if (!signedData.uploadUrl) {
+        throw new Error(
+          "Failed to generate signed URL"
+        );
+      }
+
+      // UPLOAD TO R2
+
+      await axios.put(
+        signedData.uploadUrl,
+        file,
+        {
+          headers: {
+            "Content-Type":
+              file.type,
+          },
+
+          onUploadProgress: (
+            event
+          ) => {
+            const percent =
+              Math.round(
+                (event.loaded * 100) /
+                  event.total
+              );
+
+            setProgress(percent);
+          },
+        }
       );
 
-      fs.unlinkSync(req.file.path);
+      // DETERMINE MEDIA TYPE
 
-      const thumbnailUrl =
-        `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
+      let mediaType = "image";
 
-      res.json({
-        thumbnailUrl,
-      });
+      if (
+        file.type.startsWith(
+          "video/"
+        )
+      ) {
+        mediaType = "video";
+      }
+
+      if (
+        file.type.startsWith(
+          "audio/"
+        )
+      ) {
+        mediaType = "audio";
+      }
+
+      // SAVE STORY
+
+      const token =
+        localStorage.getItem(
+          "token"
+        );
+
+      const res = await fetch(
+        `${API_BASE}/api/storyr2`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            text,
+            music,
+            stickers,
+            backgroundColor,
+
+            media: [
+              {
+                url:
+                  signedData.fileUrl,
+                type: mediaType,
+              },
+            ],
+          }),
+        }
+      );
+
+      const story =
+        await res.json();
+
+      return story;
 
     } catch (err) {
-      console.error(err);
+      console.error(
+        "Story Upload Error:",
+        err
+      );
 
-      res.status(500).json({
-        error:
-          "Thumbnail upload failed",
-      });
+      setError(err.message);
+
+      throw err;
+
+    } finally {
+      setLoading(false);
     }
-  }
-);
+  };
 
-export default router;
+  return {
+    uploadStory,
+    loading,
+    progress,
+    error,
+  };
+}
