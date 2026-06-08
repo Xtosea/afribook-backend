@@ -1,164 +1,82 @@
-import { useState } from "react";
-import axios from "axios";
+import express from "express";
+import multer from "multer";
+import fs from "fs";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE;
+import {
+  S3Client,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 
-export function useStoryUpload() {
-  const [loading, setLoading] =
-    useState(false);
+import { verifyToken }
+  from "../middleware/authMiddleware.js";
 
-  const [progress, setProgress] =
-    useState(0);
+import {
+  getSignedUploadUrl,
+} from "../controllers/r2Controller.js";
 
-  const [error, setError] =
-    useState(null);
+const router = express.Router();
 
-  const uploadStory = async ({
-    file,
-    text,
-    music,
-    stickers,
-    backgroundColor,
-  }) => {
-    try {
-      if (!file) {
-        throw new Error(
-          "No file selected"
-        );
-      }
+const upload = multer({
+  dest: "/tmp",
+});
 
-      setLoading(true);
-      setProgress(0);
-      setError(null);
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId:
+      process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey:
+      process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
 
-      // GET SIGNED URL
-
-      const signedRes = await fetch(
-  `${API_BASE}/api/r2/signed-url?contentType=${encodeURIComponent(file.type)}`
+router.get(
+  "/signed-url",
+  getSignedUploadUrl
 );
 
-console.log("SIGNED URL STATUS:", signedRes.status);
-console.log("SIGNED URL PATH:", signedRes.url);
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const Story = (await import("../models/Story.js")).default;
 
-const signedText = await signedRes.text();
+    const {
+      media = [],
+      text = "",
+      music = null,
+      stickers = [],
+      backgroundColor = "#000000",
+    } = req.body;
 
-console.log("SIGNED RESPONSE:", signedText);
-
-const signedData = JSON.parse(signedText);
-
-      if (!signedData.uploadUrl) {
-        throw new Error(
-          "Failed to generate signed URL"
-        );
-      }
-
-      // UPLOAD TO R2
-
-      await axios.put(
-        signedData.uploadUrl,
-        file,
-        {
-          headers: {
-            "Content-Type":
-              file.type,
-          },
-
-          onUploadProgress: (
-            event
-          ) => {
-            const percent =
-              Math.round(
-                (event.loaded * 100) /
-                  event.total
-              );
-
-            setProgress(percent);
-          },
-        }
-      );
-
-      // DETERMINE MEDIA TYPE
-
-      let mediaType = "image";
-
-      if (
-        file.type.startsWith(
-          "video/"
-        )
-      ) {
-        mediaType = "video";
-      }
-
-      if (
-        file.type.startsWith(
-          "audio/"
-        )
-      ) {
-        mediaType = "audio";
-      }
-
-      // SAVE STORY
-
-      const token =
-        localStorage.getItem(
-          "token"
-        );
-
-      const res = await fetch(
-        `${API_BASE}/api/storyr2`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Authorization:
-              `Bearer ${token}`,
-          },
-
-          body: JSON.stringify({
-            text,
-            music,
-            stickers,
-            backgroundColor,
-
-            media: [
-              {
-                url:
-                  signedData.fileUrl,
-                type: mediaType,
-              },
-            ],
-          }),
-        }
-      );
-
-      const story =
-        await res.json();
-
-      return story;
-
-    } catch (err) {
-      console.error(
-        "Story Upload Error:",
-        err
-      );
-
-      setError(err.message);
-
-      throw err;
-
-    } finally {
-      setLoading(false);
+    if (
+      media.length === 0 &&
+      !text &&
+      !music &&
+      stickers.length === 0
+    ) {
+      return res.status(400).json({
+        error: "Story content required",
+      });
     }
-  };
 
-  return {
-    uploadStory,
-    loading,
-    progress,
-    error,
-  };
-}
+    const story = await Story.create({
+      user: req.user.id,
+      media,
+      text,
+      music,
+      stickers,
+      backgroundColor,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    return res.status(201).json(story);
+
+  } catch (err) {
+    console.error("Story save error:", err);
+    return res.status(500).json({
+      error: "Failed to save story",
+    });
+  }
+});
+
+export default router;
