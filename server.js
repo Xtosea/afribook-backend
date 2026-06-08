@@ -52,6 +52,9 @@ from "./routes/adminRoutes.js";
 import earningRoutes
 from "./routes/earningRoutes.js";
 import adminStatsRoutes from "./routes/adminStatsRoutes.js";
+import storyCloudnaryRoutes from "./routes/storyCloudnaryRoutes";
+
+
 
 
 
@@ -476,6 +479,8 @@ app.use(
   "/api/admin",
   adminStatsRoutes
 );
+app.use("/api/storyCloudnary", storyCloudnaryRoutes);
+
 
 
 
