@@ -36,55 +36,47 @@ router.get(
   getSignedUploadUrl
 );
 
-router.post(
-  "/upload-thumbnail",
-  verifyToken,
-  upload.single("file"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          error: "No file uploaded",
-        });
-      }
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const Story = (await import("../models/Story.js")).default;
 
-      const buffer =
-        fs.readFileSync(req.file.path);
+    const {
+      media = [],
+      text = "",
+      music = null,
+      stickers = [],
+      backgroundColor = "#000000",
+    } = req.body;
 
-      const fileName =
-        `thumbnails/${Date.now()}-${
-          req.file.originalname
-        }`;
-
-      await s3.send(
-        new PutObjectCommand({
-          Bucket:
-            process.env.R2_BUCKET_NAME,
-          Key: fileName,
-          Body: buffer,
-          ContentType:
-            req.file.mimetype,
-        })
-      );
-
-      fs.unlinkSync(req.file.path);
-
-      const thumbnailUrl =
-        `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
-
-      res.json({
-        thumbnailUrl,
-      });
-
-    } catch (err) {
-      console.error(err);
-
-      res.status(500).json({
-        error:
-          "Thumbnail upload failed",
+    if (
+      media.length === 0 &&
+      !text &&
+      !music &&
+      stickers.length === 0
+    ) {
+      return res.status(400).json({
+        error: "Story content required",
       });
     }
+
+    const story = await Story.create({
+      user: req.user.id,
+      media,
+      text,
+      music,
+      stickers,
+      backgroundColor,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    return res.status(201).json(story);
+
+  } catch (err) {
+    console.error("Story save error:", err);
+    return res.status(500).json({
+      error: "Failed to save story",
+    });
   }
-);
+});
 
 export default router;
