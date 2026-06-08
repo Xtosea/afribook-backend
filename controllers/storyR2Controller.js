@@ -1,50 +1,84 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  S3Client,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 
-console.log("R2 ENDPOINT:", process.env.R2_ENDPOINT);
+import {
+  getSignedUrl,
+} from "@aws-sdk/s3-request-presigner";
 
 const s3 = new S3Client({
- region: "auto",
+  region: "auto",
   endpoint: process.env.R2_ENDPOINT,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    accessKeyId:
+      process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey:
+      process.env.R2_SECRET_ACCESS_KEY,
   },
 });
 
-export const getSignedUploadUrl = async (req, res) => {
+export const getSignedUploadUrl = async (
+  req,
+  res
+) => {
   try {
-
     const contentType =
-      req.query.contentType || "application/octet-stream";
+      req.query.contentType ||
+      "application/octet-stream";
+
+    let extension = "bin";
+
+    if (contentType.includes("/")) {
+      extension =
+        contentType.split("/")[1];
+    }
+
+    const folder =
+      contentType.startsWith("audio/")
+        ? "audio"
+        : "videos";
 
     const fileName =
-      `videos/${Date.now()}-${Math.random()}.mp4`;
+      `${folder}/${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${extension}`;
 
-    const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileName,
-      ContentType: contentType,
-    });
+    const command =
+      new PutObjectCommand({
+        Bucket:
+          process.env.R2_BUCKET_NAME,
+        Key: fileName,
+        ContentType: contentType,
+      });
 
-    const uploadUrl = await getSignedUrl(s3, command, {
-      expiresIn: 60 * 5,
-    });
+    const uploadUrl =
+      await getSignedUrl(
+        s3,
+        command,
+        {
+          expiresIn: 60 * 5,
+        }
+      );
 
     const fileUrl =
       `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
 
-    res.json({
+    return res.json({
       uploadUrl,
       fileUrl,
       fileName,
     });
 
   } catch (err) {
-    console.error(err);
+    console.error(
+      "Signed URL Error:",
+      err
+    );
 
-    res.status(500).json({
-      error: "Failed to generate signed URL",
+    return res.status(500).json({
+      error:
+        "Failed to generate signed URL",
     });
   }
 };
