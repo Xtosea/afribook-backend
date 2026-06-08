@@ -45,8 +45,7 @@ const signedText = await signedRes.text();
 
 console.log("SIGNED RESPONSE:", signedText);
 
-      const signedData =
-        await signedRes.json();
+const signedData = JSON.parse(signedText);
 
       if (!signedData.uploadUrl) {
         throw new Error(
