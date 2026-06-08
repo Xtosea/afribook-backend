@@ -5,11 +5,14 @@ import {
   getRevenueHistory,
   getAnalytics,
   creatorWithdraw,
+  getEligibility,
 } from "../controllers/creatorController.js";
 
 import {
   verifyToken,
 } from "../middleware/authMiddleware.js";
+
+ 
 
 const router = express.Router();
 
