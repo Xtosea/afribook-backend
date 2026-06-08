@@ -34,12 +34,16 @@ export function useStoryUpload() {
 
       // GET SIGNED URL
 
-      const signedRes =
-        await fetch(
-          `${API_BASE}/api/r2/signed-url?contentType=${encodeURIComponent(
-            file.type
-          )}`
-        );
+      const signedRes = await fetch(
+  `${API_BASE}/api/r2/signed-url?contentType=${encodeURIComponent(file.type)}`
+);
+
+console.log("SIGNED URL STATUS:", signedRes.status);
+console.log("SIGNED URL PATH:", signedRes.url);
+
+const signedText = await signedRes.text();
+
+console.log("SIGNED RESPONSE:", signedText);
 
       const signedData =
         await signedRes.json();
