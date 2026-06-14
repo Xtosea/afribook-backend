@@ -481,49 +481,39 @@ res.json(posts);
 /* ================= GET ALL POSTS ================= */
 
 router.get("/", verifyToken, async (req, res) => {
-try {
-let posts = await Post.find()
-  .populate(
-    "user",
-    "name profilePic verified verificationBadge"
-  )
-.populate(
-"taggedFriends",
-"name profilePic"
-)
-.populate(
-"comments.user",
-"name profilePic"
-)
-.sort({ createdAt: -1 });
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
 
-posts = posts.sort((a, b) => {  
-  const scoreA =  
-    (a.likes?.length || 0) * 3 +  
-    (a.comments?.length || 0) * 2 +  
-    (a.viewsCount || 0);  
+    const posts = await Post.find()
+      .populate(
+        "user",
+        "name profilePic verified verificationBadge"
+      )
+      .populate(
+        "taggedFriends",
+        "name profilePic"
+      )
+      .populate(
+        "comments.user",
+        "name profilePic"
+      )
+      .sort({ createdAt: -1 }) // newest first
+      .skip((page - 1) * limit)
+      .limit(limit);
 
-  const scoreB =  
-    (b.likes?.length || 0) * 3 +  
-    (b.comments?.length || 0) * 2 +  
-    (b.viewsCount || 0);  
+    res.json(posts);
 
-  return scoreB - scoreA;  
-});  
+  } catch (err) {
+    console.error(
+      "GET POSTS ERROR:",
+      err
+    );
 
-res.json(posts);
-
-} catch (err) {
-console.error(
-"GET POSTS ERROR:",
-err
-);
-
-res.status(500).json({  
-  error: "Server error",  
-});
-
-}
+    res.status(500).json({
+      error: "Server error",
+    });
+  }
 });
 
 /* ================= LIKE ================= */
