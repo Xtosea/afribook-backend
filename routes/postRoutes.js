@@ -516,6 +516,47 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+
+/* ================= GET TRENDING POSTS ================= */
+
+router.get("/trending", verifyToken, async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+
+    let posts = await Post.find()
+      .populate("user", "name profilePic verified verificationBadge")
+      .populate("taggedFriends", "name profilePic")
+      .populate("comments.user", "name profilePic")
+      .sort({ createdAt: -1 }) // base order first
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // now apply trending score
+    posts = posts.sort((a, b) => {
+      const scoreA =
+        (a.likes?.length || 0) * 3 +
+        (a.comments?.length || 0) * 2 +
+        (a.viewsCount || 0) * 1;
+
+      const scoreB =
+        (b.likes?.length || 0) * 3 +
+        (b.comments?.length || 0) * 2 +
+        (b.viewsCount || 0) * 1;
+
+      return scoreB - scoreA;
+    });
+
+    res.json(posts);
+
+  } catch (err) {
+    console.error("GET TRENDING POSTS ERROR:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+
 /* ================= LIKE ================= */
 
 router.post(
