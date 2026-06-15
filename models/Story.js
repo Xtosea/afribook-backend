@@ -77,9 +77,20 @@ text: {
 
 stickers: [
   {
-    emoji: String,
-    x: String,
-    y: String,
+    emoji: {
+      type: String,
+      default: "",
+    },
+
+    x: {
+      type: String,
+      default: "0",
+    },
+
+    y: {
+      type: String,
+      default: "0",
+    },
   },
 ],
 
