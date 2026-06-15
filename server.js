@@ -52,7 +52,7 @@ from "./routes/adminRoutes.js";
 import earningRoutes
 from "./routes/earningRoutes.js";
 import adminStatsRoutes from "./routes/adminStatsRoutes.js";
-import r2StoryMusscicRoutes.js from "./routes/r2StoryMusscicRoutes.js";
+import r2StoryMusicRoutes.js from "./routes/r2StoryMusicRoutes.js";
 import storyCloudnaryRoutes from "./routes/storyCloudnaryRoutes.js";
 
 
