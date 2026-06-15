@@ -75,6 +75,33 @@ text: {
   default: "",
 },
 
+textStyle: {
+  x: {
+    type: Number,
+    default: 100,
+  },
+
+  y: {
+    type: Number,
+    default: 100,
+  },
+
+  fontSize: {
+    type: Number,
+    default: 24,
+  },
+
+  color: {
+    type: String,
+    default: "#ffffff",
+  },
+
+  rotation: {
+    type: Number,
+    default: 0,
+  },
+},
+
 stickers: [
   {
     emoji: String,
