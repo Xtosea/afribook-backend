@@ -481,7 +481,7 @@ app.use(
   adminStatsRoutes
 );
 app.use("/api/storyCloudnary", storyCloudnaryRoutes);
-app.use("/api/r2StoryMusic", r2StoryMusic Routes);
+app.use("/api/r2StoryMusic", r2StoryMusicRoutes);
 
 
 
