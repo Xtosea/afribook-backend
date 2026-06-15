@@ -1,6 +1,6 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import story from models/story.js
+import story from models/Story.js
 
 console.log("R2 ENDPOINT:", process.env.R2_ENDPOINT);
 
