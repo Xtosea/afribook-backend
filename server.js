@@ -53,7 +53,7 @@ import earningRoutes
 from "./routes/earningRoutes.js";
 import adminStatsRoutes from "./routes/adminStatsRoutes.js";
 import r2StoryMusicRoutes from "./routes/r2StoryMusicRoutes.js";
-import storyCloudnaryRoutes from "./routes/storyCloudnaryRoutes.js";
+import storyCloudinaryRoutes from "./routes/storyCloudinaryRoutes.js";
 
 
 
@@ -480,7 +480,7 @@ app.use(
   "/api/admin",
   adminStatsRoutes
 );
-app.use("/api/storyCloudnary", storyCloudnaryRoutes);
+app.use("/api/storyCloudinary", storyCloudinaryRoutes);
 app.use("/api/r2StoryMusic", r2StoryMusicRoutes);
 
 
