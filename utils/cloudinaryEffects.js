@@ -3,6 +3,7 @@ export const getEffectUrl = (
   effect
 ) => {
   switch (effect) {
+
     case "enhance":
       return imageUrl.replace(
         "/upload/",
@@ -13,6 +14,24 @@ export const getEffectUrl = (
       return imageUrl.replace(
         "/upload/",
         "/upload/e_improve,e_brightness:20/"
+      );
+
+    case "queen":
+      return imageUrl.replace(
+        "/upload/",
+        "/upload/e_brightness:25,e_saturation:35/"
+      );
+
+    case "ceo":
+      return imageUrl.replace(
+        "/upload/",
+        "/upload/e_contrast:50,e_grayscale/"
+      );
+
+    case "gamer":
+      return imageUrl.replace(
+        "/upload/",
+        "/upload/e_vibrance:80,e_sharpen/"
       );
 
     case "afroglow":
