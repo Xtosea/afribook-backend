@@ -130,6 +130,26 @@ const postSchema = new mongoose.Schema(
       default: "font-sans",
     },
 
+    editor: {
+  textPosition: {
+    x: Number,
+    y: Number,
+  },
+  textRotation: Number,
+  textSize: Number,
+  textColor: String,
+  backgroundColor: String,
+
+  stickers: [
+    {
+      emoji: String,
+      x: Number,
+      y: Number,
+      size: Number,
+    },
+  ],
+},
+
     // ================= TAGGING =================
 
     taggedFriends: [
@@ -288,25 +308,7 @@ const postSchema = new mongoose.Schema(
   },
 
 
-editor: {
-  textPosition: {
-    x: Number,
-    y: Number,
-  },
-  textRotation: Number,
-  textSize: Number,
-  textColor: String,
-  backgroundColor: String,
 
-  stickers: [
-    {
-      emoji: String,
-      x: Number,
-      y: Number,
-      size: Number,
-    },
-  ],
-},
 
   {
     timestamps: true,
