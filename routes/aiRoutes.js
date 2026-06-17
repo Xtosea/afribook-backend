@@ -1,30 +1,44 @@
 import express from "express";
+import { getEffectUrl }
+from "../utils/cloudinaryEffects.js";
 
 const router = express.Router();
 
-router.post("/enhance", async (req, res) => {
-  try {
-    const { imageUrl } = req.body;
+router.post(
+  "/effect",
+  async (req, res) => {
+    try {
+      const {
+        imageUrl,
+        effect,
+      } = req.body;
 
-    if (!imageUrl) {
-      return res.status(400).json({ error: "No image URL provided" });
+      if (!imageUrl) {
+        return res.status(400).json({
+          error:
+            "No image URL provided",
+        });
+      }
+
+      const processedUrl =
+        getEffectUrl(
+          imageUrl,
+          effect
+        );
+
+      res.json({
+        success: true,
+        processedUrl,
+      });
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error:
+          "AI effect failed",
+      });
     }
-
-    // 🔥 REAL AI PLACEHOLDER (we will upgrade later)
-    const enhancedUrl = imageUrl; // for now
-
-    res.json({
-      success: true,
-      enhancedUrl,
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "AI enhance failed" });
   }
-});
-
-
-
+);
 
 export default router;
