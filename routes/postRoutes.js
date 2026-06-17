@@ -97,36 +97,40 @@ secretAccessKey: R2_SECRET_ACCESS_KEY,
 router.post("/", verifyToken, async (req, res) => {
 try {
 const {
-content,
-feeling,
-location,
-taggedFriends,
-media,
-textColor,
-backgroundStyle,
-fontStyle,
+  content,
+  feeling,
+  location,
+  taggedFriends,
+  media,
+  textColor,
+  backgroundStyle,
+  fontStyle,
+  editor,
 } = req.body;
 
-const post = await Post.create({  
-  user: req.user.id,  
+const post = await Post.create({
+  user: req.user.id,
 
-  content: content || "",  
+  content: content || "",
 
-  media: media || [],  
+  media: media || [],
 
-  feeling: feeling || "",  
+  feeling: feeling || "",
 
-  location: location || "",  
+  location: location || "",
 
-  taggedFriends: taggedFriends || [],  
+  taggedFriends: taggedFriends || [],
 
-  textColor: textColor || "#000000",  
+  textColor: textColor || "#000000",
 
-  backgroundStyle:  
-    backgroundStyle || "bg-white",  
+  backgroundStyle:
+    backgroundStyle || "bg-white",
 
-  fontStyle: fontStyle || "font-sans",  
-});  
+  fontStyle:
+    fontStyle || "font-sans",
+
+  editor: editor || {},
+});
 
 await post.populate([
   {
