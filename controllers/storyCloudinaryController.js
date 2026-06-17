@@ -19,3 +19,37 @@ export const uploadPostImage = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+export const uploadPostImage = async (req, res) => {
+  try {
+    console.log("FILE:", req.file);
+
+    if (!req.file) {
+      return res.status(400).json({
+        error: "No file uploaded",
+      });
+    }
+
+    const result = await cloudinary.uploader.upload(
+      req.file.path,
+      {
+        folder: "afribook/posts",
+        resource_type: "image",
+      }
+    );
+
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      url: result.secure_url,
+    });
+
+  } catch (err) {
+    console.error("CLOUDINARY ERROR:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+};
