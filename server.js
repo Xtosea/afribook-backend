@@ -618,6 +618,18 @@ io.on("connection", (socket) => {
     }
   );
 
+
+// ICE CANDIDATES
+socket.on("ice-candidate", (data) => {
+  io.to(data.to).emit(
+    "ice-candidate",
+    {
+      candidate: data.candidate,
+      from: data.from,
+    }
+  );
+});
+
   // END CALL
   socket.on(
     "end-call",
