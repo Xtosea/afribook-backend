@@ -21,40 +21,67 @@ router.post("/", verifyToken, async (req, res) => {
       });
     }
 
-    const message = await Message.create({
-      sender: req.user._id || req.user.id,
+    const senderId =
+      req.user._id || req.user.id;
+
+    const messageData = {
+      sender: senderId,
       receiver,
       text: text || "",
-      media: media || "",
-      mediaType: mediaType || "",
-    });
+    };
 
-    const populatedMessage = await Message.findById(message._id).populate(
-      "sender",
-      "name profilePic"
+    // Only add media fields when media exists
+    if (media) {
+      messageData.media = media;
+      messageData.mediaType = mediaType;
+    }
+
+    const message =
+      await Message.create(messageData);
+
+    const populatedMessage =
+      await Message.findById(message._id)
+        .populate(
+          "sender",
+          "name profilePic"
+        );
+
+    try {
+      const senderUser =
+        await User.findById(senderId)
+          .select("name");
+
+      await sendNotification({
+        recipient: receiver,
+        sender: senderId,
+        type: "MESSAGE",
+        text: `${
+          senderUser?.name || "Someone"
+        } sent you a message`,
+      });
+    } catch (notificationError) {
+      console.log(
+        "NOTIFICATION ERROR:",
+        notificationError
+      );
+    }
+
+    return res.json(
+      populatedMessage
+    );
+  } catch (err) {
+    console.log(
+      "SEND MESSAGE ERROR:",
+      err
     );
 
-    // 🔔 FIXED NOTIFICATION
-    const senderUser = await User.findById(req.user._id).select("name");
-
-await sendNotification({
-  recipient: receiver,
-  sender: req.user._id,
-  type: "MESSAGE",
-  text: `${senderUser?.name || "Someone"} sent you a message`,
-});
-
-    return res.json(populatedMessage);
-  } catch (err) {
-    console.log("SEND MESSAGE ERROR:", err);
-
     return res.status(500).json({
-      error: "Failed to send message",
+      error:
+        "Failed to send message",
       details: err.message,
     });
   }
 });
-
 /* ================= GET MESSAGES ================= */
 router.get("/:userId", verifyToken, async (req, res) => {
   try {
