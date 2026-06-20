@@ -111,4 +111,69 @@ router.get("/:userId", verifyToken, async (req, res) => {
   }
 });
 
+
+router.post("/", verifyToken, async (req, res) => {
+try {
+console.log("========== NEW MESSAGE ==========");
+console.log("BODY:", req.body);
+
+const {
+  receiver,
+  text,
+  media,
+  mediaType,
+} = req.body;
+
+console.log("receiver:", receiver);
+console.log("text:", text);
+console.log("media:", media);
+console.log("mediaType:", mediaType);
+
+const senderId =
+  req.user._id || req.user.id;
+
+const messageData = {
+  sender: senderId,
+  receiver,
+  text: text || "",
+  media: media || "",
+  mediaType: mediaType || null,
+};
+
+console.log(
+  "messageData:",
+  messageData
+);
+
+const message =
+  await Message.create(
+    messageData
+  );
+
+console.log(
+  "MESSAGE SAVED:",
+  message._id
+);
+
+return res.json(message);
+
+} catch (err) {
+console.log(
+"========== MESSAGE ERROR =========="
+);
+console.log(err);
+console.log(
+"MESSAGE:",
+err.message
+);
+
+return res.status(500).json({
+  error:
+    "Failed to send message",
+  details: err.message,
+});
+
+}
+});
+
 export default router;
