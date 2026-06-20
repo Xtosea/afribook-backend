@@ -80,6 +80,7 @@ router.post("/", verifyToken, async (req, res) => {
     details: err.message,
   });
 }
+});
 /* ================= GET MESSAGES ================= */
 router.get("/:userId", verifyToken, async (req, res) => {
   try {
