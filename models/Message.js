@@ -30,14 +30,15 @@ const messageSchema =
       },
 
       mediaType: {
-        type: String,
-        enum: [
-          "image",
-          "video",
-          "audio",
-        ],
-        default: null,
-      },
+  type: String,
+  enum: [
+    "image",
+    "video",
+    "audio",
+    null,
+  ],
+  default: null,
+},
 
       callType: {
         type: String,
