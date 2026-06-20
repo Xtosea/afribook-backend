@@ -70,18 +70,16 @@ router.post("/", verifyToken, async (req, res) => {
       populatedMessage
     );
   } catch (err) {
-    console.log(
-      "SEND MESSAGE ERROR:",
-      err
-    );
+  console.log("========== MESSAGE ERROR ==========");
+  console.log(err);
+  console.log("MESSAGE:", err.message);
+  console.log("STACK:", err.stack);
 
-    return res.status(500).json({
-      error:
-        "Failed to send message",
-      details: err.message,
-    });
-  }
-});
+  return res.status(500).json({
+    error: "Failed to send message",
+    details: err.message,
+  });
+}
 /* ================= GET MESSAGES ================= */
 router.get("/:userId", verifyToken, async (req, res) => {
   try {
