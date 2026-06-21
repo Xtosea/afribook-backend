@@ -150,6 +150,60 @@ const postSchema = new mongoose.Schema(
   ],
 },
 
+
+editor: {
+  textPosition: {
+    x: Number,
+    y: Number,
+  },
+
+  textRotation: {
+    type: Number,
+    default: 0,
+  },
+
+  textSize: {
+    type: Number,
+    default: 60,
+  },
+
+  textColor: {
+    type: String,
+    default: "#ffffff",
+  },
+
+  backgroundColor: {
+    type: String,
+    default: "#000000",
+  },
+
+  stickers: [
+    {
+      emoji: String,
+      x: Number,
+      y: Number,
+      size: Number,
+    },
+  ],
+
+  music: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Music",
+    },
+
+    title: {
+      type: String,
+      default: "",
+    },
+
+    url: {
+      type: String,
+      default: "",
+    },
+  },
+},
+
     // ================= TAGGING =================
 
     taggedFriends: [
