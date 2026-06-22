@@ -926,6 +926,9 @@ res.json({
 );
 
 
+
+/* ================= Comment ================= Route*/
+
 router.post(
   "/:id/comment",
   verifyToken,
@@ -948,6 +951,12 @@ router.post(
 
       await post.save();
 
+      // Populate comment users before returning
+      await post.populate(
+        "comments.user",
+        "name profilePic verified verificationBadge"
+      );
+
       // SEND NOTIFICATION
       if (
         post.user.toString() !== req.user.id
@@ -963,10 +972,12 @@ router.post(
 
       io.emit("post-commented", {
         postId: post._id,
+        comments: post.comments,
       });
 
       res.json({
         success: true,
+        comments: post.comments,
       });
 
     } catch (err) {
