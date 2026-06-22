@@ -7,6 +7,26 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
+
+const messages =
+  await Message.find({
+    $or: [
+      {
+        sender: req.user.id,
+        receiver: userId,
+      },
+      {
+        sender: userId,
+        receiver: req.user.id,
+      },
+    ],
+
+    deletedFor: {
+      $ne: req.user.id,
+    },
+  });
+
+
 /* ================= SEND MESSAGE ================= */
 router.post("/", verifyToken, async (req, res) => {
   try {
@@ -156,6 +176,89 @@ router.put(
   }
 );
 
+
+router.delete(
+  "/:id/me",
+  verifyToken,
+  async (req, res) => {
+
+    const message =
+      await Message.findById(
+        req.params.id
+      );
+
+    if (!message) {
+      return res.status(404).json({
+        error: "Message not found",
+      });
+    }
+
+    if (
+      ![
+        message.sender.toString(),
+        message.receiver.toString(),
+      ].includes(req.user.id)
+    ) {
+      return res.status(403).json({
+        error: "Not allowed",
+      });
+    }
+
+    message.deletedFor.push(
+      req.user.id
+    );
+
+    await message.save();
+
+    res.json({
+      success: true,
+    });
+  }
+);
+
+
+router.delete(
+  "/:id/everyone",
+  verifyToken,
+  async (req, res) => {
+
+    const message =
+      await Message.findById(
+        req.params.id
+      );
+
+    if (!message) {
+      return res.status(404).json({
+        error: "Message not found",
+      });
+    }
+
+    if (
+      message.sender.toString() !==
+      req.user.id
+    ) {
+      return res.status(403).json({
+        error: "Not allowed",
+      });
+    }
+
+    await Message.findByIdAndDelete(
+      req.params.id
+    );
+
+    io.emit(
+      "message-deleted",
+      {
+        messageId:
+          req.params.id,
+      }
+    );
+
+    res.json({
+      success: true,
+    });
+  }
+);
 
 
 export default router;
