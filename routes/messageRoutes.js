@@ -113,5 +113,49 @@ router.get("/:userId", verifyToken, async (req, res) => {
 
 
 
+router.put(
+  "/:id",
+  verifyToken,
+  async (req, res) => {
+
+    const message =
+      await Message.findById(
+        req.params.id
+      );
+
+    if (!message) {
+      return res.status(404).json({
+        error: "Message not found",
+      });
+    }
+
+    if (
+      message.sender.toString() !==
+      req.user.id
+    ) {
+      return res.status(403).json({
+        error: "Not allowed",
+      });
+    }
+
+    message.text = req.body.text;
+
+    message.edited = true;
+
+    message.editedAt =
+      new Date();
+
+    await message.save();
+
+    io.emit(
+      "message-edited",
+      message
+    );
+
+    res.json(message);
+  }
+);
+
+
 
 export default router;
