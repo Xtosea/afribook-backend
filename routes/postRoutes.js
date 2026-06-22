@@ -1052,7 +1052,36 @@ router.post(
 );
 
 
+/* ================= GET SAVED POSTS ================= */
 
+router.get(
+  "/saved/all",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const posts = await Post.find({
+        savedBy: req.user.id,
+      })
+        .populate(
+          "user",
+          "name profilePic verified verificationBadge"
+        )
+        .sort({ createdAt: -1 });
+
+      res.json(posts);
+
+    } catch (err) {
+      console.error(
+        "GET SAVED POSTS ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
 
 
 export default router;
