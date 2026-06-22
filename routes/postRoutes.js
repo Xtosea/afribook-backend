@@ -762,6 +762,67 @@ if (!post) {
 }
 );
 
+router.put(
+  "/:id",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const post = await Post.findById(
+        req.params.id
+      );
+
+      if (!post) {
+        return res.status(404).json({
+          error: "Post not found",
+        });
+      }
+
+      if (
+        post.user.toString() !==
+        req.user.id
+      ) {
+        return res.status(403).json({
+          error: "Not authorized",
+        });
+      }
+
+      post.content =
+        req.body.content ??
+        post.content;
+
+      if (req.body.media) {
+        post.media = req.body.media;
+      }
+
+      if (req.body.editor) {
+        post.editor = req.body.editor;
+      }
+
+      await post.save();
+
+      await post.populate(
+        "user",
+        "name profilePic verified verificationBadge"
+      );
+
+      res.json({
+        success: true,
+        post,
+      });
+
+    } catch (err) {
+      console.error(
+        "EDIT POST ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
+
 /* ================= DELETE POST ================= */
 
 router.delete(
