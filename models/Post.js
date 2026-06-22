@@ -132,29 +132,14 @@ const postSchema = new mongoose.Schema(
 
     editor: {
   textPosition: {
-    x: Number,
-    y: Number,
-  },
-  textRotation: Number,
-  textSize: Number,
-  textColor: String,
-  backgroundColor: String,
-
-  stickers: [
-    {
-      emoji: String,
-      x: Number,
-      y: Number,
-      size: Number,
+    x: {
+      type: Number,
+      default: 0,
     },
-  ],
-},
-
-
-editor: {
-  textPosition: {
-    x: Number,
-    y: Number,
+    y: {
+      type: Number,
+      default: 0,
+    },
   },
 
   textRotation: {
@@ -164,7 +149,7 @@ editor: {
 
   textSize: {
     type: Number,
-    default: 60,
+    default: 27,
   },
 
   textColor: {
@@ -173,16 +158,31 @@ editor: {
   },
 
   backgroundColor: {
-    type: String,
-    default: "#000000",
-  },
+  type: String,
+  default: "#ffffff",
+},
 
   stickers: [
     {
-      emoji: String,
-      x: Number,
-      y: Number,
-      size: Number,
+      emoji: {
+        type: String,
+        default: "",
+      },
+
+      x: {
+        type: Number,
+        default: 0,
+      },
+
+      y: {
+        type: Number,
+        default: 0,
+      },
+
+      size: {
+        type: Number,
+        default: 60,
+      },
     },
   ],
 
@@ -203,6 +203,8 @@ editor: {
     },
   },
 },
+
+  
 
     // ================= TAGGING =================
 
