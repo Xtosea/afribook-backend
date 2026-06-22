@@ -19,6 +19,20 @@ const messageSchema =
         required: true,
       },
 
+
+      deletedFor: [
+  {
+    type: String,
+  },
+],
+
+edited: {
+  type: Boolean,
+  default: false,
+},
+
+editedAt: Date,
+
       text: {
         type: String,
         default: "",
