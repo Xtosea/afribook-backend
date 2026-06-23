@@ -9,23 +9,6 @@ import { getIO } from "../utils/socket.js";
 const router = express.Router();
 
 
-const messages =
-  await Message.find({
-    $or: [
-      {
-        sender: req.user.id,
-        receiver: userId,
-      },
-      {
-        sender: userId,
-        receiver: req.user.id,
-      },
-    ],
-
-    deletedFor: {
-      $ne: req.user.id,
-    },
-  });
 
 
 /* ================= SEND MESSAGE ================= */
