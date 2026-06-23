@@ -585,6 +585,32 @@ io.on("connection", (socket) => {
     }
   );
 
+// MESSAGE EDITED
+socket.on(
+  "message-edited",
+  (updatedMessage) => {
+
+    io.emit(
+      "message-edited",
+      updatedMessage
+    );
+
+  }
+);
+
+// MESSAGE DELETED
+socket.on(
+  "message-deleted",
+  ({ messageId }) => {
+
+    io.emit(
+      "message-deleted",
+      { messageId }
+    );
+
+  }
+);
+
   // ================= CALL EVENTS =================
 
   // CALL USER
@@ -630,17 +656,6 @@ socket.on("ice-candidate", (data) => {
   );
 });
 
-
-// ICE CANDIDATES
-socket.on("ice-candidate", (data) => {
-  io.to(data.to).emit(
-    "ice-candidate",
-    {
-      candidate: data.candidate,
-      from: data.from,
-    }
-  );
-});
 
 
 // END CALL
