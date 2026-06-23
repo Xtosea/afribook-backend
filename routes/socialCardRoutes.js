@@ -97,18 +97,15 @@ res.setHeader(
 
 return res.send(svg);
 
-return res.send(png);
-
 } catch (err) {
-console.error(
-"SOCIAL CARD ERROR:",
-err
-);
+  console.error(
+    "SOCIAL CARD ERROR:",
+    err
+  );
 
-return res  
-  .status(500)  
-  .send("Server error");
-
+  return res
+    .status(500)
+    .send("Server error");
 }
 });
 
