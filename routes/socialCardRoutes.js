@@ -84,34 +84,6 @@ fill="#cbd5e1">
 </svg>
 `;
 
-    const png = await sharp(
-  Buffer.from(svg)
-)
-  .png()
-  .toBuffer();
-
-res.setHeader(
-  "Content-Type",
-  "image/png"
-);
-
-res.setHeader(
-  "Cache-Control",
-  "public, max-age=3600"
-);
-
-return res.send(png);
-
-  } catch (err) {
-    console.error(
-      "SOCIAL CARD ERROR:",
-      err
-    );
-
-    return res
-      .status(500)
-      .send("Server error");
-  }
-});
+    
 
 export default router;
