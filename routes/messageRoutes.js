@@ -3,6 +3,7 @@ import Message from "../models/Message.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { sendNotification } from "../utils/sendNotification.js";
 import User from "../models/User.js";
+import { getIO } from "../utils/socket.js";
 
 
 const router = express.Router();
