@@ -85,6 +85,7 @@ router.post("/", verifyToken, async (req, res) => {
   });
 }
 });
+
 /* ================= GET MESSAGES ================= */
 router.get("/:userId", verifyToken, async (req, res) => {
   try {
