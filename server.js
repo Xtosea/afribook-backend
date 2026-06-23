@@ -508,6 +508,10 @@ export const io = new Server(server, {
   path: "/socket.io",
 });
 
+import { setIO } from "./utils/socket.js";
+
+setIO(io);
+
 /* ================= SOCKET AUTH ================= */
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
