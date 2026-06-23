@@ -139,43 +139,58 @@ router.put(
   verifyToken,
   async (req, res) => {
 
-    const message =
-      await Message.findById(
-        req.params.id
+    try {
+
+      const message =
+        await Message.findById(req.params.id);
+
+
+      if (!message) {
+        return res.status(404).json({
+          error:"Message not found"
+        });
+      }
+
+
+      if (
+        message.sender.toString() !==
+        req.user.id
+      ) {
+        return res.status(403).json({
+          error:"Not allowed"
+        });
+      }
+
+
+      message.text = req.body.text;
+      message.edited = true;
+      message.updatedAt = new Date();
+
+
+      await message.save();
+
+
+      const io = getIO();
+
+      io?.emit(
+        "message-edited",
+        message
       );
 
-    if (!message) {
-      return res.status(404).json({
-        error: "Message not found",
+
+      res.json(message);
+
+
+    } catch(err){
+
+      console.log(err);
+
+      res.status(500).json({
+        error:"Edit failed"
       });
+
     }
-
-    if (
-      message.sender.toString() !==
-      req.user.id
-    ) {
-      return res.status(403).json({
-        error: "Not allowed",
-      });
-    }
-
-    message.text = req.body.text;
-
-    message.edited = true;
-
-    message.editedAt =
-      new Date();
-
-    await message.save();
-
-    io.emit(
-      "message-edited",
-      message
-    );
-
-    res.json(message);
-  }
-);
+});
 
 
 router.delete(
@@ -221,45 +236,88 @@ router.delete(
 router.delete(
   "/:id/everyone",
   verifyToken,
-  async (req, res) => {
+  async (req,res)=>{
 
-    const message =
-      await Message.findById(
+    try {
+
+      const message =
+        await Message.findById(
+          req.params.id
+        );
+
+
+      if(!message){
+        return res.status(404).json({
+          error:"Message not found"
+        });
+      }
+
+
+      if(
+        message.sender.toString()
+        !== req.user.id
+      ){
+        return res.status(403).json({
+          error:"Not allowed"
+        });
+      }
+
+
+
+      const oneHour =
+        60 * 60 * 1000;
+
+
+      const age =
+        Date.now() -
+        new Date(
+          message.createdAt
+        ).getTime();
+
+
+      if(age > oneHour){
+
+        return res.status(400).json({
+          error:
+          "You can only delete messages within 1 hour"
+        });
+
+      }
+
+
+
+      await Message.findByIdAndDelete(
         req.params.id
       );
 
-    if (!message) {
-      return res.status(404).json({
-        error: "Message not found",
+
+      const io = getIO();
+
+
+      io?.emit(
+        "message-deleted",
+        {
+          messageId:req.params.id
+        }
+      );
+
+
+      res.json({
+        success:true
       });
+
+
+    }catch(err){
+
+      console.log(err);
+
+      res.status(500).json({
+        error:"Delete failed"
+      });
+
     }
 
-    if (
-      message.sender.toString() !==
-      req.user.id
-    ) {
-      return res.status(403).json({
-        error: "Not allowed",
-      });
-    }
-
-    await Message.findByIdAndDelete(
-      req.params.id
-    );
-
-    io.emit(
-      "message-deleted",
-      {
-        messageId:
-          req.params.id,
-      }
-    );
-
-    res.json({
-      success: true,
-    });
-  }
-);
+});
 
 
 export default router;
