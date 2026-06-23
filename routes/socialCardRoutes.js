@@ -1,5 +1,5 @@
 import express from "express";
-import sharp from "sharp";
+//import sharp from "sharp";
 import Post from "../models/Post.js";
 
 const router = express.Router();
@@ -85,22 +85,22 @@ fill="#cbd5e1">
 `;
 
     const png = await sharp(
-      Buffer.from(svg)
-    )
-      .png()
-      .toBuffer();
+  Buffer.from(svg)
+)
+  .png()
+  .toBuffer();
 
-    res.setHeader(
-      "Content-Type",
-      "image/png"
-    );
+res.setHeader(
+  "Content-Type",
+  "image/png"
+);
 
-    res.setHeader(
-      "Cache-Control",
-      "public, max-age=3600"
-    );
+res.setHeader(
+  "Cache-Control",
+  "public, max-age=3600"
+);
 
-    return res.send(png);
+return res.send(png);
 
   } catch (err) {
     console.error(
