@@ -125,15 +125,17 @@ router.post("/view/:id", verifyToken, async (req, res) => {
   try {
     const story = await Story.findById(req.params.id);
 
+story.views = story.views.filter(Boolean);
+
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
     }
 
-    const userId = req.user._id;
-
     const alreadyViewed = story.views.some(
-      (id) => id.toString() === userId.toString()
-    );
+  (id) =>
+    id &&
+    id.toString() === userId.toString()
+);
 
     if (!alreadyViewed) {
       story.views.push(userId);
