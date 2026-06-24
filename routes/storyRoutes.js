@@ -131,6 +131,8 @@ story.views = story.views.filter(Boolean);
       return res.status(404).json({ error: "Story not found" });
     }
 
+const userId = req.user.id;
+
     const alreadyViewed = story.views.some(
   (id) =>
     id &&
