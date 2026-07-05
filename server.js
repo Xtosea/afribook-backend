@@ -619,27 +619,35 @@ socket.on(
 
 // CALL USER 
   socket.on("call-user", (data) => {
-  console.log("📞 CALL USER");
+  console.log("📞 call-user received");
   console.log(data);
+
+  console.log("➡ Sending incoming-call to:", data.to);
 
   io.to(data.to).emit("incoming-call", {
     from: data.from,
     signal: data.signal,
     callType: data.callType,
   });
+
+  console.log("✅ incoming-call emitted");
 });
 
 
  // ANSWER CALL
   socket.on("answer-call", (data) => {
+
   console.log("✅ ANSWER CALL");
   console.log(data);
 
   io.to(data.to).emit("call-accepted", data.signal);
+
+  console.log("✅ call-accepted emitted");
 });
 
 // ICE CANDIDATE 
 socket.on("ice-candidate", (data) => {
+
   console.log("🧊 ICE");
   console.log(data);
 
@@ -653,8 +661,8 @@ socket.on("ice-candidate", (data) => {
 
 // END CALL
   socket.on("end-call", (data) => {
-  console.log("📴 END CALL");
-  console.log(data);
+
+  console.log("☎ END CALL", data);
 
   io.to(data.to).emit("call-ended");
 });
