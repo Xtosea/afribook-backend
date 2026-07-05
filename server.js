@@ -525,6 +525,8 @@ io.use((socket, next) => {
 /* ================= SOCKET EVENTS ================= */
 let onlineUsers = [];
 
+const activeCalls = new Set();
+
 io.on("connection", (socket) => {
 
   console.log(
@@ -630,6 +632,18 @@ socket.on(
     callType: data.callType,
   });
 
+if (activeCalls.has(data.to)) {
+
+  io.to(data.from).emit("call-busy");
+
+  return;
+
+}
+
+activeCalls.add(data.from);
+
+activeCalls.add(data.to);
+
   console.log("✅ incoming-call emitted");
 });
 
@@ -645,6 +659,13 @@ socket.on(
   console.log("✅ call-accepted emitted");
 });
 
+
+socket.on("reject-call", (data) => {
+
+  io.to(data.to).emit("call-rejected");
+
+});
+
 // ICE CANDIDATE 
 socket.on("ice-candidate", (data) => {
 
@@ -656,6 +677,7 @@ socket.on("ice-candidate", (data) => {
     from: data.from,
   });
 });
+
 
 
 
