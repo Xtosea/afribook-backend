@@ -617,61 +617,47 @@ socket.on(
 
   // ================= CALL EVENTS =================
 
-  // CALL USER
-  socket.on(
-    "call-user",
-    (data) => {
+// CALL USER 
+  socket.on("call-user", (data) => {
+  console.log("📞 CALL USER");
+  console.log(data);
 
-      io.to(data.to).emit(
-        "incoming-call",
-        {
-          from:
-            data.from,
-          signal:
-            data.signal,
-          callType:
-            data.callType,
-        }
-      );
-    }
-  );
-
-  // ANSWER CALL
-  socket.on(
-    "answer-call",
-    (data) => {
-
-      io.to(data.to).emit(
-        "call-accepted",
-        data.signal
-      );
-    }
-  );
+  io.to(data.to).emit("incoming-call", {
+    from: data.from,
+    signal: data.signal,
+    callType: data.callType,
+  });
+});
 
 
-// ICE CANDIDATES
+ // ANSWER CALL
+  socket.on("answer-call", (data) => {
+  console.log("✅ ANSWER CALL");
+  console.log(data);
+
+  io.to(data.to).emit("call-accepted", data.signal);
+});
+
+// ICE CANDIDATE 
 socket.on("ice-candidate", (data) => {
-  io.to(data.to).emit(
-    "ice-candidate",
-    {
-      candidate: data.candidate,
-      from: data.from,
-    }
-  );
+  console.log("🧊 ICE");
+  console.log(data);
+
+  io.to(data.to).emit("ice-candidate", {
+    candidate: data.candidate,
+    from: data.from,
+  });
 });
 
 
 
 // END CALL
-  socket.on(
-    "end-call",
-    (data) => {
+  socket.on("end-call", (data) => {
+  console.log("📴 END CALL");
+  console.log(data);
 
-      io.to(data.to).emit(
-        "call-ended"
-      );
-    }
-  );
+  io.to(data.to).emit("call-ended");
+});
 
   // DISCONNECT
   socket.on(
