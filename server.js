@@ -523,7 +523,7 @@ io.use((socket, next) => {
 });
 
 /* ================= SOCKET EVENTS ================= */
-let onlineUsers = [];
+const onlineUsers = new Map();
 
 const activeCalls = new Set();
 
@@ -537,25 +537,20 @@ io.on("connection", (socket) => {
   // JOIN USER ROOM
   socket.on("join", (userId) => {
 
-    socket.join(userId);
+  socket.join(userId);
 
-    socket.userId = userId;
+  socket.userId = userId;
 
-    if (
-      !onlineUsers.includes(userId)
-    ) {
-      onlineUsers.push(userId);
-    }
+  onlineUsers.set(userId, socket.id);
 
-    io.emit(
-      "online-users",
-      onlineUsers
-    );
+  io.emit(
+    "online-users",
+    Array.from(onlineUsers.keys())
+  );
 
-    console.log(
-      `👤 User ${userId} joined`
-    );
-  });
+  console.log(`👤 ${userId} is online`);
+
+});
 
   // SEND MESSAGE
   socket.on(
@@ -621,32 +616,31 @@ socket.on(
 
 // CALL USER 
   socket.on("call-user", (data) => {
+
   console.log("📞 call-user received");
-  console.log(data);
 
-  console.log("➡ Sending incoming-call to:", data.to);
+  const receiverSocket = onlineUsers.get(data.to);
 
-  io.to(data.to).emit("incoming-call", {
+  if (!receiverSocket) {
+    io.to(data.from).emit("user-offline");
+    return;
+  }
+
+  if (activeCalls.has(data.to)) {
+    io.to(data.from).emit("call-busy");
+    return;
+  }
+
+  activeCalls.add(data.from);
+  activeCalls.add(data.to);
+
+  io.to(receiverSocket).emit("incoming-call", {
     from: data.from,
     signal: data.signal,
     callType: data.callType,
   });
 
-if (activeCalls.has(data.to)) {
-
-  io.to(data.from).emit("call-busy");
-
-  return;
-
-}
-
-activeCalls.add(data.from);
-
-activeCalls.add(data.to);
-
-  console.log("✅ incoming-call emitted");
-});
-
+}); // <-- THIS IS MISSING
 
  // ANSWER CALL
   socket.on("answer-call", (data) => {
@@ -684,9 +678,12 @@ socket.on("ice-candidate", (data) => {
 // END CALL
   socket.on("end-call", (data) => {
 
-  console.log("☎ END CALL", data);
+  activeCalls.delete(socket.userId);
+
+  activeCalls.delete(data.to);
 
   io.to(data.to).emit("call-ended");
+
 });
 
   // DISCONNECT
@@ -699,16 +696,22 @@ socket.on("ice-candidate", (data) => {
         socket.id
       );
 
-      onlineUsers =
-        onlineUsers.filter(
-          (id) =>
-            id !== socket.userId
-        );
+      if (socket.userId) {
 
-      io.emit(
-        "online-users",
-        onlineUsers
-      );
+  onlineUsers.delete(socket.userId);
+
+  io.emit(
+    "online-users",
+    Array.from(onlineUsers.keys())
+  );
+
+activeCalls.delete(socket.userId);
+
+  console.log(
+    `👤 ${socket.userId} went offline`
+  );
+
+}
     }
   );
 });
