@@ -527,6 +527,8 @@ const onlineUsers = new Map();
 
 const activeCalls = new Set();
 
+const callSessions = new Map();
+
 io.on("connection", (socket) => {
 
   console.log(
@@ -634,6 +636,9 @@ socket.on(
   activeCalls.add(data.from);
   activeCalls.add(data.to);
 
+callSessions.set(data.from, data.to);
+callSessions.set(data.to, data.from);
+
   io.to(receiverSocket).emit("incoming-call", {
     from: data.from,
     signal: data.signal,
@@ -659,6 +664,9 @@ socket.on("reject-call", (data) => {
   activeCalls.delete(socket.userId);
   activeCalls.delete(data.to);
 
+  callSessions.delete(socket.userId);
+  callSessions.delete(data.to);
+
   io.to(data.to).emit("call-rejected");
 
 });
@@ -682,8 +690,10 @@ socket.on("ice-candidate", (data) => {
   socket.on("end-call", (data) => {
 
   activeCalls.delete(socket.userId);
-
   activeCalls.delete(data.to);
+
+  callSessions.delete(socket.userId);
+  callSessions.delete(data.to);
 
   io.to(data.to).emit("call-ended");
 
@@ -709,6 +719,20 @@ socket.on("ice-candidate", (data) => {
   );
 
 activeCalls.delete(socket.userId);
+
+const partner = callSessions.get(socket.userId);
+
+if (partner) {
+
+  io.to(partner).emit("call-ended");
+
+  activeCalls.delete(partner);
+
+  callSessions.delete(partner);
+
+}
+
+callSessions.delete(socket.userId);
 
   console.log(
     `👤 ${socket.userId} went offline`
