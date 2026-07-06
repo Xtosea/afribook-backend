@@ -656,6 +656,9 @@ socket.on(
 
 socket.on("reject-call", (data) => {
 
+  activeCalls.delete(socket.userId);
+  activeCalls.delete(data.to);
+
   io.to(data.to).emit("call-rejected");
 
 });
