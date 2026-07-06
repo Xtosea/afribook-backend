@@ -640,10 +640,12 @@ callSessions.set(data.from, data.to);
 callSessions.set(data.to, data.from);
 
   io.to(receiverSocket).emit("incoming-call", {
-    from: data.from,
-    signal: data.signal,
-    callType: data.callType,
-  });
+  from: data.from,
+  signal: data.signal,
+  callType: data.callType,
+  name: data.name,
+  profilePic: data.profilePic,
+});
 
 }); // <-- THIS IS MISSING
 
