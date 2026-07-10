@@ -36,12 +36,12 @@ export const createListing = async (req, res) => {
   !country ||
   !state ||
   !city
-)
-      return res.status(400).json({
-        success: false,
-        message: "Please fill all required fields.",
-      });
-    }
+) {
+  return res.status(400).json({
+    success: false,
+    message: "Please fill all required fields.",
+  });
+}
 
     if (!images || images.length === 0) {
       return res.status(400).json({
