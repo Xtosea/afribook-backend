@@ -18,3 +18,11 @@ export const verifyToken = (req, res, next) => {
     res.status(401).json({ message: "Invalid token" });
   }
 };
+
+
+const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+console.log(decoded);
+
+req.user = decoded;
+next();
