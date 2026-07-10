@@ -61,7 +61,7 @@ export const createListing = async (req, res) => {
     }
 
     const listing = await Marketplace.create({
-  seller: req.user._id,
+  seller: req.user.id,
 
   title,
   description,
