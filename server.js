@@ -54,6 +54,8 @@ from "./routes/earningRoutes.js";
 import adminStatsRoutes from "./routes/adminStatsRoutes.js";
 import r2StoryMusicRoutes from "./routes/r2StoryMusicRoutes.js";
 import storyCloudinaryRoutes from "./routes/storyCloudinaryRoutes.js";
+import marketplaceRoutes from "./routes/marketplaceRoutes.js";
+
 
 
 
@@ -482,6 +484,9 @@ app.use(
 );
 app.use("/api/storyCloudinary", storyCloudinaryRoutes);
 app.use("/api/r2StoryMusic", r2StoryMusicRoutes);
+app.use("/api/marketplace", marketplaceRoutes);
+
+
 
 
 
