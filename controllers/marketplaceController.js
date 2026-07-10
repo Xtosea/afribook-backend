@@ -6,23 +6,37 @@ import Marketplace from "../models/Marketplace.js";
 export const createListing = async (req, res) => {
   try {
     const {
-      title,
-      description,
-      price,
-      currency,
-      category,
-      condition,
-      location,
-      images,
-    } = req.body;
+  title,
+  description,
+  price,
+  currency,
+  category,
+  condition,
+  country,
+  state,
+  lga,
+  city,
+  area,
+  phone,
+  whatsapp,
+  negotiable,
+  deliveryAvailable,
+  deliveryFee,
+  quantity,
+  brand,
+  model,
+  images,
+} = req.body;
 
     if (
-      !title ||
-      !description ||
-      !price ||
-      !category ||
-      !location
-    ) {
+  !title ||
+  !description ||
+  !price ||
+  !category ||
+  !country ||
+  !state ||
+  !city
+)
       return res.status(400).json({
         success: false,
         message: "Please fill all required fields.",
@@ -47,16 +61,38 @@ export const createListing = async (req, res) => {
     }
 
     const listing = await Marketplace.create({
-      seller: req.user._id,
-      title,
-      description,
-      price,
-      currency,
-      category,
-      condition,
-      location,
-      images,
-    });
+  seller: req.user._id,
+
+  title,
+  description,
+  price,
+  currency,
+  category,
+  condition,
+
+  location: {
+    country,
+    state,
+    lga,
+    city,
+    area,
+  },
+
+  phone,
+  whatsapp,
+
+  negotiable,
+
+  deliveryAvailable,
+  deliveryFee,
+
+  quantity,
+
+  brand,
+  model,
+
+  images,
+});
 
     res.status(201).json({
       success: true,
