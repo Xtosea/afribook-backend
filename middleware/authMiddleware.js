@@ -2,6 +2,8 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
+import User from "../models/User.js";
+
 
 export const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
