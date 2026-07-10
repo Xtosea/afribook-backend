@@ -27,12 +27,8 @@ router.get("/:id", getListing);
 // ==========================
 
 // Create a listing
-router.post("/", authMiddleware, createListing);
-
-// Update a listing
-router.put("/:id", authMiddleware, updateListing);
-
-// Delete a listing
-router.delete("/:id", authMiddleware, deleteListing);
+router.post("/", verifyToken, createListing);
+router.put("/:id", verifyToken, updateListing);
+router.delete("/:id", verifyToken, deleteListing);
 
 export default router;
