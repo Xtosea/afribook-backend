@@ -30,20 +30,107 @@ const marketplaceSchema = new mongoose.Schema(
       default: "NGN",
     },
 
+    negotiable: {
+      type: Boolean,
+      default: false,
+    },
+
     category: {
       type: String,
       required: true,
     },
 
+    brand: {
+      type: String,
+      default: "",
+    },
+
+    model: {
+      type: String,
+      default: "",
+    },
+
     condition: {
       type: String,
-      enum: ["New", "Used"],
+      enum: [
+        "Brand New",
+        "Like New",
+        "Used",
+        "For Parts",
+      ],
       default: "Used",
+    },
+
+    quantity: {
+      type: Number,
+      default: 1,
+    },
+
+    country: {
+      type: String,
+      required: true,
+    },
+
+    state: {
+      type: String,
+      required: true,
+    },
+
+    city: {
+      type: String,
+      required: true,
+    },
+
+    area: {
+      type: String,
+      default: "",
     },
 
     location: {
       type: String,
       required: true,
+    },
+
+    phone: {
+      type: String,
+      required: true,
+    },
+
+    whatsapp: {
+      type: String,
+      default: "",
+    },
+
+    contactMethods: {
+      phone: {
+        type: Boolean,
+        default: true,
+      },
+
+      whatsapp: {
+        type: Boolean,
+        default: true,
+      },
+
+      chat: {
+        type: Boolean,
+        default: true,
+      },
+    },
+
+    hidePhone: {
+      type: Boolean,
+      default: false,
+    },
+
+    deliveryAvailable: {
+      type: Boolean,
+      default: false,
+    },
+
+    deliveryFee: {
+      type: Number,
+      default: 0,
     },
 
     images: [
@@ -55,8 +142,17 @@ const marketplaceSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Available", "Sold"],
+      enum: [
+        "Available",
+        "Reserved",
+        "Sold",
+      ],
       default: "Available",
+    },
+
+    featured: {
+      type: Boolean,
+      default: false,
     },
 
     likes: [
@@ -76,6 +172,10 @@ const marketplaceSchema = new mongoose.Schema(
     views: {
       type: Number,
       default: 0,
+    },
+
+    expiresAt: {
+      type: Date,
     },
   },
   {
