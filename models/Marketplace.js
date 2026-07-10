@@ -66,30 +66,32 @@ const marketplaceSchema = new mongoose.Schema(
       default: 1,
     },
 
-    country: {
-      type: String,
-      required: true,
-    },
-
-    state: {
-      type: String,
-      required: true,
-    },
-
-    city: {
-      type: String,
-      required: true,
-    },
-
-    area: {
-      type: String,
-      default: "",
-    },
-
     location: {
-      type: String,
-      required: true,
-    },
+  country: {
+    type: String,
+    required: true,
+  },
+
+  state: {
+    type: String,
+    required: true,
+  },
+
+  lga: {
+    type: String,
+    default: "",
+  },
+
+  city: {
+    type: String,
+    required: true,
+  },
+
+  area: {
+    type: String,
+    default: "",
+  },
+},
 
     phone: {
       type: String,
