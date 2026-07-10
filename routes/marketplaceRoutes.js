@@ -8,7 +8,7 @@ import {
   deleteListing,
 } from "../controllers/marketplaceController.js";
 
-import authMiddleware from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
