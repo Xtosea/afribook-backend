@@ -28,6 +28,20 @@ export const createListing = async (req, res) => {
   images,
 } = req.body;
 
+
+console.log({
+  title,
+  description,
+  price,
+  category,
+  country,
+  state,
+  city,
+  phone,
+  images,
+});
+
+
     if (
   !title ||
   !description ||
@@ -113,6 +127,10 @@ export const createListing = async (req, res) => {
 // ================================
 export const getListings = async (req, res) => {
   try {
+
+
+console.log("req.body:", req.body);
+
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
 
