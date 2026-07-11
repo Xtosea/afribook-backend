@@ -6,89 +6,32 @@ import {
   getListing,
   updateListing,
   deleteListing,
-  toggleSaveListing,
+  getMyListings,
   getSavedListings,
+  toggleSaveListing,
 } from "../controllers/marketplaceController.js";
 
 import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ==========================
-// PUBLIC ROUTES
-// ==========================
-
-
-// Get all marketplace listings
+// Public
 router.get("/", getListings);
 
-router.get(
-  "/me",
-  verifyToken,
-  getMyListings
-);
+// Protected
+router.get("/me", verifyToken, getMyListings);
 
+router.get("/saved/me", verifyToken, getSavedListings);
 
-// Get saved listings (protected)
-router.get(
-  "/saved/me",
-  verifyToken,
-  getSavedListings
-);
+router.post("/:id/save", verifyToken, toggleSaveListing);
 
-// Get a single listing
+router.post("/", verifyToken, createListing);
+
+router.put("/:id", verifyToken, updateListing);
+
+router.delete("/:id", verifyToken, deleteListing);
+
+// Keep this LAST
 router.get("/:id", getListing);
-
-// ==========================
-// PROTECTED ROUTES
-// ==========================
-
-// Create listing
-router.post(
-  "/",
-  verifyToken,
-  createListing
-);
-
-// Update listing
-router.put(
-  "/:id",
-  verifyToken,
-  updateListing
-);
-
-// Delete listing
-router.delete(
-  "/:id",
-  verifyToken,
-  deleteListing
-);
-
-// Save listing
-router.post(
-  "/:id/save",
-  verifyToken,
-  saveListing
-);
-
-// Saved Listings
-router.get(
-  "/saved/me",
-  verifyToken,
-  getSavedListings
-);
-
-router.post(
-  "/:id/save",
-  verifyToken,
-  toggleSaveListing
-);
-
-// Remove saved listing
-router.delete(
-  "/:id/save",
-  verifyToken,
-  unsaveListing
-);
 
 export default router;
