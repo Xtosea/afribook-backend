@@ -254,7 +254,7 @@ export const deleteListing = async (req, res) => {
     }
 
     if (
-      listing.seller.toString() !== req.user._id.toString()
+      listing.seller.toString() !== req.user.id
     ) {
       return res.status(403).json({
         success: false,
