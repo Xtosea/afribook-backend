@@ -1,5 +1,5 @@
 import express from "express";
-import sharp from "sharp";
+import { Resvg } from "@resvg/resvg-js";
 import Post from "../models/Post.js";
 
 const router = express.Router();
@@ -84,11 +84,9 @@ fill="#cbd5e1">
 </svg>
 `;
 
-    const png = await sharp(
-      Buffer.from(svg)
-    )
-      .png()
-      .toBuffer();
+    const resvg = new Resvg(svg);
+
+const png = resvg.render().asPng();
 
     res.setHeader(
       "Content-Type",
