@@ -6,8 +6,7 @@ import {
   getListing,
   updateListing,
   deleteListing,
-  saveListing,
-  unsaveListing,
+  toggleSaveListing,
   getSavedListings,
 } from "../controllers/marketplaceController.js";
 
@@ -62,6 +61,19 @@ router.post(
   "/:id/save",
   verifyToken,
   saveListing
+);
+
+// Saved Listings
+router.get(
+  "/saved/me",
+  verifyToken,
+  getSavedListings
+);
+
+router.post(
+  "/:id/save",
+  verifyToken,
+  toggleSaveListing
 );
 
 // Remove saved listing
