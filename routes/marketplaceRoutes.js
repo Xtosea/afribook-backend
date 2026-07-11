@@ -18,14 +18,16 @@ const router = express.Router();
 // PUBLIC ROUTES
 // ==========================
 
+
+// Get all marketplace listings
+router.get("/", getListings);
+
 router.get(
   "/me",
   verifyToken,
   getMyListings
 );
 
-// Get all marketplace listings
-router.get("/", getListings);
 
 // Get saved listings (protected)
 router.get(
