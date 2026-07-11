@@ -351,3 +351,26 @@ export const getSavedListings = async (req, res) => {
     });
   }
 };
+
+
+export const getMyListings = async (req, res) => {
+  try {
+    const listings = await Marketplace.find({
+      seller: req.user.id,
+    })
+      .populate("seller", "name profilePic")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      listings,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to load your listings.",
+    });
+  }
+};
