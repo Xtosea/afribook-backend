@@ -280,3 +280,74 @@ export const deleteListing = async (req, res) => {
     });
   }
 };
+
+
+// ================================
+// SAVE / UNSAVE LISTING
+// ================================
+export const toggleSaveListing = async (req, res) => {
+  try {
+    const listing = await Marketplace.findById(req.params.id);
+
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: "Listing not found.",
+      });
+    }
+
+    const userId = req.user.id;
+
+    const index = listing.savedBy.findIndex(
+      (id) => id.toString() === userId
+    );
+
+    if (index >= 0) {
+      listing.savedBy.splice(index, 1);
+    } else {
+      listing.savedBy.push(userId);
+    }
+
+    await listing.save();
+
+    res.json({
+      success: true,
+      saved: index === -1,
+      savedCount: listing.savedBy.length,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to save listing.",
+    });
+  }
+};
+
+// ================================
+// GET SAVED LISTINGS
+// ================================
+export const getSavedListings = async (req, res) => {
+  try {
+    const listings = await Marketplace.find({
+      savedBy: req.user.id,
+    })
+      .populate("seller", "name profilePic")
+      .sort({
+        createdAt: -1,
+      });
+
+    res.json({
+      success: true,
+      listings,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to load saved listings.",
+    });
+  }
+};
