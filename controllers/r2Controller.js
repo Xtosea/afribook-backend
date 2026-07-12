@@ -21,6 +21,15 @@ export const getSignedUploadUrl = async (req, res) => {
     const fileName =
       `videos/${Date.now()}-${Math.random()}.mp4`;
 
+
+//LOGGING FOR ERROR TO BE REMOVED 
+console.log("Bucket:", JSON.stringify(process.env.R2_BUCKET_NAME));
+console.log("Key:", JSON.stringify(fileName));
+console.log("Custom Domain:", JSON.stringify(process.env.R2_CUSTOM_DOMAIN));
+
+
+
+
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: fileName,
