@@ -22,36 +22,28 @@ export const getSignedUploadUrl = async (req, res) => {
       `videos/${Date.now()}-${Math.random()}.mp4`;
 
 
-//LOGGING FOR ERROR TO BE REMOVED 
-console.log("Bucket:", JSON.stringify(process.env.R2_BUCKET_NAME));
-console.log("Endpoint:", process.env.R2_ENDPOINT);
-console.log("File:", fileName);
+
+    const command = new PutObjectCommand({
+  Bucket: process.env.R2_BUCKET_NAME,
+  Key: fileName,
+  ContentType: contentType,
+});
+
+const uploadUrl = await getSignedUrl(s3, command, {
+  expiresIn: 60 * 5,
+});
+
+const fileUrl =
+  `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
+
 console.log("Upload URL:", uploadUrl);
 console.log("File URL:", fileUrl);
 
-
-
-
-
-    const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileName,
-      ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(s3, command, {
-      expiresIn: 60 * 5,
-    });
-
-    const fileUrl =
-      `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
-
-    res.json({
-      uploadUrl,
-      fileUrl,
-      fileName,
-    });
-
+res.json({
+  uploadUrl,
+  fileUrl,
+  fileName,
+});
   } catch (err) {
     console.error(err);
 
