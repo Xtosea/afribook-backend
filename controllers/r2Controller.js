@@ -26,6 +26,9 @@ export const getSignedUploadUrl = async (req, res) => {
 console.log("Bucket:", JSON.stringify(process.env.R2_BUCKET_NAME));
 console.log("Endpoint:", process.env.R2_ENDPOINT);
 console.log("File:", fileName);
+console.log("Upload URL:", uploadUrl);
+console.log("File URL:", fileUrl);
+
 
 
 
