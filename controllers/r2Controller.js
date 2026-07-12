@@ -24,8 +24,8 @@ export const getSignedUploadUrl = async (req, res) => {
 
 //LOGGING FOR ERROR TO BE REMOVED 
 console.log("Bucket:", JSON.stringify(process.env.R2_BUCKET_NAME));
-console.log("Key:", JSON.stringify(fileName));
-console.log("Custom Domain:", JSON.stringify(process.env.R2_CUSTOM_DOMAIN));
+console.log("Endpoint:", process.env.R2_ENDPOINT);
+console.log("File:", fileName);
 
 
 
