@@ -106,6 +106,8 @@ const {
   backgroundStyle,
   fontStyle,
   editor,
+  type,
+  link,
 } = req.body;
 
 const post = await Post.create({
@@ -115,6 +117,10 @@ const post = await Post.create({
 
   media: media || [],
 
+  type: type || "text",
+
+  link: link || null,
+
   feeling: feeling || "",
 
   location: location || "",
@@ -123,13 +129,11 @@ const post = await Post.create({
 
   textColor: textColor || "#000000",
 
-  backgroundStyle:
-    backgroundStyle || "bg-white",
+  backgroundStyle: backgroundStyle || "bg-white",
 
-  fontStyle:
-    fontStyle || "font-sans",
+  fontStyle: fontStyle || "font-sans",
 
-  editor: editor || {},
+  editor: editor ?? null,
 });
 
 await post.populate([
