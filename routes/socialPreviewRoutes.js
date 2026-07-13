@@ -101,6 +101,11 @@ const redirectUrl =
     const safeDescription =
       escapeHtml(description);
 
+
+console.log("Media:", post.media);
+console.log("OG Image:", image);
+
+
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
