@@ -28,8 +28,8 @@ router.get("/post/:id", async (req, res) => {
         .send("Invalid post ID");
     }
 
-    const FRONTEND_URL =
-      const BACKEND_URL =
+    
+      
   const FRONTEND_URL =
   "https://africsocial.globelynks.com";
 
