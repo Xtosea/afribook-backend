@@ -32,7 +32,7 @@ router.get("/post/:id", async (req, res) => {
       "https://africsocial.globelynks.com";
 
     const BACKEND_URL =
-      "https://afribook-backend.onrender.com";
+      "https://afribook-backen--26q2cj27zn75.code.run
 
     const post =
       await Post.findById(req.params.id)
