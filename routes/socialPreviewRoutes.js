@@ -29,8 +29,8 @@ router.get("/post/:id", async (req, res) => {
     }
 
     const FRONTEND_URL =
-      "https://africsocial.globelynks.com";
-
+      const BACKEND_URL =
+  "https://site--afribook-backen--26q2cj27zn75.code.run";
     const BACKEND_URL =
   "https://afribook-backen--26q2cj27zn75.code.run";
 
