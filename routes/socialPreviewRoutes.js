@@ -47,46 +47,36 @@ router.get("/post/:id", async (req, res) => {
         .send("Post not found");
     }
 
-    const firstMedia = post?.media?.[0];
+    const imageMedia = post.media?.find(
+  (m) => m.type === "image"
+);
 
-let image =
-  `${FRONTEND_URL}/social-preview.png`;
+const videoMedia = post.media?.find(
+  (m) => m.type === "video"
+);
 
+let image = `${FRONTEND_URL}/social-preview.png`;
 let videoUrl = null;
 
-/* IMAGE POST */
-if (
-  firstMedia &&
-  firstMedia.type === "image"
-) {
+if (imageMedia) {
   image =
-    firstMedia.url ||
-    firstMedia.secure_url ||
-    firstMedia.src ||
-    image;
-}
-
-/* VIDEO POST */
-if (
-  firstMedia &&
-  firstMedia.type === "video"
-) {
+    imageMedia.url ||
+    imageMedia.secure_url ||
+    imageMedia.src;
+} else if (videoMedia) {
   videoUrl =
-    firstMedia.url ||
-    firstMedia.secure_url ||
-    firstMedia.src;
+    videoMedia.url ||
+    videoMedia.secure_url ||
+    videoMedia.src;
 
   image =
-    firstMedia.thumbnailUrl ||
-    firstMedia.thumbnail ||
-    firstMedia.poster ||
-    `${FRONTEND_URL}/social-preview.png`;
-}
-
-/* TEXT POST */
-if (!firstMedia) {
+    videoMedia.thumbnailUrl ||
+    videoMedia.thumbnail ||
+    videoMedia.poster ||
+    `${BACKEND_URL}/post-card/${post._id}`;
+} else {
   image =
-    `https://afribook-backend.onrender.com/post-card/${post._id}`;
+    `${BACKEND_URL}/post-card/${post._id}`;
 }
 
 
@@ -228,10 +218,11 @@ content="1280"
 }
 </script>
 
-<meta
-http-equiv="refresh"
-content="3;url=${redirectUrl}"
-/>
+<script>
+setTimeout(() => {
+  window.location.href = "${redirectUrl}";
+}, 3000);
+</script>
 
 </head>
 
