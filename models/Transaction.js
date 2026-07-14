@@ -1,40 +1,140 @@
-{
-    user,
+import mongoose from "mongoose";
 
-    type: [
+const transactionSchema = new mongoose.Schema(
+  {
+    /* ================= USER ================= */
+
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
+    /* ================= TRANSACTION ================= */
+
+    type: {
+      type: String,
+      enum: [
         "deposit",
         "withdrawal",
         "transfer",
         "conversion",
         "purchase",
-        "ad",
-        "boost",
-        "premium",
-        "marketplace",
-        "badge",
-        "refund"
-    ],
+        "earning",
+        "refund",
+      ],
+      required: true,
+    },
 
-    paymentMethod: [
+    category: {
+      type: String,
+      enum: [
         "wallet",
-        "paystack",
+        "advertisement",
+        "boost_post",
+        "boost_story",
+        "boost_reel",
+        "boost_event",
+        "marketplace",
+        "marketplace_premium",
+        "marketplace_featured",
+        "event_premium",
+        "subscription",
+        "verified_badge",
+        "creator_badge",
+        "business_badge",
+        "sticker_pack",
+        "theme",
+        "gift",
+        "withdrawal",
+        "creator_earning",
+        "points_conversion",
+        "other",
+      ],
+      default: "other",
+    },
+
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    currency: {
+      type: String,
+      default: "NGN",
+    },
+
+    /* ================= PAYMENT ================= */
+
+    paymentMethod: {
+      type: String,
+      enum: [
+        "wallet",
+        "paystack_card",
+        "paystack_bank_transfer",
         "bank_transfer",
         "card",
-        "ussd"
-    ],
+        "ussd",
+        "manual",
+      ],
+      default: "wallet",
+    },
 
-    amount,
+    reference: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
 
-    reference,
+    gatewayReference: {
+      type: String,
+      default: "",
+    },
 
-    status: [
+    /* ================= STATUS ================= */
+
+    status: {
+      type: String,
+      enum: [
         "pending",
+        "processing",
         "success",
         "failed",
-        "cancelled"
-    ],
+        "cancelled",
+        "refunded",
+      ],
+      default: "pending",
+    },
 
-    description,
+    description: {
+      type: String,
+      default: "",
+    },
 
-    metadata: Object
-}
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+/* ================= INDEXES ================= */
+
+transactionSchema.index({
+  user: 1,
+  createdAt: -1,
+});
+
+transactionSchema.index({
+  reference: 1,
+});
+
+export default mongoose.model(
+  "Transaction",
+  transactionSchema
+);
