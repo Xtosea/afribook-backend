@@ -70,7 +70,7 @@ const reference = `WD-${Date.now()}`;
 await Transaction.create({
   user: req.user.id,
   type: "withdrawal",
-  category: "wallet",
+  category: "withdrawal",
   amount: Number(amount),
   direction: "debit",
   status: "pending",
@@ -87,7 +87,7 @@ await Transaction.create({
 await Transaction.create({
   user: req.user.id,
   type: "conversion",
-  category: "points",
+  category: "points_conversion",
   amount: cash,
   direction: "credit",
   status: "success",
