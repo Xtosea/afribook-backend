@@ -2,16 +2,9 @@
 
 import User from "../models/User.js";
 
-export const isAdmin = async (
-  req,
-  res,
-  next
-) => {
+export const isAdmin = async (req, res, next) => {
   try {
-    const user =
-      await User.findById(
-        req.user.id
-      );
+    const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({
@@ -35,3 +28,6 @@ export const isAdmin = async (
     });
   }
 };
+
+// Alias (optional)
+export const adminMiddleware = isAdmin;
