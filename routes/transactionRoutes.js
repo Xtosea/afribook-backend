@@ -1,7 +1,7 @@
 import express from "express";
 import Transaction from "../models/Transaction.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { adminMiddleware } from "../middleware/adminMiddleware.js";
+import { isAdmin } from "../middleware/adminMiddleware.js";
 
 
 const router = express.Router();
@@ -64,9 +64,8 @@ router.get("/:id", verifyToken, async (req, res) => {
 
 /* ================= ADMIN: ALL TRANSACTIONS ================= */
 
-router.get("/", verifyToken, adminMiddleware, async (req, res) => {
+router.get("/", verifyToken, isAdmin, async (req, res) => {
   try {
-
     const transactions = await Transaction.find()
       .populate("user", "name email profilePic")
       .sort({ createdAt: -1 });
