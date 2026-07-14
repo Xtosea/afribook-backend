@@ -2,6 +2,10 @@ import express from "express";
 import Wallet from "../models/Wallet.js";
 import Withdrawal from "../models/Withdrawal.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import Transaction from "../models/Transaction.js";
+
+
+
 
 const router = express.Router();
 
@@ -51,13 +55,48 @@ router.post("/convert", verifyToken, async (req, res) => {
       });
     }
 
-    const cash = wallet.points * RATE;
+    const pointsConverted = wallet.points;
+const cash = pointsConverted * RATE;
 
     wallet.balance = (wallet.balance || 0) + cash;
     wallet.lifetimeEarned = (wallet.lifetimeEarned || 0) + cash;
     wallet.points = 0;
 
     await wallet.save();
+
+
+const reference = `WD-${Date.now()}`;
+
+await Transaction.create({
+  user: req.user.id,
+  type: "withdrawal",
+  category: "wallet",
+  amount: Number(amount),
+  direction: "debit",
+  status: "pending",
+  reference,
+  description: "Withdrawal request",
+  metadata: {
+    bankName,
+    accountNumber,
+    accountName,
+  },
+});
+
+
+await Transaction.create({
+  user: req.user.id,
+  type: "conversion",
+  category: "points",
+  amount: cash,
+  direction: "credit",
+  status: "success",
+  reference: `POINTS-${Date.now()}`,
+  description: "Converted points to wallet balance",
+  metadata: {
+    pointsConverted,
+  },
+});
 
     res.json({
       success: true,
@@ -99,13 +138,14 @@ router.post("/withdraw", verifyToken, async (req, res) => {
     await wallet.save();
 
     const withdrawal = await Withdrawal.create({
-      user: req.user.id,
-      amount,
-      bankName,
-      accountNumber,
-      accountName,
-      status: "pending",
-    });
+  user: req.user.id,
+  amount,
+  bankName,
+  accountNumber,
+  accountName,
+  reference,
+  status: "pending",
+});
 
     return res.json({
       success: true,
