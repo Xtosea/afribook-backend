@@ -43,6 +43,11 @@ const BACKEND_URL =
           "name profilePic"
         );
 
+
+   console.log("Post ID:", post?._id);
+console.log("Media:", JSON.stringify(post?.media, null, 2));
+
+
     if (!post) {
       return res
         .status(404)
@@ -50,11 +55,15 @@ const BACKEND_URL =
     }
 
     const imageMedia = post.media?.find(
-  (m) => m.type === "image"
+  (m) =>
+    m.type === "image" &&
+    (m.url || m.secure_url || m.src)
 );
 
 const videoMedia = post.media?.find(
-  (m) => m.type === "video"
+  (m) =>
+    m.type === "video" &&
+    (m.url || m.secure_url || m.src)
 );
 
 let image = `${FRONTEND_URL}/social-preview.png`;
@@ -104,8 +113,8 @@ const redirectUrl =
       escapeHtml(description);
 
 
-console.log("Media:", post.media);
 console.log("OG Image:", image);
+console.log("Video URL:", videoUrl);
 
 
     res.send(`
