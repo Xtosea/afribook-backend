@@ -109,6 +109,72 @@ await Transaction.create({
   }
 });
 
+
+/* ================= SPEND FROM WALLET ================= */
+router.post("/spend", verifyToken, async (req, res) => {
+  try {
+    const {
+      amount,
+      category,
+      description,
+      metadata = {},
+    } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({
+        error: "Invalid amount",
+      });
+    }
+
+    let wallet = await Wallet.findOne({
+      user: req.user.id,
+    });
+
+    if (!wallet) {
+      wallet = await Wallet.create({
+        user: req.user.id,
+      });
+    }
+
+    if (wallet.balance < Number(amount)) {
+      return res.status(400).json({
+        error: "Insufficient wallet balance",
+      });
+    }
+
+    wallet.balance -= Number(amount);
+
+    await wallet.save();
+
+    const transaction = await Transaction.create({
+      user: req.user.id,
+      type: "purchase",
+      category: category || "other",
+      amount: Number(amount),
+      currency: "NGN",
+      paymentMethod: "wallet",
+      reference: `PUR-${Date.now()}`,
+      status: "success",
+      description:
+        description || "Wallet purchase",
+      metadata,
+    });
+
+    res.json({
+      success: true,
+      balance: wallet.balance,
+      transaction,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Wallet payment failed",
+    });
+  }
+});
+
 /* ================= WITHDRAW ================= */
 router.post("/withdraw", verifyToken, async (req, res) => {
   try {
