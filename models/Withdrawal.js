@@ -39,6 +39,13 @@ const withdrawalSchema =
         required: true,
       },
 
+
+    
+    reference: {
+  type: String,
+  unique: true,
+},
+
       status: {
         type: String,
         enum: [
