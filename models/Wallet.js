@@ -5,16 +5,45 @@ const walletSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      unique: true,
       required: true,
+      unique: true,
     },
+
+    /* ================= MONEY ================= */
+
+    // Money deposited by the user
+    walletBalance: {
+      type: Number,
+      default: 0,
+    },
+
+    // Money earned from creators, ads, referrals, etc.
+    earningBalance: {
+      type: Number,
+      default: 0,
+    },
+
+    // Withdrawals waiting for approval
+    pendingWithdrawal: {
+      type: Number,
+      default: 0,
+    },
+
+    /* ================= POINTS ================= */
 
     points: {
       type: Number,
       default: 0,
     },
 
-    balance: {
+    /* ================= ANALYTICS ================= */
+
+    lifetimeDeposits: {
+      type: Number,
+      default: 0,
+    },
+
+    lifetimeSpent: {
       type: Number,
       default: 0,
     },
@@ -24,10 +53,12 @@ const walletSchema = new mongoose.Schema(
       default: 0,
     },
 
-    pending: {
+    lifetimeWithdrawn: {
       type: Number,
       default: 0,
     },
+
+    /* ================= SOCIAL STATS ================= */
 
     storyLikes: {
       type: Number,
@@ -59,32 +90,19 @@ const walletSchema = new mongoose.Schema(
       default: 0,
     },
 
-    creatorBalance: {
-  type: Number,
-  default: 0,
-},
+    referralPoints: {
+      type: Number,
+      default: 0,
+    },
 
-adRevenueEarned: {
-  type: Number,
-  default: 0,
-},
-
-adViews: {
-  type: Number,
-  default: 0,
-},
-
-leaderboardPoints: {
-  type: Number,
-  default: 0,
-},
+    leaderboardPoints: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.model(
-  "Wallet",
-  walletSchema
-);
+export default mongoose.model("Wallet", walletSchema);
