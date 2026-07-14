@@ -1,4 +1,6 @@
+
 import express from "express";
+import mongoose from "mongoose";
 import multer from "multer";
 import fs from "fs";
 
@@ -882,42 +884,46 @@ if (!post) {
 /* ================= GET SINGLE POST ================= */
 
 router.get("/:id", async (req, res) => {
-try {
-const post = await Post.findById(
-req.params.id
-)
-.populate(
-  "user",
-  "name profilePic verified verificationBadge"
-)
-.populate(
-"taggedFriends",
-"name profilePic"
-)
-.populate(
-"comments.user",
-"name profilePic"
-);
+  try {
+    // Validate ObjectId first
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        error: "Invalid post ID",
+      });
+    }
 
-if (!post) {  
-  return res.status(404).json({  
-    error: "Post not found",  
-  });  
-}  
+    const post = await Post.findById(req.params.id)
+      .populate(
+        "user",
+        "name profilePic verified verificationBadge"
+      )
+      .populate(
+        "taggedFriends",
+        "name profilePic"
+      )
+      .populate(
+        "comments.user",
+        "name profilePic"
+      );
 
-res.json(post);
+    if (!post) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
 
-} catch (err) {
-console.error(
-"GET SINGLE POST ERROR:",
-err
-);
+    res.json(post);
 
-res.status(500).json({  
-  error: "Server error",  
-});
+  } catch (err) {
+    console.error(
+      "GET SINGLE POST ERROR:",
+      err
+    );
 
-}
+    res.status(500).json({
+      error: "Server error",
+    });
+  }
 });
 
 /* ================= SHARE TO FEED ================= Route*/
