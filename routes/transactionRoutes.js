@@ -1,6 +1,8 @@
 import express from "express";
 import Transaction from "../models/Transaction.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import { adminMiddleware } from "../middleware/adminMiddleware.js";
+
 
 const router = express.Router();
 
@@ -62,15 +64,8 @@ router.get("/:id", verifyToken, async (req, res) => {
 
 /* ================= ADMIN: ALL TRANSACTIONS ================= */
 
-router.get("/", verifyToken, async (req, res) => {
+router.get("/", verifyToken, adminMiddleware, async (req, res) => {
   try {
-    // Replace this check with your own admin check if you have one.
-    if (!req.user.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: "Unauthorized",
-      });
-    }
 
     const transactions = await Transaction.find()
       .populate("user", "name email profilePic")
