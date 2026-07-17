@@ -155,9 +155,15 @@ property="og:description"
 content="${safeDescription}"
 />
 
+
 <meta
-property="og:image"
-content="${image}"
+  property="og:image"
+  content="${image}?v=${post.updatedAt?.getTime() || Date.now()}"
+/>
+
+<meta
+  property="og:image:secure_url"
+  content="${image}?v=${post.updatedAt?.getTime() || Date.now()}"
 />
 
 <meta property="og:image:secure_url" content="${image}" />
