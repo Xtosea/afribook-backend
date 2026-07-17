@@ -15,11 +15,12 @@ const router = express.Router();
 router.post("/register", async (req, res) => {
 
   const {
-    name,
-    email,
-    password,
-    referralCode,
-  } = req.body;
+  name,
+  email,
+  password,
+  referralCode,
+  redirect,
+} = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({
@@ -92,7 +93,7 @@ await Wallet.create({
 
     /* ================= SEND EMAIL ================= */
     const verifyUrl =
-      `https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${user.email}`;
+       `https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${encodeURIComponent(user.email)}&redirect=${encodeURIComponent(redirect || "/")}`;
 
     await sendEmail({
       to: user.email,
@@ -317,7 +318,7 @@ router.post(
   "/resend-verification",
   async (req, res) => {
 
-    const { email } = req.body;
+    const { email, redirect } = req.body;
 
     try {
 
@@ -355,8 +356,8 @@ router.post(
       await user.save();
 
       // VERIFY URL
-      const verifyUrl =
-        `https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${user.email}`;
+const verifyUrl =
+`https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${encodeURIComponent(user.email)}&redirect=${encodeURIComponent(redirect || "/")}`;
 
       // SEND EMAIL
       await sendEmail({
