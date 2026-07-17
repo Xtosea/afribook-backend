@@ -87,11 +87,19 @@ if (imageMedia) {
     videoMedia.thumbnail ||
     videoMedia.poster ||
     `${BACKEND_URL}/post-card/${post._id}`;
+
+
+ 
+
+  
 } else {
   image =
     `${BACKEND_URL}/post-card/${post._id}`;
 }
 
+
+const imageUrl =
+  `${image}?v=${post.updatedAt?.getTime() || Date.now()}`;
 
 const title =
   post.content
@@ -156,20 +164,36 @@ content="${safeDescription}"
 />
 
 
+
+<meta
+  property="og:image:secure_url"
+  content="${imageUrl}"
+/>
+
 <meta
   property="og:image"
-  content="${image}?v=${post.updatedAt?.getTime() || Date.now()}"
+  content="${imageUrl}"
 />
 
 <meta
   property="og:image:secure_url"
-  content="${image}?v=${post.updatedAt?.getTime() || Date.now()}"
+  content="${imageUrl}"
 />
 
-<meta property="og:image:secure_url" content="${image}" />
-<meta property="og:image:type" content="image/jpeg" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />
+<meta
+  property="og:image:type"
+  content="image/jpeg"
+/>
+
+<meta
+  property="og:image:width"
+  content="1200"
+/>
+
+<meta
+  property="og:image:height"
+  content="630"
+/>
 
 <meta
 property="og:url"
@@ -205,7 +229,7 @@ content="${safeDescription}"
 
 <meta
 name="twitter:image"
-content="${image}"
+content="${imageUrl}"
 />
 
 
@@ -243,7 +267,7 @@ content="1280"
  "@type":"SocialMediaPosting",
  "headline":"${safeTitle}",
  "description":"${safeDescription}",
- "image":"${image}"
+ "image":"${imageUrl}"
 }
 </script>
 
@@ -268,7 +292,7 @@ text-align:center;
 <h2>${safeTitle}</h2>
 
 <img
-src="${image}"
+src="${imageUrl}"
 style="
 max-width:100%;
 border-radius:12px;
