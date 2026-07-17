@@ -43,6 +43,8 @@ const BACKEND_URL =
           "name profilePic"
         );
 
+console.log(JSON.stringify(post.media, null, 2));
+
 
    console.log("Post ID:", post?._id);
 console.log("Media:", JSON.stringify(post?.media, null, 2));
@@ -157,6 +159,11 @@ content="${safeDescription}"
 property="og:image"
 content="${image}"
 />
+
+<meta property="og:image:secure_url" content="${image}" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 
 <meta
 property="og:url"
