@@ -38,12 +38,14 @@ if (!originalPost) {
   return res.status(404).json({ message: "Post not found" });  
 }  
 
-const newPost = await Post.create({  
-  user: req.user.id,  
-  content: `🔁 Shared: ${originalPost.content || ""}`,  
-  media: originalPost.media,  
-  sharedFrom: originalPost._id,  
-});  
+const newPost = await Post.create({
+  user: req.user.id,              // person sharing
+  content: originalPost.content || "",
+  media: originalPost.media,
+  sharedFrom: originalPost._id,
+  originalAuthor: originalPost.user,
+  isSharedPost: true,
+});
 
 if (
   originalPost.user.toString() !==
@@ -58,10 +60,18 @@ if (
   });
 }
 
-await newPost.populate(
-  "user",
-  "name profilePic verified verificationBadge"
-);
+await newPost.populate([
+  {
+    path: "user",
+    select:
+      "name profilePic verified verificationBadge",
+  },
+  {
+    path: "originalAuthor",
+    select:
+      "name profilePic verified verificationBadge",
+  },
+]);
 
 io.emit("new-post", newPost);  
 
@@ -352,12 +362,15 @@ const page =
 
 const limit = 5;  
 
-const reels = await Post.find({  
-  isReel: true,  
-})  
-
-  .populate(
+const reels = await Post.find({
+  isReel: true,
+})
+.populate(
   "user",
+  "name profilePic verified verificationBadge"
+)
+.populate(
+  "originalAuthor",
   "name profilePic verified verificationBadge"
 )
 
@@ -469,10 +482,14 @@ verifyToken,
 async (req, res) => {
 try {
 const posts = await Post.find({
-user: req.params.userId,
+  user: req.params.userId,
 })
 .populate(
   "user",
+  "name profilePic verified verificationBadge"
+)
+.populate(
+  "originalAuthor",
   "name profilePic verified verificationBadge"
 )
 .sort({ createdAt: -1 });
@@ -496,10 +513,14 @@ router.get("/", verifyToken, async (req, res) => {
     const limit = Number(req.query.limit) || 10;
 
     const posts = await Post.find()
-      .populate(
-        "user",
-        "name profilePic verified verificationBadge"
-      )
+  .populate(
+    "user",
+    "name profilePic verified verificationBadge"
+  )
+  .populate(
+    "originalAuthor",
+    "name profilePic verified verificationBadge"
+  )
       .populate(
         "taggedFriends",
         "name profilePic"
@@ -535,7 +556,14 @@ router.get("/trending", verifyToken, async (req, res) => {
     const limit = Number(req.query.limit) || 10;
 
     let posts = await Post.find()
-      .populate("user", "name profilePic verified verificationBadge")
+  .populate(
+    "user",
+    "name profilePic verified verificationBadge"
+  )
+  .populate(
+    "originalAuthor",
+    "name profilePic verified verificationBadge"
+  )
       .populate("taggedFriends", "name profilePic")
       .populate("comments.user", "name profilePic")
       .sort({ createdAt: -1 }) // base order first
@@ -768,6 +796,8 @@ if (!post) {
 }
 );
 
+/* ================= EDIT POST ================= */
+
 router.put(
   "/:id",
   verifyToken,
@@ -806,10 +836,18 @@ router.put(
 
       await post.save();
 
-      await post.populate(
-        "user",
-        "name profilePic verified verificationBadge"
-      );
+      await post.populate([
+  {
+    path: "user",
+    select:
+      "name profilePic verified verificationBadge",
+  },
+  {
+    path: "originalAuthor",
+    select:
+      "name profilePic verified verificationBadge",
+  },
+]);
 
       res.json({
         success: true,
@@ -893,10 +931,14 @@ router.get("/:id", async (req, res) => {
     }
 
     const post = await Post.findById(req.params.id)
-      .populate(
-        "user",
-        "name profilePic verified verificationBadge"
-      )
+  .populate(
+    "user",
+    "name profilePic verified verificationBadge"
+  )
+  .populate(
+    "originalAuthor",
+    "name profilePic verified verificationBadge"
+  )
       .populate(
         "taggedFriends",
         "name profilePic"
@@ -1070,12 +1112,16 @@ router.get(
   async (req, res) => {
     try {
       const posts = await Post.find({
-        savedBy: req.user.id,
-      })
-        .populate(
-          "user",
-          "name profilePic verified verificationBadge"
-        )
+  savedBy: req.user.id,
+})
+  .populate(
+    "user",
+    "name profilePic verified verificationBadge"
+  )
+  .populate(
+    "originalAuthor",
+    "name profilePic verified verificationBadge"
+  )
         .sort({ createdAt: -1 });
 
       res.json(posts);
