@@ -19,6 +19,9 @@ const commentSchema = new mongoose.Schema(
   }
 );
 
+
+
+
 // ================= MEDIA =================
 
 const mediaSchema = new mongoose.Schema({
@@ -77,6 +80,21 @@ const postSchema = new mongoose.Schema(
         mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+
+isSharedPost: {
+      type: Boolean,
+      default: false,
+    },
+
+    sharedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Post",
+    },
+
+    originalAuthor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
 
     // ================= CONTENT =================
