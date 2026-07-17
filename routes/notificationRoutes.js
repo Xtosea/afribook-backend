@@ -4,43 +4,54 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// GET NOTIFICATIONS
+// ================= GET NOTIFICATIONS =================
+
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const notifications =
-      await Notification.find({
-        recipient: req.user.id,
+    const notifications = await Notification.find({
+      recipient: req.user.id,
+    })
+      .populate(
+        "sender",
+        "name profilePic verified"
+      )
+      .populate(
+        "senders",
+        "name profilePic verified"
+      )
+      .populate({
+        path: "post",
+        select:
+          "content media images video thumbnail thumbnailUrl user createdAt",
+        populate: {
+          path: "user",
+          select: "name profilePic verified",
+        },
       })
-        .populate(
-          "sender",
-          "name profilePic"
-        )
-        .populate(
-          "senders",
-          "name profilePic"
-        )
-        .populate(
-  "post",
-  "content media images video thumbnail"
-)
-        .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 });
 
     res.json(notifications);
+
   } catch (err) {
+
     console.error(err);
 
     res.status(500).json({
       error: "Server error",
     });
+
   }
 });
 
-// MARK ALL READ
+// ================= MARK READ =================
+
 router.put(
   "/read",
   verifyToken,
   async (req, res) => {
+
     try {
+
       await Notification.updateMany(
         {
           recipient: req.user.id,
@@ -55,36 +66,49 @@ router.put(
         message:
           "Notifications marked as read",
       });
+
     } catch (err) {
+
       console.error(err);
 
       res.status(500).json({
         error: "Server error",
       });
+
     }
+
   }
 );
 
-// UNREAD COUNT
+// ================= UNREAD COUNT =================
+
 router.get(
   "/unread-count",
   verifyToken,
   async (req, res) => {
+
     try {
+
       const count =
         await Notification.countDocuments({
           recipient: req.user.id,
           read: false,
         });
 
-      res.json({ count });
+      res.json({
+        count,
+      });
+
     } catch (err) {
+
       console.error(err);
 
       res.status(500).json({
         error: "Server error",
       });
+
     }
+
   }
 );
 
