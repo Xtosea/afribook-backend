@@ -58,6 +58,7 @@ import marketplaceRoutes from "./routes/marketplaceRoutes.js";
 import socialPreviewRoutes from "./routes/socialPreviewRoutes.js";
 import musicRoutes from "./routes/musicRoutes.js";
 import stickerRoutes from "./routes/stickerRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
 
 
 
