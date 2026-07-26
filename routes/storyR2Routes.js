@@ -60,17 +60,21 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     const story = await Story.create({
-      user: req.user.id,
-      media,
-      text,
-      music,
-      stickers,
-      backgroundColor,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
+  user: req.user.id,
+  media,
+  text,
+  music,
+  stickers,
+  backgroundColor,
+  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+});
 
-    return res.status(201).json(story);
+await story.populate(
+  "user",
+  "name profilePic"
+);
 
+return res.status(201).json(story);
   } catch (err) {
     console.error("Story save error:", err);
     return res.status(500).json({
