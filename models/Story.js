@@ -50,18 +50,18 @@ const storySchema =
       },
 
       media: [
-        {
-          url: String,
-
-          type: {
-            type: String,
-            enum: [
-              "image",
-              "video",
-            ],
-          },
-        },
+  {
+    url: String,
+    type: {
+      type: String,
+      enum: [
+        "image",
+        "video",
+        "audio",
       ],
+    },
+  },
+],
 
      music: {
   title: String,
