@@ -48,6 +48,11 @@ router.post("/", verifyToken, async (req, res) => {
       backgroundColor = "#000000",
     } = req.body;
 
+
+
+console.log("req.body.media:", req.body.media);
+console.log("req.body:", req.body);
+
     if (
       media.length === 0 &&
       !text &&
@@ -58,6 +63,9 @@ router.post("/", verifyToken, async (req, res) => {
         error: "Story content required",
       });
     }
+
+
+
 
     const story = await Story.create({
   user: req.user.id,
