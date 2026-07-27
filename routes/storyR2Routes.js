@@ -42,12 +42,13 @@ router.post("/", verifyToken, async (req, res) => {
     const Story = (await import("../models/Story.js")).default;
 
     const {
-      media = [],
-      text = "",
-      music = null,
-      stickers = [],
-      backgroundColor = "#000000",
-    } = req.body;
+  media = [],
+  text = "",
+  textStyle = {},
+  music = null,
+  stickers = [],
+  backgroundColor = "#000000",
+} = req.body;
 
 
 
@@ -72,6 +73,7 @@ console.log("req.body:", req.body);
   user: req.user.id,
   media,
   text,
+  textStyle,
   music,
   stickers,
   backgroundColor,
