@@ -51,7 +51,6 @@ const storySchema =
 
       media: [
   {
-    url: String,
     type: {
       type: String,
       enum: [
@@ -60,6 +59,15 @@ const storySchema =
         "audio",
       ],
     },
+
+    // Image URL or video thumbnail
+    url: String,
+
+    // Only used for video stories
+    videoUrl: String,
+
+    // Optional if you want to keep it separate
+    thumbnailUrl: String,
   },
 ],
 
