@@ -25,13 +25,14 @@ router.post(
   async (req, res) => {
     try {
       const {
-        media = [],
-        caption = "",
-        text = "",
-        music = null,
-        stickers = [],
-        backgroundColor = "#000000",
-      } = req.body;
+  media = [],
+  caption = "",
+  text = "",
+  textStyle = {},
+  music = null,
+  stickers = [],
+  backgroundColor = "#000000",
+} = req.body;
 
       if (
         media.length === 0 &&
@@ -45,17 +46,18 @@ router.post(
       }
 
       const story = await Story.create({
-        user: req.user.id,
-        media,
-        caption,
-        text,
-        music,
-        stickers,
-        backgroundColor,
-        expiresAt: new Date(
-          Date.now() + 24 * 60 * 60 * 1000
-        ),
-      });
+  user: req.user.id,
+  media,
+  caption,
+  text,
+  textStyle,
+  music,
+  stickers,
+  backgroundColor,
+  expiresAt: new Date(
+    Date.now() + 24 * 60 * 60 * 1000
+  ),
+});
 
       await story.populate(
         "user",
