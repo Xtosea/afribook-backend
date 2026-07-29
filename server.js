@@ -85,12 +85,26 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        return callback(new Error("CORS policy does not allow access from this origin"), false);
+      console.log("Incoming Origin:", origin);
+      console.log("Allowed Origins:", allowedOrigins);
+
+      // Allow requests with no Origin (e.g. server-to-server, Postman)
+      if (!origin) {
+        return callback(null, true);
       }
-      return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("Blocked Origin:", origin);
+
+      return callback(
+        new Error("CORS policy does not allow access from this origin"),
+        false
+      );
     },
+
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
