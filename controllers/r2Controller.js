@@ -13,6 +13,14 @@ const s3 = new S3Client({
 });
 
 export const getSignedUploadUrl = async (req, res) => {
+
+export const getSignedUploadUrl = async (req, res) => {
+  console.log("Signed URL requested");
+  console.log("Content-Type:", req.query.contentType);
+
+  try {
+    // existing code...
+
   try {
 
     const contentType =
