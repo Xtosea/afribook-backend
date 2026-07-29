@@ -13,49 +13,41 @@ const s3 = new S3Client({
 });
 
 export const getSignedUploadUrl = async (req, res) => {
-
-export const getSignedUploadUrl = async (req, res) => {
   console.log("Signed URL requested");
   console.log("Content-Type:", req.query.contentType);
 
   try {
-    // existing code...
-
-  try {
-
     const contentType =
       req.query.contentType || "application/octet-stream";
 
     const fileName =
       `videos/${Date.now()}-${Math.random()}.mp4`;
 
-
-
     const bucket = process.env.R2_BUCKET_NAME.trim();
 
-const command = new PutObjectCommand({
-  Bucket: bucket,
-  Key: fileName,
-  ContentType: contentType,
-});
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: fileName,
+      ContentType: contentType,
+    });
 
-const uploadUrl = await getSignedUrl(s3, command, {
-  expiresIn: 60 * 5,
-});
+    const uploadUrl = await getSignedUrl(s3, command, {
+      expiresIn: 60 * 5,
+    });
 
-const fileUrl =
-  `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
+    const fileUrl =
+      `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
 
-console.log("Upload URL:", uploadUrl);
-console.log("File URL:", fileUrl);
+    console.log("Upload URL:", uploadUrl);
+    console.log("File URL:", fileUrl);
 
-res.json({
-  uploadUrl,
-  fileUrl,
-  fileName,
-});
+    res.json({
+      uploadUrl,
+      fileUrl,
+      fileName,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Signed URL Error:", err);
 
     res.status(500).json({
       error: "Failed to generate signed URL",
