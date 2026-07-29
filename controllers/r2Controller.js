@@ -13,10 +13,11 @@ const s3 = new S3Client({
 });
 
 export const getSignedUploadUrl = async (req, res) => {
-  console.log("Signed URL requested");
-  console.log("Content-Type:", req.query.contentType);
-
   try {
+    console.log("=== STEP 1 ===");
+    console.log("Signed URL requested");
+    console.log("Content-Type:", req.query.contentType);
+
     const contentType =
       req.query.contentType || "application/octet-stream";
 
@@ -25,32 +26,36 @@ export const getSignedUploadUrl = async (req, res) => {
 
     const bucket = process.env.R2_BUCKET_NAME.trim();
 
+    console.log("Bucket:", bucket);
+
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: fileName,
       ContentType: contentType,
     });
 
+    console.log("Creating signed URL...");
+
     const uploadUrl = await getSignedUrl(s3, command, {
-      expiresIn: 60 * 5,
+      expiresIn: 300,
     });
+
+    console.log("✅ Signed URL created");
 
     const fileUrl =
       `${process.env.R2_CUSTOM_DOMAIN}/${fileName}`;
-
-    console.log("Upload URL:", uploadUrl);
-    console.log("File URL:", fileUrl);
 
     res.json({
       uploadUrl,
       fileUrl,
       fileName,
     });
+
   } catch (err) {
-    console.error("Signed URL Error:", err);
+    console.error("SIGNED URL ERROR:", err);
 
     res.status(500).json({
-      error: "Failed to generate signed URL",
+      error: err.message,
     });
   }
 };
