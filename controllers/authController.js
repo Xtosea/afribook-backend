@@ -6,6 +6,8 @@ import Wallet from "../models/Wallet.js";
 // ================= REGISTER =================
 
 export const register = async (req, res) => {
+
+console.log("Register body:", req.body);
   try {
     const {
       name,
