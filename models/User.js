@@ -142,7 +142,11 @@ const UserSchema = new mongoose.Schema(
     ],
 
     // Referral system
-    referralCode: String,
+    referralCode: {
+  type: String,
+  unique: true,
+  sparse: true,
+},
 
     referredBy: {
       type: mongoose.Schema.Types.ObjectId,
