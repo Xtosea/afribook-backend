@@ -3,9 +3,16 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Wallet from "../models/Wallet.js";
 
+// ================= REGISTER =================
+
 export const register = async (req, res) => {
   try {
-    const { name, identifier, password } = req.body;
+    const {
+      name,
+      identifier,
+      password,
+      ref,
+    } = req.body;
 
     if (!name || !password) {
       return res.status(400).json({
@@ -34,13 +41,42 @@ export const register = async (req, res) => {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword =
+      await bcrypt.hash(password, 10);
+
+    // Generate referral code
+    const referralCode =
+      "AFR" +
+      Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
+
+    // Check who referred this user
+    let referredBy = null;
+
+    if (ref) {
+      const referrer =
+        await User.findOne({
+          referralCode: ref,
+        });
+
+      if (referrer) {
+        referredBy = referrer._id;
+      }
+    }
 
     const user = await User.create({
       name,
       email: isEmail ? identifier : "",
-      phone: identifier && !isEmail ? identifier : "",
+      phone:
+        identifier && !isEmail
+          ? identifier
+          : "",
       password: hashedPassword,
+
+      referralCode,
+      referredBy,
     });
 
     await Wallet.create({
@@ -64,27 +100,55 @@ export const register = async (req, res) => {
   }
 };
 
-
-
+// ================= LOGIN =================
 
 export const login = async (req, res) => {
-try {
+  try {
+    const { identifier, password } =
+      req.body;
 
-const { email, password } = req.body;
+    const isEmail =
+      identifier && identifier.includes("@");
 
-const user = await User.findOne({ email });
-if (!user) return res.status(400).json({ message: "User not found" });
+    const user = await User.findOne(
+      isEmail
+        ? { email: identifier }
+        : { phone: identifier }
+    );
 
-const match = await bcrypt.compare(password, user.password);
-if (!match) return res.status(400).json({ message: "Wrong password" });
+    if (!user) {
+      return res.status(400).json({
+        message: "User not found",
+      });
+    }
 
-const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+    const match =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
 
-res.json({ user, token });
+    if (!match) {
+      return res.status(400).json({
+        message: "Wrong password",
+      });
+    }
 
-} catch (error) {
-res.status(500).json({ error: error.message });
-}
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET
+    );
+
+    res.json({
+      token,
+      user,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+    });
+  }
 };
 
 
