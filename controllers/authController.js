@@ -4,29 +4,64 @@ import jwt from "jsonwebtoken";
 import Wallet from "../models/Wallet.js";
 
 export const register = async (req, res) => {
-try {
+  try {
+    const { name, identifier, password } = req.body;
 
-const { name, email, password } = req.body;
+    if (!name || !password) {
+      return res.status(400).json({
+        message: "Name and password are required",
+      });
+    }
 
-const userExists = await User.findOne({ email });
-if (userExists)
-return res.status(400).json({ message: "User already exists" });
+    const isEmail =
+      identifier && identifier.includes("@");
 
-const hashedPassword = await bcrypt.hash(password, 10);
+    let userExists = null;
 
-const user = await User.create({
-name,
-email,
-password: hashedPassword
-});
+    if (identifier) {
+      userExists = await User.findOne(
+        isEmail
+          ? { email: identifier }
+          : { phone: identifier }
+      );
 
-const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+      if (userExists) {
+        return res.status(400).json({
+          message: isEmail
+            ? "Email already exists"
+            : "Phone number already exists",
+        });
+      }
+    }
 
-res.json({ user, token });
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-} catch (error) {
-res.status(500).json({ error: error.message });
-}
+    const user = await User.create({
+      name,
+      email: isEmail ? identifier : "",
+      phone: identifier && !isEmail ? identifier : "",
+      password: hashedPassword,
+    });
+
+    await Wallet.create({
+      user: user._id,
+    });
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET
+    );
+
+    res.json({
+      token,
+      user,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+    });
+  }
 };
 
 
