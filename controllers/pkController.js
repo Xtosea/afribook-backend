@@ -63,7 +63,12 @@ export const startPKController = async (req, res) => {
   try {
     const { battleId } = req.params;
 
-    const battle = await startPK(battleId);
+    const userId = req.user?._id || req.user?.id;
+
+const battle = await startPK(
+  battleId,
+  userId
+);
 
     return res.json({
       success: true,
@@ -134,7 +139,12 @@ export const finishPKController = async (req, res) => {
   try {
     const { battleId } = req.params;
 
-    const battle = await finishPK(battleId);
+    const userId = req.user?._id || req.user?.id;
+
+const battle = await finishPK(
+  battleId,
+  userId
+);
 
     return res.json({
       success: true,
