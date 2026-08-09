@@ -63,7 +63,7 @@ export const startPKController = async (req, res) => {
   try {
     const { battleId } = req.params;
 
-    const userId = req.user?._id || req.user?.id;
+    const userId = req.user?.id;
 
 const battle = await startPK(
   battleId,
