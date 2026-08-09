@@ -59,6 +59,8 @@ import socialPreviewRoutes from "./routes/socialPreviewRoutes.js";
 import musicRoutes from "./routes/musicRoutes.js";
 import stickerRoutes from "./routes/stickerRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
+import pkRoutes from "./routes/pkRoutes.js";
+
 
 
 
@@ -242,7 +244,7 @@ app.use("/", socialPreviewRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/music", musicRoutes);
 app.use("/api/stickers", stickerRoutes);
-
+app.use("/api/pk", pkRoutes);
 
 
 
