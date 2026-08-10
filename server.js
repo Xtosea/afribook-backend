@@ -11,10 +11,10 @@ import { Server } from "socket.io";
 import {
   joinPKRoom,
   leavePKRoom,
-  startPKRoom,
   getPKRoomState,
+  startPKRoom,
   updatePKRoomScore,
- } from "./services/pkSocketService.js";
+} from "./services/pkRedisService.js";
 
 import "./config/env.js";
 import "./config/redis.js";
