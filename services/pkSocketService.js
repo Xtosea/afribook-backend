@@ -22,10 +22,12 @@ const pkRooms = new Map();
 export const getPKRoom = (battleId) => {
   if (!pkRooms.has(battleId)) {
     pkRooms.set(battleId, {
-      users: new Set(),
-      started: false,
-      startedAt: null,
-    });
+  users: new Set(),
+  started: false,
+  startedAt: null,
+  hostAScore: 0,
+  hostBScore: 0,
+});
   }
 
   return pkRooms.get(battleId);
@@ -45,11 +47,12 @@ export const joinPKRoom = (
   room.users.add(userId);
 
   return {
-    battleId,
-    users: Array.from(room.users),
-    started: room.started,
-    startedAt: room.startedAt,
-  };
+  battleId,
+  users: Array.from(room.users),
+  started: room.started,
+  startedAt: room.startedAt,
+  hostAScore: room.hostAScore || 0,
+  hostBScore: room.hostBScore || 0,
 };
 
 
@@ -121,6 +124,8 @@ export const getPKRoomState = (
     users: Array.from(room.users),
     started: room.started,
     startedAt: room.startedAt,
+    hostAScore: room.hostAScore || 0,
+    hostBScore: room.hostBScore || 0,
   };
 };
 
