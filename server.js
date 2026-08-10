@@ -498,8 +498,8 @@ const finalizePKBattle = async (
     battle.status =
       "completed";
 
-    battle.completedAt =
-      new Date();
+    battle.endedAt =
+    new Date();
 
     // If your PKBattle schema has a winner
     // field, save it.
@@ -544,8 +544,8 @@ const finalizePKBattle = async (
       startedAt:
         battle.startedAt,
 
-      completedAt:
-        battle.completedAt,
+      endedAt:
+      battle.endedAt,
 
       duration:
         battle.duration,
