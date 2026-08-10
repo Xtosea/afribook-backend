@@ -9,7 +9,9 @@ const pkRooms = new Map();
     battleId => {
       users: Set(),
       started: false,
-      startedAt: null
+      startedAt: null,
+      hostAScore: 0,
+      hostBScore: 0
     }
   }
 */
@@ -22,12 +24,12 @@ const pkRooms = new Map();
 export const getPKRoom = (battleId) => {
   if (!pkRooms.has(battleId)) {
     pkRooms.set(battleId, {
-  users: new Set(),
-  started: false,
-  startedAt: null,
-  hostAScore: 0,
-  hostBScore: 0,
-});
+      users: new Set(),
+      started: false,
+      startedAt: null,
+      hostAScore: 0,
+      hostBScore: 0,
+    });
   }
 
   return pkRooms.get(battleId);
@@ -47,12 +49,13 @@ export const joinPKRoom = (
   room.users.add(userId);
 
   return {
-  battleId,
-  users: Array.from(room.users),
-  started: room.started,
-  startedAt: room.startedAt,
-  hostAScore: room.hostAScore || 0,
-  hostBScore: room.hostBScore || 0,
+    battleId,
+    users: Array.from(room.users),
+    started: room.started,
+    startedAt: room.startedAt,
+    hostAScore: room.hostAScore || 0,
+    hostBScore: room.hostBScore || 0,
+  };
 };
 
 
@@ -82,6 +85,8 @@ export const leavePKRoom = (
     users: Array.from(room.users),
     started: room.started,
     startedAt: room.startedAt,
+    hostAScore: room.hostAScore || 0,
+    hostBScore: room.hostBScore || 0,
   };
 };
 
@@ -102,6 +107,8 @@ export const startPKRoom = (
     battleId,
     started: true,
     startedAt: room.startedAt,
+    hostAScore: room.hostAScore || 0,
+    hostBScore: room.hostBScore || 0,
   };
 };
 
