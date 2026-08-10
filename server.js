@@ -628,11 +628,19 @@ io.on("connection", (socket) => {
   );
 
   // JOIN USER ROOM
-  socket.on("join", (userId) => {
+  socket.on("join", () => {
+
+  // socket.userId comes from the verified JWT.
+  // Never trust a user ID supplied by the frontend.
+
+  if (!socket.userId) {
+    console.log("❌ Cannot join user room: unauthenticated socket");
+    return;
+  }
+
+  const userId = socket.userId.toString();
 
   socket.join(userId);
-
-  socket.userId = userId;
 
   onlineUsers.set(userId, socket.id);
 
@@ -642,7 +650,6 @@ io.on("connection", (socket) => {
   );
 
   console.log(`👤 ${userId} is online`);
-
 });
 
   // SEND MESSAGE
