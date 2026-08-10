@@ -2,11 +2,14 @@
 
 import redis from "../config/redis.js";
 
+
 // ==========================================
 // CONFIGURATION
 // ==========================================
 
-const ROOM_TTL = 30 * 60; // 30 minutes
+const PENDING_TTL = 60 * 60;       // 1 hour
+const ACTIVE_TTL = 30 * 60;        // 30 minutes
+
 
 // ==========================================
 // REDIS KEY
@@ -15,11 +18,13 @@ const ROOM_TTL = 30 * 60; // 30 minutes
 const pkKey = (battleId) =>
   `pk:room:${battleId}`;
 
+
 // ==========================================
 // REDIS CHECK
 // ==========================================
 
 const requireRedis = () => {
+
   if (!redis) {
     throw new Error(
       "Redis/Valkey is not configured"
@@ -29,48 +34,92 @@ const requireRedis = () => {
   return redis;
 };
 
+
 // ==========================================
-// GET / CREATE PK ROOM
+// REFRESH TTL
 // ==========================================
 
-export const getPKRoom = async (battleId) => {
-  const client = requireRedis();
+export const refreshPKRoomTTL = async (
+  battleId,
+  active = false
+) => {
 
-  const key = pkKey(battleId);
+  const client =
+    requireRedis();
 
-  let room = await client.hgetall(key);
+  await client.expire(
+    pkKey(battleId),
+    active
+      ? ACTIVE_TTL
+      : PENDING_TTL
+  );
+};
 
-  // ----------------------------------------
+
+// ==========================================
+// GET / CREATE ROOM
+// ==========================================
+
+export const getPKRoom = async (
+  battleId
+) => {
+
+  const client =
+    requireRedis();
+
+  const key =
+    pkKey(battleId);
+
+  let room =
+    await client.hgetall(key);
+
+
+  // ------------------------------------------
   // Create room if missing
-  // ----------------------------------------
+  // ------------------------------------------
 
   if (
     !room ||
     Object.keys(room).length === 0
   ) {
+
     room = {
-      users: JSON.stringify([]),
-      started: "false",
-      startedAt: "",
-      hostAScore: "0",
-      hostBScore: "0",
+      users:
+        JSON.stringify([]),
+
+      started:
+        "false",
+
+      startedAt:
+        "",
+
+      hostAScore:
+        "0",
+
+      hostBScore:
+        "0",
     };
 
-    await client.hset(key, room);
+    await client.hset(
+      key,
+      room
+    );
 
     await client.expire(
       key,
-      ROOM_TTL
+      PENDING_TTL
     );
   }
 
-  // ----------------------------------------
+
+  // ------------------------------------------
   // Parse users safely
-  // ----------------------------------------
+  // ------------------------------------------
 
   let users = [];
 
   try {
+
     users = room.users
       ? JSON.parse(room.users)
       : [];
@@ -78,15 +127,19 @@ export const getPKRoom = async (battleId) => {
     if (!Array.isArray(users)) {
       users = [];
     }
+
   } catch {
+
     users = [];
   }
 
-  // ----------------------------------------
+
+  // ------------------------------------------
   // Return normalized state
-  // ----------------------------------------
+  // ------------------------------------------
 
   return {
+
     battleId,
 
     users,
@@ -95,66 +148,92 @@ export const getPKRoom = async (battleId) => {
       room.started === "true",
 
     startedAt:
-      room.startedAt || null,
+      room.startedAt ||
+      null,
 
     hostAScore:
-      Number(room.hostAScore || 0),
+      Number(
+        room.hostAScore || 0
+      ),
 
     hostBScore:
-      Number(room.hostBScore || 0),
+      Number(
+        room.hostBScore || 0
+      ),
   };
 };
 
+
 // ==========================================
-// JOIN PK ROOM
+// JOIN ROOM
 // ==========================================
 
 export const joinPKRoom = async (
   battleId,
   userId
 ) => {
-  const client = requireRedis();
+
+  const client =
+    requireRedis();
 
   const room =
-    await getPKRoom(battleId);
+    await getPKRoom(
+      battleId
+    );
+
+  const id =
+    userId.toString();
 
   const users =
-    new Set(room.users);
+    new Set(
+      room.users
+        .map((user) =>
+          user.toString()
+        )
+    );
 
-  users.add(
-    userId.toString()
-  );
+  users.add(id);
+
 
   await client.hset(
     pkKey(battleId),
-    "users",
-    JSON.stringify(
-      Array.from(users)
-    )
+    {
+      users:
+        JSON.stringify(
+          Array.from(users)
+        ),
+    }
   );
 
-  await client.expire(
-    pkKey(battleId),
-    ROOM_TTL
+
+  await refreshPKRoomTTL(
+    battleId,
+    room.started
   );
+
 
   return {
+
     ...room,
 
     users:
       Array.from(users),
+
   };
 };
 
+
 // ==========================================
-// LEAVE PK ROOM
+// LEAVE ROOM
 // ==========================================
 
 export const leavePKRoom = async (
   battleId,
   userId
 ) => {
-  const client = requireRedis();
+
+  const client =
+    requireRedis();
 
   const key =
     pkKey(battleId);
@@ -166,102 +245,130 @@ export const leavePKRoom = async (
     return null;
   }
 
+
   const room =
-    await getPKRoom(battleId);
+    await getPKRoom(
+      battleId
+    );
+
+  const id =
+    userId.toString();
+
 
   const users =
     room.users.filter(
-      (id) =>
-        id !== userId.toString()
+      (user) =>
+        user.toString() !== id
     );
+
 
   await client.hset(
     key,
-    "users",
-    JSON.stringify(users)
+    {
+      users:
+        JSON.stringify(users),
+    }
   );
 
-  await client.expire(
-    key,
-    ROOM_TTL
+
+  await refreshPKRoomTTL(
+    battleId,
+    room.started
   );
+
 
   return {
+
     ...room,
 
     users,
+
   };
 };
 
+
 // ==========================================
-// START PK ROOM
+// START REDIS PK
 // ==========================================
 
 export const startPKRoom = async (
   battleId,
-  startedAt = new Date()
+  startedAt = null
 ) => {
-  const client = requireRedis();
+
+  const client =
+    requireRedis();
 
   const room =
-    await getPKRoom(battleId);
+    await getPKRoom(
+      battleId
+    );
 
-  const date =
-    startedAt instanceof Date
-      ? startedAt
-      : new Date(startedAt);
+
+  const finalStartedAt =
+    room.startedAt ||
+    (
+      startedAt
+        ? new Date(startedAt).toISOString()
+        : new Date().toISOString()
+    );
+
 
   await client.hset(
     pkKey(battleId),
     {
-      started: "true",
+      started:
+        "true",
 
       startedAt:
-        date.toISOString(),
+        finalStartedAt,
     }
   );
 
-  await client.expire(
-    pkKey(battleId),
-    ROOM_TTL
+
+  await refreshPKRoomTTL(
+    battleId,
+    true
   );
 
-  return {
-    ...room,
 
-    started: true,
-
-    startedAt:
-      date.toISOString(),
-  };
+  return getPKRoomState(
+    battleId
+  );
 };
 
+
 // ==========================================
-// GET PK ROOM STATE
+// GET ROOM STATE
 // ==========================================
 
 export const getPKRoomState = async (
   battleId
 ) => {
-  const client = requireRedis();
 
-  const key =
-    pkKey(battleId);
+  const client =
+    requireRedis();
 
   const exists =
-    await client.exists(key);
+    await client.exists(
+      pkKey(battleId)
+    );
 
   if (!exists) {
     return null;
   }
+
 
   return getPKRoom(
     battleId
   );
 };
 
+
 // ==========================================
-// UPDATE PK SCORE
+// SET SCORE
+//
+// Used when synchronizing MongoDB → Redis.
 // ==========================================
 
 export const updatePKRoomScore = async (
@@ -269,61 +376,58 @@ export const updatePKRoomScore = async (
   hostAScore,
   hostBScore
 ) => {
-  const client = requireRedis();
 
-  const key =
-    pkKey(battleId);
+  const client =
+    requireRedis();
 
-  // Make sure room exists
+  await getPKRoom(
+    battleId
+  );
+
+
+  const safeA =
+    Math.max(
+      0,
+      Number(hostAScore) || 0
+    );
+
+  const safeB =
+    Math.max(
+      0,
+      Number(hostBScore) || 0
+    );
+
+
+  await client.hset(
+    pkKey(battleId),
+    {
+      hostAScore:
+        String(safeA),
+
+      hostBScore:
+        String(safeB),
+    }
+  );
+
+
   const room =
     await getPKRoom(
       battleId
     );
 
-  const scoreA =
-    Number(hostAScore);
 
-  const scoreB =
-    Number(hostBScore);
-
-  if (
-    !Number.isFinite(scoreA) ||
-    !Number.isFinite(scoreB)
-  ) {
-    throw new Error(
-      "Invalid PK scores"
-    );
-  }
-
-  await client.hset(
-    key,
-    {
-      hostAScore:
-        String(scoreA),
-
-      hostBScore:
-        String(scoreB),
-    }
+  await refreshPKRoomTTL(
+    battleId,
+    room.started
   );
 
-  await client.expire(
-    key,
-    ROOM_TTL
-  );
 
-  return {
-    ...room,
-
-    hostAScore:
-      scoreA,
-
-    hostBScore:
-      scoreB,
-  };
+  return room;
 };
 
+
 // ==========================================
-// ATOMICALLY ADD PK SCORE
+// ATOMICALLY ADD SCORE
 // ==========================================
 
 export const addPKRoomScore = async (
@@ -331,56 +435,91 @@ export const addPKRoomScore = async (
   isHostA,
   points
 ) => {
-  const client = requireRedis();
+
+  const client =
+    requireRedis();
 
   const numericPoints =
     Number(points);
 
+
   if (
-    !Number.isFinite(numericPoints) ||
+    !Number.isFinite(
+      numericPoints
+    ) ||
     numericPoints <= 0
   ) {
+
     throw new Error(
       "Invalid score points"
     );
   }
 
-  const key =
-    pkKey(battleId);
 
+  if (
+    !Number.isSafeInteger(
+      numericPoints
+    )
+  ) {
+
+    throw new Error(
+      "Score points must be a whole number"
+    );
+  }
+
+
+  // ------------------------------------------
   // Make sure room exists
+  // ------------------------------------------
+
   await getPKRoom(
     battleId
   );
+
+
+  // ------------------------------------------
+  // Determine score field
+  // ------------------------------------------
 
   const scoreField =
     isHostA
       ? "hostAScore"
       : "hostBScore";
 
-  // ----------------------------------------
-  // Atomic Redis increment
-  // ----------------------------------------
+
+  // ------------------------------------------
+  // ATOMIC REDIS INCREMENT
+  // ------------------------------------------
 
   await client.hincrby(
-    key,
+    pkKey(battleId),
     scoreField,
     numericPoints
   );
 
-  // Keep room alive
-  await client.expire(
-    key,
-    ROOM_TTL
+
+  // ------------------------------------------
+  // Refresh active room
+  // ------------------------------------------
+
+  await refreshPKRoomTTL(
+    battleId,
+    true
   );
 
+
+  // ------------------------------------------
   // Read final state
+  // ------------------------------------------
+
   const room =
     await getPKRoom(
       battleId
     );
 
+
   return {
+
     battleId,
 
     hostAScore:
@@ -388,44 +527,82 @@ export const addPKRoomScore = async (
 
     hostBScore:
       room.hostBScore,
+
   };
 };
 
+
 // ==========================================
-// GET PK SCORE
+// GET SCORE
 // ==========================================
 
 export const getPKRoomScore = async (
   battleId
 ) => {
+
   const room =
     await getPKRoom(
       battleId
     );
 
   return {
+
     hostAScore:
       room.hostAScore,
 
     hostBScore:
       room.hostBScore,
+
   };
 };
 
+
 // ==========================================
-// RESET / DELETE PK ROOM
+// DELETE ROOM
 // ==========================================
 
-export const resetPKRoom = async (
+export const deletePKRoom = async (
   battleId
 ) => {
-  const client = requireRedis();
+
+  const client =
+    requireRedis();
 
   await client.del(
     pkKey(battleId)
   );
 
+
   console.log(
     `🧹 Redis PK room deleted: ${battleId}`
+  );
+};
+
+
+// ==========================================
+// RESET ROOM
+// ==========================================
+//
+// Kept as an alias so older code doesn't
+// break if it still imports resetPKRoom.
+//
+
+export const resetPKRoom =
+  deletePKRoom;
+
+
+// ==========================================
+// GET TTL
+// ==========================================
+
+export const getPKRoomTTL = async (
+  battleId
+) => {
+
+  const client =
+    requireRedis();
+
+  return client.ttl(
+    pkKey(battleId)
   );
 };
