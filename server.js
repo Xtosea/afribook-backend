@@ -20,6 +20,8 @@ import helmet from "helmet";
 /* ================= MODELS ================= */
 import Message from "./models/Message.js";
 import Post from "./models/Post.js";
+import PKBattle from "./models/PKBattle.js";
+
 
 /* ================= ROUTES ================= */
 import authRoutes from "./routes/authRoutes.js";
@@ -604,8 +606,11 @@ socket.on("pk:get-state", (data) => {
 });
 
 
+// ==========================================
 // START PK ROOM
-socket.on("pk:start", (data) => {
+// ==========================================
+
+socket.on("pk:start", async (data) => {
   try {
     const { battleId } = data;
 
@@ -621,15 +626,86 @@ socket.on("pk:start", (data) => {
       });
     }
 
+    // Find the actual PK battle
+    const battle = await PKBattle.findById(
+      battleId
+    );
+
+    if (!battle) {
+      return socket.emit("pk:error", {
+        message: "PK battle not found",
+      });
+    }
+
+    // Only Host A or Host B can start
+    const isHostA =
+      battle.hostA.toString() ===
+      socket.userId.toString();
+
+    const isHostB =
+      battle.hostB.toString() ===
+      socket.userId.toString();
+
+    if (!isHostA && !isHostB) {
+      console.log(
+        `🚫 Unauthorized PK start attempt: ${socket.userId}`
+      );
+
+      return socket.emit("pk:error", {
+        message: "You are not a host of this PK",
+      });
+    }
+
+    // Don't start an already active PK
+    if (battle.status === "active") {
+      return socket.emit("pk:error", {
+        message: "PK is already active",
+      });
+    }
+
+    // Don't restart a completed/cancelled PK
+    if (
+      battle.status === "completed" ||
+      battle.status === "cancelled"
+    ) {
+      return socket.emit("pk:error", {
+        message: "This PK can no longer be started",
+      });
+    }
+
+    // Start MongoDB battle
+    battle.status = "active";
+    battle.startedAt = new Date();
+
+    await battle.save();
+
+    // Start live PK room state
     const state = startPKRoom(
       battleId
     );
 
     const roomName = `pk:${battleId}`;
 
+    // Tell everyone inside the PK room
     io.to(roomName).emit(
       "pk:started",
-      state
+      {
+        ...state,
+
+        battleId,
+
+        startedAt:
+          battle.startedAt,
+
+        duration:
+          battle.duration,
+
+        hostA:
+          battle.hostA,
+
+        hostB:
+          battle.hostB,
+      }
     );
 
     console.log(
@@ -637,6 +713,7 @@ socket.on("pk:start", (data) => {
     );
 
   } catch (error) {
+
     console.error(
       "PK start error:",
       error
