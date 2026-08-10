@@ -15,6 +15,7 @@ import {
   getPKRoomState,
   updatePKRoomScore,
   addPKRoomScore,
+  resetPKRoom,
 } from "./services/pkSocketService.js";
 
 import "./config/env.js";
@@ -319,6 +320,299 @@ io.use((socket, next) => {
   }
 });
 
+
+// ==========================================
+// PK BATTLE FINALIZER
+// ==========================================
+
+const pkTimers = new Map();
+
+const schedulePKEnd = (battle) => {
+
+  const battleId =
+    battle._id.toString();
+
+  // Prevent duplicate timers
+  if (pkTimers.has(battleId)) {
+    return;
+  }
+
+  if (
+    battle.status !== "active" ||
+    !battle.startedAt ||
+    !battle.duration
+  ) {
+    return;
+  }
+
+  const startedAt =
+    new Date(battle.startedAt)
+      .getTime();
+
+  const durationMs =
+    Number(battle.duration) * 1000;
+
+  const endAt =
+    startedAt + durationMs;
+
+  const remaining =
+    Math.max(
+      0,
+      endAt - Date.now()
+    );
+
+  console.log(
+    `⏱️ PK ${battleId} scheduled to end in ${remaining}ms`
+  );
+
+  const timer =
+    setTimeout(
+      async () => {
+
+        try {
+
+          await finalizePKBattle(
+            battleId
+          );
+
+        } catch (error) {
+
+          console.error(
+            "❌ PK automatic finalization error:",
+            error
+          );
+
+        }
+
+      },
+      remaining
+    );
+
+  pkTimers.set(
+    battleId,
+    timer
+  );
+};
+
+
+// ==========================================
+// FINALIZE PK BATTLE
+// ==========================================
+
+const finalizePKBattle = async (
+  battleId
+) => {
+
+  try {
+
+    const battle =
+      await PKBattle.findById(
+        battleId
+      );
+
+    if (!battle) {
+
+      console.log(
+        `⚠️ PK battle ${battleId} not found`
+      );
+
+      pkTimers.delete(
+        battleId
+      );
+
+      return;
+    }
+
+    // Already finished
+    if (
+      battle.status === "completed" ||
+      battle.status === "cancelled"
+    ) {
+
+      pkTimers.delete(
+        battleId
+      );
+
+      return;
+    }
+
+    // --------------------------------------
+    // Get final Redis score
+    // --------------------------------------
+
+    const roomState =
+      await getPKRoomState(
+        battleId
+      );
+
+    const finalHostAScore =
+      roomState?.hostAScore ??
+      battle.hostAScore ??
+      0;
+
+    const finalHostBScore =
+      roomState?.hostBScore ??
+      battle.hostBScore ??
+      0;
+
+    // --------------------------------------
+    // Save final scores
+    // --------------------------------------
+
+    battle.hostAScore =
+      finalHostAScore;
+
+    battle.hostBScore =
+      finalHostBScore;
+
+    // --------------------------------------
+    // Determine winner
+    // --------------------------------------
+
+    let winner = null;
+
+    if (
+      finalHostAScore >
+      finalHostBScore
+    ) {
+
+      winner =
+        battle.hostA
+          ?.toString();
+
+    } else if (
+      finalHostBScore >
+      finalHostAScore
+    ) {
+
+      winner =
+        battle.hostB
+          ?.toString();
+
+    }
+
+    // --------------------------------------
+    // Save result
+    // --------------------------------------
+
+    battle.status =
+      "completed";
+
+    battle.completedAt =
+      new Date();
+
+    // If your PKBattle schema has a winner
+    // field, save it.
+    if (
+      Object.prototype.hasOwnProperty.call(
+        battle.toObject(),
+        "winner"
+      )
+    ) {
+
+      battle.winner =
+        winner;
+    }
+
+    await battle.save();
+
+    // --------------------------------------
+    // Final state
+    // --------------------------------------
+
+    const finalState = {
+
+      battleId,
+
+      hostA:
+        battle.hostA,
+
+      hostB:
+        battle.hostB,
+
+      hostAScore:
+        finalHostAScore,
+
+      hostBScore:
+        finalHostBScore,
+
+      winner,
+
+      draw:
+        winner === null,
+
+      startedAt:
+        battle.startedAt,
+
+      completedAt:
+        battle.completedAt,
+
+      duration:
+        battle.duration,
+
+      status:
+        "completed",
+
+    };
+
+    const roomName =
+      `pk:${battleId}`;
+
+    // --------------------------------------
+    // Broadcast final result
+    // --------------------------------------
+
+    io.to(roomName).emit(
+      "pk:ended",
+      finalState
+    );
+
+    // Also broadcast final room state
+    io.to(roomName).emit(
+      "pk:room-state",
+      {
+        ...finalState,
+
+        started: false,
+      }
+    );
+
+    console.log(
+      `🏁 PK completed: ${battleId}`,
+      finalState
+    );
+
+    // --------------------------------------
+    // Remove Redis room
+    // --------------------------------------
+
+    await resetPKRoom(
+      battleId
+    );
+
+    // --------------------------------------
+    // Remove timer
+    // --------------------------------------
+
+    pkTimers.delete(
+      battleId
+    );
+
+  } catch (error) {
+
+    console.error(
+      `❌ Failed to finalize PK ${battleId}:`,
+      error
+    );
+
+    pkTimers.delete(
+      battleId
+    );
+
+    throw error;
+  }
+};
+
 /* ================= SOCKET EVENTS ================= */
 const onlineUsers = new Map();
 
@@ -529,13 +823,23 @@ socket.on("pk:join", async (data) => {
     // ------------------------------------------
 
     const battle =
-      await PKBattle.findById(battleId);
+  await PKBattle.findById(battleId);
 
-    if (!battle) {
-      return socket.emit("pk:error", {
-        message: "PK battle not found",
-      });
-    }
+if (!battle) {
+  return socket.emit("pk:error", {
+    message: "PK battle not found",
+  });
+}
+
+if (
+  battle.status === "completed" ||
+  battle.status === "cancelled"
+) {
+  return socket.emit("pk:error", {
+    message:
+      "This PK has already ended",
+  });
+}
 
     // ------------------------------------------
     // Only Host A or Host B can join
@@ -707,14 +1011,84 @@ socket.on("pk:get-state", async (data) => {
     }
 
     const state =
-      await getPKRoomState(
-        battleId
-      );
+  await getPKRoomState(
+    battleId
+  );
 
-    socket.emit(
-      "pk:room-state",
-      state
+if (!state) {
+  return socket.emit(
+    "pk:error",
+    {
+      message:
+        "PK room not found",
+    }
+  );
+}
+
+const battle =
+  await PKBattle.findById(
+    battleId
+  );
+
+if (!battle) {
+  return socket.emit(
+    "pk:error",
+    {
+      message:
+        "PK battle not found",
+    }
+  );
+}
+
+let remainingMs = null;
+
+if (
+  battle.status === "active" &&
+  battle.startedAt &&
+  battle.duration
+) {
+
+  const startedAt =
+    new Date(
+      battle.startedAt
+    ).getTime();
+
+  const endAt =
+    startedAt +
+    Number(battle.duration) *
+      1000;
+
+  remainingMs =
+    Math.max(
+      0,
+      endAt - Date.now()
     );
+}
+
+socket.emit(
+  "pk:room-state",
+  {
+    ...state,
+
+    status:
+      battle.status,
+
+    duration:
+      battle.duration,
+
+    remainingMs,
+
+    hostA:
+      battle.hostA,
+
+    hostB:
+      battle.hostB,
+
+    completedAt:
+      battle.completedAt ||
+      null,
+  }
+);
 
   } catch (error) {
 
@@ -792,6 +1166,44 @@ socket.on("pk:start", async (data) => {
       });
     }
 
+
+    // ------------------------------------------
+// Both hosts must be present
+// ------------------------------------------
+
+const currentRoom =
+  await getPKRoomState(
+    battleId
+  );
+
+if (!currentRoom) {
+  return socket.emit("pk:error", {
+    message:
+      "PK room does not exist",
+  });
+}
+
+const hostAJoined =
+  currentRoom.users.includes(
+    battle.hostA.toString()
+  );
+
+const hostBJoined =
+  currentRoom.users.includes(
+    battle.hostB.toString()
+  );
+
+if (
+  !hostAJoined ||
+  !hostBJoined
+) {
+
+  return socket.emit("pk:error", {
+    message:
+      "Both hosts must join the PK before starting",
+  });
+}
+
     // ------------------------------------------
     // Prevent duplicate start
     // ------------------------------------------
@@ -824,6 +1236,10 @@ socket.on("pk:start", async (data) => {
     battle.startedAt = new Date();
 
     await battle.save();
+
+    schedulePKEnd(
+  battle
+);
 
     // ------------------------------------------
     // Start Redis PK room
@@ -981,6 +1397,36 @@ socket.on("pk:score", async (data) => {
         message: "PK is not active",
       });
     }
+
+
+      // ------------------------------------------
+// Check PK expiration
+// ------------------------------------------
+
+const startedAt =
+  new Date(
+    battle.startedAt
+  ).getTime();
+
+const durationMs =
+  Number(battle.duration) * 1000;
+
+const expiresAt =
+  startedAt + durationMs;
+
+if (
+  Date.now() >= expiresAt
+) {
+
+  await finalizePKBattle(
+    battleId
+  );
+
+  return socket.emit("pk:error", {
+    message:
+      "PK has ended",
+  });
+}
 
     // ------------------------------------------
     // Verify host
@@ -1146,6 +1592,33 @@ const startServer = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("✅ MongoDB Connected");
+
+
+// ==========================================
+// RESTORE ACTIVE PK TIMERS
+// ==========================================
+
+const activeBattles =
+  await PKBattle.find({
+    status: "active",
+    startedAt: {
+      $ne: null,
+    },
+  });
+
+console.log(
+  `🥊 Restoring ${activeBattles.length} active PK battle(s)`
+);
+
+for (
+  const battle of activeBattles
+) {
+
+  schedulePKEnd(
+    battle
+  );
+}
+
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
