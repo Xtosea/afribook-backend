@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import http from "http";
+import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import {
   joinPKRoom,
@@ -284,11 +285,30 @@ setIO(io);
 /* ================= SOCKET AUTH ================= */
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
+
   if (!token) {
     console.log("❌ No token provided");
     return next(new Error("No token provided"));
   }
-  next();
+
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    socket.userId = decoded.id;
+
+    next();
+
+  } catch (error) {
+    console.error(
+      "❌ Socket authentication failed:",
+      error.message
+    );
+
+    next(new Error("Invalid token"));
+  }
 });
 
 /* ================= SOCKET EVENTS ================= */
