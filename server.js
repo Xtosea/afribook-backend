@@ -2259,6 +2259,9 @@ socket.on(
   }
 );
 
+// IMPORTANT: closes io.on("connection", (socket) => {
+});
+
 /* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
 
@@ -2267,44 +2270,45 @@ const startServer = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("✅ MongoDB Connected");
 
+    // ==========================================
+    // RESTORE ACTIVE PK TIMERS
+    // ==========================================
 
-// ==========================================
-// RESTORE ACTIVE PK TIMERS
-// ==========================================
+    const activeBattles =
+      await PKBattle.find({
+        status: "active",
+        startedAt: {
+          $ne: null,
+        },
+      });
 
-const activeBattles =
-  await PKBattle.find({
-    status: "active",
-    startedAt: {
-      $ne: null,
-    },
-  });
+    console.log(
+      `🥊 Restoring ${activeBattles.length} active PK battle(s)`
+    );
 
-console.log(
-  `🥊 Restoring ${activeBattles.length} active PK battle(s)`
-);
-
-for (
-  const battle of activeBattles
-) {
-
-  schedulePKEnd(
-    battle
-  );
-}
-
-
- server.listen(PORT, "0.0.0.0", () => {             
-
-});
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error("❌ Startup error:", err);
+    for (const battle of activeBattles) {
+      schedulePKEnd(battle);
+    }
 
     server.listen(PORT, "0.0.0.0", () => {
-      console.log(`⚠️ Server running WITHOUT DB on port ${PORT}`);
+      console.log(
+        `🚀 Server running on port ${PORT}`
+      );
     });
+
+  } catch (err) {
+
+    console.error(
+      "❌ Startup error:",
+      err
+    );
+
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(
+        `⚠️ Server running WITHOUT DB on port ${PORT}`
+      );
+    });
+
   }
 };
 
