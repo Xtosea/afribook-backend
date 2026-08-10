@@ -2,7 +2,6 @@
 
 import redis from "../config/redis.js";
 
-
 // ==========================================
 // REDIS KEY
 // ==========================================
@@ -338,14 +337,50 @@ export const updatePKRoomScore = async (
   const key =
     pkKey(battleId);
 
+  // ----------------------------------------
   // Make sure room exists
-  const room =
-    await getPKRoom(
-      battleId
-    );
+  // ----------------------------------------
 
-   
-    // ==========================================
+  await getPKRoom(
+    battleId
+  );
+
+  // ----------------------------------------
+  // Update scores
+  // ----------------------------------------
+
+  await redis.hset(
+    key,
+    {
+      hostAScore:
+        String(
+          Number(hostAScore) || 0
+        ),
+
+      hostBScore:
+        String(
+          Number(hostBScore) || 0
+        ),
+    }
+  );
+
+  // Refresh TTL while PK is being used
+  await redis.expire(
+    key,
+    ROOM_TTL
+  );
+
+  // ----------------------------------------
+  // Return complete state
+  // ----------------------------------------
+
+  return getPKRoomState(
+    battleId
+  );
+};
+
+
+// ==========================================
 // ATOMICALLY ADD PK SCORE
 // ==========================================
 
@@ -377,13 +412,15 @@ export const addPKRoomScore = async (
   }
 
   // ----------------------------------------
-  // Make sure the room exists
+  // Make sure room exists
   // ----------------------------------------
 
-  await getPKRoom(battleId);
+  await getPKRoom(
+    battleId
+  );
 
   // ----------------------------------------
-  // Atomically increment the correct host
+  // Atomically increment correct host
   // ----------------------------------------
 
   const scoreField =
@@ -424,43 +461,6 @@ export const addPKRoomScore = async (
     hostBScore:
       room.hostBScore,
   };
-};
-
-
-
-
-  // ----------------------------------------
-  // Update scores
-  // ----------------------------------------
-
-  await redis.hset(
-    key,
-    {
-      hostAScore:
-        String(
-          Number(hostAScore) || 0
-        ),
-
-      hostBScore:
-        String(
-          Number(hostBScore) || 0
-        ),
-    }
-  );
-
-  // Refresh TTL while PK is being used
-  await redis.expire(
-    key,
-    ROOM_TTL
-  );
-
-  // ----------------------------------------
-  // Return complete state
-  // ----------------------------------------
-
-  return getPKRoomState(
-    battleId
-  );
 };
 
 
@@ -516,6 +516,3 @@ export const resetPKRoom = async (
     `🧹 Redis PK room deleted: ${battleId}`
   );
 };
-
-
-
