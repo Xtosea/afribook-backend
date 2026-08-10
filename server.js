@@ -14,6 +14,7 @@ import {
   startPKRoom,
   getPKRoomState,
   updatePKRoomScore,
+  addPKScore,
 } from "./services/pkSocketService.js";
 import fileUpload from "express-fileupload";
 import helmet from "helmet";
