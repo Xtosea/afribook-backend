@@ -7,6 +7,12 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
+import {
+  joinPKRoom,
+  leavePKRoom,
+  startPKRoom,
+  getPKRoomState,
+} from "./services/pkSocketService.js";
 import fileUpload from "express-fileupload";
 import helmet from "helmet";
 
@@ -463,6 +469,166 @@ socket.on("ice-candidate", (data) => {
   io.to(data.to).emit("call-ended");
 
 });
+
+
+// ==========================================
+// PK SOCKET EVENTS
+// ==========================================
+
+// JOIN PK
+socket.on("pk:join", (data) => {
+  try {
+    const { battleId } = data;
+
+    if (!battleId) {
+      return socket.emit("pk:error", {
+        message: "Battle ID is required",
+      });
+    }
+
+    if (!socket.userId) {
+      return socket.emit("pk:error", {
+        message: "User not authenticated",
+      });
+    }
+
+    const roomName = `pk:${battleId}`;
+
+    socket.join(roomName);
+
+    const state = joinPKRoom(
+      battleId,
+      socket.userId
+    );
+
+    io.to(roomName).emit(
+      "pk:room-state",
+      state
+    );
+
+    console.log(
+      `🥊 ${socket.userId} joined PK ${battleId}`
+    );
+
+  } catch (error) {
+    console.error(
+      "PK join error:",
+      error
+    );
+
+    socket.emit("pk:error", {
+      message: "Failed to join PK",
+    });
+  }
+});
+
+
+// LEAVE PK
+socket.on("pk:leave", (data) => {
+  try {
+    const { battleId } = data;
+
+    if (!battleId) return;
+
+    const roomName = `pk:${battleId}`;
+
+    socket.leave(roomName);
+
+    const state = leavePKRoom(
+      battleId,
+      socket.userId
+    );
+
+    if (state) {
+      io.to(roomName).emit(
+        "pk:room-state",
+        state
+      );
+    }
+
+    console.log(
+      `🚪 ${socket.userId} left PK ${battleId}`
+    );
+
+  } catch (error) {
+    console.error(
+      "PK leave error:",
+      error
+    );
+  }
+});
+
+
+// GET PK ROOM STATE
+socket.on("pk:get-state", (data) => {
+  try {
+    const { battleId } = data;
+
+    if (!battleId) return;
+
+    const state = getPKRoomState(
+      battleId
+    );
+
+    socket.emit(
+      "pk:room-state",
+      state
+    );
+
+  } catch (error) {
+    console.error(
+      "PK state error:",
+      error
+    );
+  }
+});
+
+
+// START PK ROOM
+socket.on("pk:start", (data) => {
+  try {
+    const { battleId } = data;
+
+    if (!battleId) {
+      return socket.emit("pk:error", {
+        message: "Battle ID is required",
+      });
+    }
+
+    if (!socket.userId) {
+      return socket.emit("pk:error", {
+        message: "User not authenticated",
+      });
+    }
+
+    const state = startPKRoom(
+      battleId
+    );
+
+    const roomName = `pk:${battleId}`;
+
+    io.to(roomName).emit(
+      "pk:started",
+      state
+    );
+
+    console.log(
+      `🚀 PK started: ${battleId}`
+    );
+
+  } catch (error) {
+    console.error(
+      "PK start error:",
+      error
+    );
+
+    socket.emit("pk:error", {
+      message: "Failed to start PK",
+    });
+  }
+});
+
+
 
   // DISCONNECT
   socket.on(
