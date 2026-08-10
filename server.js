@@ -502,6 +502,7 @@ socket.on("ice-candidate", (data) => {
 // PK SOCKET EVENTS
 // ==========================================
 
+
 // ==========================================
 // JOIN PK
 // ==========================================
@@ -522,8 +523,12 @@ socket.on("pk:join", async (data) => {
       });
     }
 
+    // ------------------------------------------
     // Find real PK battle
-    const battle = await PKBattle.findById(battleId);
+    // ------------------------------------------
+
+    const battle =
+      await PKBattle.findById(battleId);
 
     if (!battle) {
       return socket.emit("pk:error", {
@@ -531,7 +536,10 @@ socket.on("pk:join", async (data) => {
       });
     }
 
-    // Only hosts can join the PK
+    // ------------------------------------------
+    // Only Host A or Host B can join
+    // ------------------------------------------
+
     const isHostA =
       battle.hostA.toString() ===
       socket.userId.toString();
@@ -546,37 +554,57 @@ socket.on("pk:join", async (data) => {
       });
     }
 
-    const roomName = `pk:${battleId}`;
+    // ------------------------------------------
+    // Join Socket.IO room
+    // ------------------------------------------
+
+    const roomName =
+      `pk:${battleId}`;
 
     socket.join(roomName);
 
-    // Add user to Redis/Valkey room
+    // ------------------------------------------
+    // Join Redis PK room
+    // ------------------------------------------
+
     await joinPKRoom(
       battleId,
       socket.userId
     );
 
-    // Synchronize Redis/Valkey with MongoDB
+    // ------------------------------------------
+    // Synchronize MongoDB → Redis
+    // ------------------------------------------
+
     if (battle.status === "active") {
 
-  await startPKRoom(
-    battleId,
-    battle.startedAt
-  );
-}
+      await startPKRoom(
+        battleId,
+        battle.startedAt
+      );
+    }
 
-    // Always synchronize scores from MongoDB
+    // Always synchronize scores from MongoDB.
+    // MongoDB remains authoritative.
     await updatePKRoomScore(
       battleId,
       battle.hostAScore || 0,
       battle.hostBScore || 0
     );
 
-    // Get final Redis/Valkey state
-    const state =
-      await getPKRoomState(battleId);
+    // ------------------------------------------
+    // Get final Redis room state
+    // ------------------------------------------
 
-    // Send state to everyone
+    const state =
+      await getPKRoomState(
+        battleId
+      );
+
+    // ------------------------------------------
+    // Broadcast synchronized state
+    // ------------------------------------------
+
     io.to(roomName).emit(
       "pk:room-state",
       state
@@ -587,7 +615,7 @@ socket.on("pk:join", async (data) => {
     );
 
     console.log(
-      "🥊 Synced PK state:",
+      "🥊 Redis PK state:",
       state
     );
 
@@ -616,26 +644,32 @@ socket.on("pk:leave", async (data) => {
 
     const { battleId } = data;
 
-    if (!battleId) return;
+    if (!battleId) {
+      return;
+    }
+
+    if (!socket.userId) {
+      return;
+    }
 
     const roomName =
       `pk:${battleId}`;
 
+    // Leave Socket.IO room
     socket.leave(roomName);
 
+    // Remove from Redis room
     const state =
       await leavePKRoom(
         battleId,
         socket.userId
       );
 
-    if (state) {
-
-      io.to(roomName).emit(
-        "pk:room-state",
-        state
-      );
-    }
+    // Notify remaining users
+    io.to(roomName).emit(
+      "pk:room-state",
+      state
+    );
 
     console.log(
       `🚪 ${socket.userId} left PK ${battleId}`
@@ -647,6 +681,12 @@ socket.on("pk:leave", async (data) => {
       "PK leave error:",
       error
     );
+
+    socket.emit("pk:error", {
+      message:
+        error.message ||
+        "Failed to leave PK",
+    });
   }
 });
 
@@ -660,7 +700,9 @@ socket.on("pk:get-state", async (data) => {
 
     const { battleId } = data;
 
-    if (!battleId) return;
+    if (!battleId) {
+      return;
+    }
 
     const state =
       await getPKRoomState(
@@ -689,7 +731,7 @@ socket.on("pk:get-state", async (data) => {
 
 
 // ==========================================
-// START PK ROOM
+// START PK
 // ==========================================
 
 socket.on("pk:start", async (data) => {
@@ -709,7 +751,10 @@ socket.on("pk:start", async (data) => {
       });
     }
 
-    // Find actual PK battle
+    // ------------------------------------------
+    // Find battle
+    // ------------------------------------------
+
     const battle =
       await PKBattle.findById(
         battleId
@@ -721,7 +766,10 @@ socket.on("pk:start", async (data) => {
       });
     }
 
-    // Only Host A or Host B can start
+    // ------------------------------------------
+    // Verify host
+    // ------------------------------------------
+
     const isHostA =
       battle.hostA.toString() ===
       socket.userId.toString();
@@ -742,47 +790,79 @@ socket.on("pk:start", async (data) => {
       });
     }
 
-    // Don't start already active PK
-    if (battle.status === "active") {
+    // ------------------------------------------
+    // Prevent duplicate start
+    // ------------------------------------------
 
+    if (battle.status === "active") {
       return socket.emit("pk:error", {
-        message:
-          "PK is already active",
+        message: "PK is already active",
       });
     }
 
-    // Don't restart completed/cancelled PK
+    // ------------------------------------------
+    // Prevent restarting finished PK
+    // ------------------------------------------
+
     if (
       battle.status === "completed" ||
       battle.status === "cancelled"
     ) {
-
       return socket.emit("pk:error", {
         message:
           "This PK can no longer be started",
       });
     }
 
+    // ------------------------------------------
     // Start MongoDB battle
+    // ------------------------------------------
+
     battle.status = "active";
     battle.startedAt = new Date();
 
     await battle.save();
 
-    // Start Redis/Valkey room
+    // ------------------------------------------
+    // Start Redis PK room
+    // ------------------------------------------
+
     const state =
       await startPKRoom(
+        battleId,
+        battle.startedAt
+      );
+
+    // ------------------------------------------
+    // Synchronize scores
+    // ------------------------------------------
+
+    await updatePKRoomScore(
+      battleId,
+      battle.hostAScore || 0,
+      battle.hostBScore || 0
+    );
+
+    // ------------------------------------------
+    // Get complete Redis state
+    // ------------------------------------------
+
+    const roomState =
+      await getPKRoomState(
         battleId
       );
 
     const roomName =
       `pk:${battleId}`;
 
-    // Tell everyone inside PK room
+    // ------------------------------------------
+    // Broadcast PK started
+    // ------------------------------------------
+
     io.to(roomName).emit(
       "pk:started",
       {
-        ...state,
+        ...roomState,
 
         battleId,
 
@@ -800,8 +880,19 @@ socket.on("pk:start", async (data) => {
       }
     );
 
+    // Also send synchronized room state
+    io.to(roomName).emit(
+      "pk:room-state",
+      roomState
+    );
+
     console.log(
       `🚀 PK started: ${battleId}`
+    );
+
+    console.log(
+      "🥊 Redis PK state:",
+      roomState
     );
 
   } catch (error) {
@@ -829,7 +920,7 @@ socket.on("pk:score", async (data) => {
 
     const {
       battleId,
-      points
+      points,
     } = data;
 
     if (!battleId) {
@@ -850,19 +941,19 @@ socket.on("pk:score", async (data) => {
       Number(points);
 
     if (
-      !Number.isFinite(
-        numericPoints
-      ) ||
+      !Number.isFinite(numericPoints) ||
       numericPoints <= 0
     ) {
-
       return socket.emit("pk:error", {
         message:
           "Invalid score points",
       });
     }
 
+    // ------------------------------------------
     // Find real battle
+    // ------------------------------------------
+
     const battle =
       await PKBattle.findById(
         battleId
@@ -875,18 +966,21 @@ socket.on("pk:score", async (data) => {
       });
     }
 
+    // ------------------------------------------
     // PK must be active
-    if (
-      battle.status !== "active"
-    ) {
+    // ------------------------------------------
 
+    if (battle.status !== "active") {
       return socket.emit("pk:error", {
         message:
           "PK is not active",
       });
     }
 
-    // Only Host A or Host B
+    // ------------------------------------------
+    // Verify host
+    // ------------------------------------------
+
     const isHostA =
       battle.hostA.toString() ===
       socket.userId.toString();
@@ -896,14 +990,16 @@ socket.on("pk:score", async (data) => {
       socket.userId.toString();
 
     if (!isHostA && !isHostB) {
-
       return socket.emit("pk:error", {
         message:
           "You are not a host of this PK",
       });
     }
 
-    // MongoDB is authoritative
+    // ------------------------------------------
+    // Update MongoDB score
+    // ------------------------------------------
+
     const result =
       await addPKScore(
         battleId,
@@ -911,14 +1007,21 @@ socket.on("pk:score", async (data) => {
         numericPoints
       );
 
-    // Update Redis/Valkey
-    await updatePKRoomScore(
-      battleId,
-      result.hostAScore,
-      result.hostBScore
-    );
+    // ------------------------------------------
+    // Update Redis live state
+    // ------------------------------------------
 
-    // Broadcast to everyone
+    const state =
+      await updatePKRoomScore(
+        battleId,
+        result.hostAScore,
+        result.hostBScore
+      );
+
+    // ------------------------------------------
+    // Broadcast score
+    // ------------------------------------------
+
     io.to(
       `pk:${battleId}`
     ).emit(
@@ -932,6 +1035,17 @@ socket.on("pk:score", async (data) => {
         hostBScore:
           result.hostBScore,
       }
+    );
+
+    // ------------------------------------------
+    // Broadcast complete room state
+    // ------------------------------------------
+
+    io.to(
+      `pk:${battleId}`
+    ).emit(
+      "pk:room-state",
+      state
     );
 
     console.log(
