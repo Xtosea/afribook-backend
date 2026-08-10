@@ -156,21 +156,29 @@ export const leavePKRoom = async (
 // ==========================================
 
 export const startPKRoom = async (
-  battleId
+  battleId,
+  startedAt = null
 ) => {
 
   const room = await getPKRoom(
     battleId
   );
 
-  const startedAt =
+  // Preserve the existing Redis start time
+  // if the room is already active.
+  const existingStartedAt =
+    room.startedAt;
+
+  const finalStartedAt =
+    existingStartedAt ||
+    startedAt ||
     new Date().toISOString();
 
   await redis.hset(
     pkKey(battleId),
     {
       started: "true",
-      startedAt,
+      startedAt: finalStartedAt,
     }
   );
 
@@ -179,7 +187,8 @@ export const startPKRoom = async (
 
     started: true,
 
-    startedAt,
+    startedAt:
+      finalStartedAt,
 
     hostAScore:
       room.hostAScore,
