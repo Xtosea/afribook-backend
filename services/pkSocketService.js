@@ -7,7 +7,10 @@ import redis from "../config/redis.js";
 // REDIS KEY
 // ==========================================
 
-const pkKey = (battleId) => `pk:room:${battleId}`;
+const pkKey = (battleId) =>
+  `pk:room:${battleId}`;
+
+const ROOM_TTL = 3600; // 1 hour
 
 
 // ==========================================
@@ -17,14 +20,24 @@ const pkKey = (battleId) => `pk:room:${battleId}`;
 export const getPKRoom = async (battleId) => {
 
   if (!redis) {
-    throw new Error("Redis/Valkey is not configured");
+    throw new Error(
+      "Redis/Valkey is not configured"
+    );
   }
 
   const key = pkKey(battleId);
 
-  let room = await redis.hgetall(key);
+  let room =
+    await redis.hgetall(key);
 
-  if (!room || Object.keys(room).length === 0) {
+  // ----------------------------------------
+  // Create room if it doesn't exist
+  // ----------------------------------------
+
+  if (
+    !room ||
+    Object.keys(room).length === 0
+  ) {
 
     room = {
       users: JSON.stringify([]),
@@ -34,30 +47,64 @@ export const getPKRoom = async (battleId) => {
       hostBScore: "0",
     };
 
-    await redis.hset(key, room);
+    await redis.hset(
+      key,
+      room
+    );
 
-    // Automatically remove abandoned rooms after 1 hour
-    await redis.expire(key, 3600);
+    await redis.expire(
+      key,
+      ROOM_TTL
+    );
   }
 
-  return {
-    battleId,
-    users: room.users
-      ? JSON.parse(room.users)
-      : [],
+  // ----------------------------------------
+  // Safely parse users
+  // ----------------------------------------
 
-    started: room.started === "true",
+  let users = [];
+
+  try {
+
+    users = room.users
+      ? JSON.parse(room.users)
+      : [];
+
+    if (!Array.isArray(users)) {
+      users = [];
+    }
+
+  } catch {
+
+    users = [];
+  }
+
+  // ----------------------------------------
+  // Return normalized state
+  // ----------------------------------------
+
+  return {
+
+    battleId,
+
+    users,
+
+    started:
+      room.started === "true",
 
     startedAt:
-      room.startedAt
-        ? room.startedAt
-        : null,
+      room.startedAt ||
+      null,
 
     hostAScore:
-      Number(room.hostAScore || 0),
+      Number(
+        room.hostAScore || 0
+      ),
 
     hostBScore:
-      Number(room.hostBScore || 0),
+      Number(
+        room.hostBScore || 0
+      ),
   };
 };
 
@@ -71,29 +118,43 @@ export const joinPKRoom = async (
   userId
 ) => {
 
-  const room = await getPKRoom(battleId);
+  if (!redis) {
+    throw new Error(
+      "Redis/Valkey is not configured"
+    );
+  }
 
-  const users = new Set(room.users);
+  const key = pkKey(battleId);
 
-  users.add(userId.toString());
+  const room =
+    await getPKRoom(battleId);
+
+  const users =
+    new Set(room.users);
+
+  users.add(
+    userId.toString()
+  );
 
   await redis.hset(
-    pkKey(battleId),
+    key,
     "users",
     JSON.stringify(
       Array.from(users)
     )
   );
 
+  // Refresh TTL whenever somebody joins
   await redis.expire(
-    pkKey(battleId),
-    3600
+    key,
+    ROOM_TTL
   );
 
   return {
     ...room,
 
-    users: Array.from(users),
+    users:
+      Array.from(users),
   };
 };
 
@@ -108,32 +169,44 @@ export const leavePKRoom = async (
 ) => {
 
   if (!redis) {
-    throw new Error("Redis/Valkey is not configured");
+    throw new Error(
+      "Redis/Valkey is not configured"
+    );
   }
 
   const key = pkKey(battleId);
 
-  const exists = await redis.exists(key);
+  const exists =
+    await redis.exists(key);
 
   if (!exists) {
     return null;
   }
 
-  const room = await getPKRoom(battleId);
+  const room =
+    await getPKRoom(battleId);
 
-  const users = new Set(room.users);
+  const users =
+    new Set(room.users);
 
   users.delete(
     userId.toString()
   );
 
-  // If nobody is left, delete the room
+  // ----------------------------------------
+  // Nobody left
+  // ----------------------------------------
+
   if (users.size === 0) {
 
     await redis.del(key);
 
     return null;
   }
+
+  // ----------------------------------------
+  // Save remaining users
+  // ----------------------------------------
 
   await redis.hset(
     key,
@@ -143,10 +216,16 @@ export const leavePKRoom = async (
     )
   );
 
+  await redis.expire(
+    key,
+    ROOM_TTL
+  );
+
   return {
     ...room,
 
-    users: Array.from(users),
+    users:
+      Array.from(users),
   };
 };
 
@@ -160,42 +239,54 @@ export const startPKRoom = async (
   startedAt = null
 ) => {
 
-  const room = await getPKRoom(
-    battleId
-  );
+  if (!redis) {
+    throw new Error(
+      "Redis/Valkey is not configured"
+    );
+  }
 
-  // Preserve the existing Redis start time
-  // if the room is already active.
-  const existingStartedAt =
-    room.startedAt;
+  const key = pkKey(battleId);
+
+  const room =
+    await getPKRoom(battleId);
+
+  // ----------------------------------------
+  // Preserve existing start time
+  // ----------------------------------------
 
   const finalStartedAt =
-    existingStartedAt ||
+    room.startedAt ||
     startedAt ||
     new Date().toISOString();
 
+  // ----------------------------------------
+  // Mark Redis room active
+  // ----------------------------------------
+
   await redis.hset(
-    pkKey(battleId),
+    key,
     {
       started: "true",
-      startedAt: finalStartedAt,
+
+      startedAt:
+        new Date(finalStartedAt)
+          .toISOString(),
     }
   );
 
-  return {
-    battleId,
+  // Refresh room lifetime
+  await redis.expire(
+    key,
+    ROOM_TTL
+  );
 
-    started: true,
+  // ----------------------------------------
+  // Return complete Redis state
+  // ----------------------------------------
 
-    startedAt:
-      finalStartedAt,
-
-    hostAScore:
-      room.hostAScore,
-
-    hostBScore:
-      room.hostBScore,
-  };
+  return getPKRoomState(
+    battleId
+  );
 };
 
 
@@ -244,31 +335,47 @@ export const updatePKRoomScore = async (
     );
   }
 
+  const key =
+    pkKey(battleId);
+
+  // Make sure room exists
   const room =
     await getPKRoom(
       battleId
     );
 
+  // ----------------------------------------
+  // Update scores
+  // ----------------------------------------
+
   await redis.hset(
-    pkKey(battleId),
+    key,
     {
       hostAScore:
-        String(hostAScore),
+        String(
+          Number(hostAScore) || 0
+        ),
 
       hostBScore:
-        String(hostBScore),
+        String(
+          Number(hostBScore) || 0
+        ),
     }
   );
 
-  return {
-    ...room,
+  // Refresh TTL while PK is being used
+  await redis.expire(
+    key,
+    ROOM_TTL
+  );
 
-    hostAScore:
-      Number(hostAScore),
+  // ----------------------------------------
+  // Return complete state
+  // ----------------------------------------
 
-    hostBScore:
-      Number(hostBScore),
-  };
+  return getPKRoomState(
+    battleId
+  );
 };
 
 
@@ -292,10 +399,35 @@ export const getPKRoomScore = async (
     );
 
   return {
+
     hostAScore:
       room.hostAScore,
 
     hostBScore:
       room.hostBScore,
   };
+};
+
+
+// ==========================================
+// RESET PK ROOM
+// ==========================================
+
+export const resetPKRoom = async (
+  battleId
+) => {
+
+  if (!redis) {
+    throw new Error(
+      "Redis/Valkey is not configured"
+    );
+  }
+
+  await redis.del(
+    pkKey(battleId)
+  );
+
+  console.log(
+    `🧹 Redis PK room deleted: ${battleId}`
+  );
 };
