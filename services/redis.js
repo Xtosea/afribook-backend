@@ -1,5 +1,3 @@
-// services/redis.js
-
 import Redis from "ioredis";
 
 const redisUrl = process.env.REDIS_URL;
