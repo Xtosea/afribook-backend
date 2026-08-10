@@ -15,8 +15,12 @@ import {
   getPKRoomState,
   updatePKRoomScore,
   addPKRoomScore,
-  resetPKRoom,
+  deletePKRoom,
 } from "./services/pkSocketService.js";
+
+import {
+  finishPK,
+} from "./services/pkService.js";
 
 import "./config/env.js";
 import "./config/redis.js";
@@ -803,794 +807,1457 @@ socket.on("ice-candidate", (data) => {
 // ==========================================
 // PK SOCKET EVENTS
 // ==========================================
+//
+// Socket.IO handles real-time communication.
+// Redis handles live room state.
+// MongoDB handles persistent battle state.
+//
+// ==========================================
+
+
+// ------------------------------------------
+// Track PK rooms joined by this socket
+// ------------------------------------------
+
+const socketPKRooms =
+  new Map();
 
 
 // ==========================================
 // JOIN PK
 // ==========================================
 
-socket.on("pk:join", async (data) => {
-  try {
-    const { battleId } = data;
+socket.on(
+  "pk:join",
+  async (data) => {
 
-    if (!battleId) {
-      return socket.emit("pk:error", {
-        message: "Battle ID is required",
-      });
-    }
+    try {
 
-    if (!socket.userId) {
-      return socket.emit("pk:error", {
-        message: "User not authenticated",
-      });
-    }
-
-    // ------------------------------------------
-    // Find real PK battle
-    // ------------------------------------------
-
-    const battle =
-  await PKBattle.findById(battleId);
-
-if (!battle) {
-  return socket.emit("pk:error", {
-    message: "PK battle not found",
-  });
-}
-
-if (
-  battle.status === "completed" ||
-  battle.status === "cancelled"
-) {
-  return socket.emit("pk:error", {
-    message:
-      "This PK has already ended",
-  });
-}
-
-    // ------------------------------------------
-    // Only Host A or Host B can join
-    // ------------------------------------------
-
-    const isHostA =
-      battle.hostA.toString() ===
-      socket.userId.toString();
-
-    const isHostB =
-      battle.hostB.toString() ===
-      socket.userId.toString();
-
-    if (!isHostA && !isHostB) {
-      return socket.emit("pk:error", {
-        message: "You are not a host of this PK",
-      });
-    }
-
-    // ------------------------------------------
-    // Join Socket.IO room
-    // ------------------------------------------
-
-    const roomName =
-      `pk:${battleId}`;
-
-    socket.join(roomName);
-
-    // ------------------------------------------
-    // Join Redis PK room
-    // ------------------------------------------
-
-    await joinPKRoom(
-      battleId,
-      socket.userId
-    );
-
-    // ------------------------------------------
-    // Synchronize MongoDB → Redis
-    // ------------------------------------------
-
-    if (battle.status === "active") {
-
-      await startPKRoom(
+      const {
         battleId,
-        battle.startedAt
+      } = data || {};
+
+
+      if (!battleId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Battle ID is required",
+          }
+        );
+      }
+
+
+      if (!socket.userId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "User not authenticated",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Find MongoDB battle
+      // ----------------------------------------
+
+      const battle =
+        await PKBattle.findById(
+          battleId
+        );
+
+
+      if (!battle) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK battle not found",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Only hosts can join as participants
+      // ----------------------------------------
+
+      const userId =
+        socket.userId.toString();
+
+
+      const isHostA =
+        battle.hostA
+          .toString() === userId;
+
+
+      const isHostB =
+        battle.hostB
+          .toString() === userId;
+
+
+      if (
+        !isHostA &&
+        !isHostB
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "You are not a host of this PK",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Do not allow ended battles
+      // ----------------------------------------
+
+      if (
+        battle.status ===
+          "completed" ||
+        battle.status ===
+          "cancelled"
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "This PK has already ended",
+          }
+        );
+      }
+
+
+      const roomName =
+        `pk:${battleId}`;
+
+
+      // ----------------------------------------
+      // Join Socket.IO room
+      // ----------------------------------------
+
+      socket.join(
+        roomName
       );
-    }
 
-    // Always synchronize scores from MongoDB.
-    // MongoDB remains authoritative.
-    await updatePKRoomScore(
-      battleId,
-      battle.hostAScore || 0,
-      battle.hostBScore || 0
-    );
 
-    // ------------------------------------------
-    // Get final Redis room state
-    // ------------------------------------------
+      // ----------------------------------------
+      // Track socket PK membership
+      // ----------------------------------------
 
-    const state =
-      await getPKRoomState(
-        battleId
+      if (
+        !socketPKRooms.has(
+          socket.id
+        )
+      ) {
+
+        socketPKRooms.set(
+          socket.id,
+          new Set()
+        );
+      }
+
+
+      socketPKRooms
+        .get(socket.id)
+        .add(battleId);
+
+
+      // ----------------------------------------
+      // Join Redis room
+      // ----------------------------------------
+
+      await joinPKRoom(
+        battleId,
+        socket.userId
       );
 
-    // ------------------------------------------
-    // Broadcast synchronized state
-    // ------------------------------------------
 
-    io.to(roomName).emit(
-      "pk:room-state",
-      state
-    );
+      // ----------------------------------------
+      // MongoDB → Redis synchronization
+      //
+      // MongoDB has the persistent score.
+      // Redis becomes the live score.
+      // ----------------------------------------
 
-    console.log(
-      `🥊 ${socket.userId} joined PK ${battleId}`
-    );
+      if (
+        battle.status ===
+        "active"
+      ) {
 
-    console.log(
-      "🥊 Redis PK state:",
-      state
-    );
+        await startPKRoom(
+          battleId,
+          battle.startedAt
+        );
 
-  } catch (error) {
-
-    console.error(
-      "PK join error:",
-      error
-    );
-
-    socket.emit("pk:error", {
-      message:
-        error.message ||
-        "Failed to join PK",
-    });
-  }
-});
+      }
 
 
-// ==========================================
-// LEAVE PK
-// ==========================================
+      await updatePKRoomScore(
+        battleId,
 
-socket.on("pk:leave", async (data) => {
-  try {
+        battle.hostAScore ||
+          0,
 
-    const { battleId } = data;
+        battle.hostBScore ||
+          0
+      );
 
-    if (!battleId) {
-      return;
+
+      // ----------------------------------------
+      // Get final synchronized state
+      // ----------------------------------------
+
+      const state =
+        await getPKRoomState(
+          battleId
+        );
+
+
+      // ----------------------------------------
+      // Send state to everyone
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:room-state",
+        state
+      );
+
+
+      // ----------------------------------------
+      // Tell this socket its role
+      // ----------------------------------------
+
+      socket.emit(
+        "pk:joined",
+        {
+          battleId,
+
+          role:
+            isHostA
+              ? "hostA"
+              : "hostB",
+
+          state,
+        }
+      );
+
+
+      console.log(
+        `🥊 ${userId} joined PK ${battleId} as ${
+          isHostA
+            ? "Host A"
+            : "Host B"
+        }`
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "PK join error:",
+        error
+      );
+
+
+      socket.emit(
+        "pk:error",
+        {
+          message:
+            error.message ||
+            "Failed to join PK",
+        }
+      );
+
     }
 
-    if (!socket.userId) {
-      return;
-    }
-
-    const roomName =
-      `pk:${battleId}`;
-
-    // Leave Socket.IO room
-    socket.leave(roomName);
-
-    // Remove from Redis room
-     const state =
-     await leavePKRoom(
-    battleId,
-    socket.userId
-  );
-
-if (state) {
-  io.to(roomName).emit(
-    "pk:room-state",
-    state
-  );
-}
-
-    console.log(
-      `🚪 ${socket.userId} left PK ${battleId}`
-    );
-
-  } catch (error) {
-
-    console.error(
-      "PK leave error:",
-      error
-    );
-
-    socket.emit("pk:error", {
-      message:
-        error.message ||
-        "Failed to leave PK",
-    });
-  }
-});
-
-
-// ==========================================
-// GET PK ROOM STATE
-// ==========================================
-
-socket.on("pk:get-state", async (data) => {
-  try {
-
-    const { battleId } = data;
-
-    if (!battleId) {
-      return;
-    }
-
-    const state =
-  await getPKRoomState(
-    battleId
-  );
-
-if (!state) {
-  return socket.emit(
-    "pk:error",
-    {
-      message:
-        "PK room not found",
-    }
-  );
-}
-
-const battle =
-  await PKBattle.findById(
-    battleId
-  );
-
-if (!battle) {
-  return socket.emit(
-    "pk:error",
-    {
-      message:
-        "PK battle not found",
-    }
-  );
-}
-
-let remainingMs = null;
-
-if (
-  battle.status === "active" &&
-  battle.startedAt &&
-  battle.duration
-) {
-
-  const startedAt =
-    new Date(
-      battle.startedAt
-    ).getTime();
-
-  const endAt =
-    startedAt +
-    Number(battle.duration) *
-      1000;
-
-  remainingMs =
-    Math.max(
-      0,
-      endAt - Date.now()
-    );
-}
-
-socket.emit(
-  "pk:room-state",
-  {
-    ...state,
-
-    status:
-      battle.status,
-
-    duration:
-      battle.duration,
-
-    remainingMs,
-
-    hostA:
-      battle.hostA,
-
-    hostB:
-      battle.hostB,
-
-    completedAt:
-      battle.completedAt ||
-      null,
   }
 );
 
-  } catch (error) {
 
-    console.error(
-      "PK state error:",
-      error
-    );
+// ==========================================
+// GET PK STATE
+// ==========================================
 
-    socket.emit("pk:error", {
-      message:
-        error.message ||
-        "Failed to get PK state",
-    });
+socket.on(
+  "pk:get-state",
+  async (data) => {
+
+    try {
+
+      const {
+        battleId,
+      } = data || {};
+
+
+      if (!battleId) {
+        return;
+      }
+
+
+      const battle =
+        await PKBattle.findById(
+          battleId
+        );
+
+
+      if (!battle) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK battle not found",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // If Redis room disappeared, rebuild it
+      // from MongoDB.
+      // ----------------------------------------
+
+      let state =
+        await getPKRoomState(
+          battleId
+        );
+
+
+      if (!state) {
+
+        if (
+          battle.status ===
+          "completed" ||
+          battle.status ===
+          "cancelled"
+        ) {
+
+          return socket.emit(
+            "pk:error",
+            {
+              message:
+                "PK room not found",
+            }
+          );
+        }
+
+
+        await updatePKRoomScore(
+          battleId,
+
+          battle.hostAScore ||
+            0,
+
+          battle.hostBScore ||
+            0
+        );
+
+
+        if (
+          battle.status ===
+          "active"
+        ) {
+
+          await startPKRoom(
+            battleId,
+            battle.startedAt
+          );
+
+        }
+
+
+        state =
+          await getPKRoomState(
+            battleId
+          );
+
+      }
+
+
+      socket.emit(
+        "pk:room-state",
+        state
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "PK state error:",
+        error
+      );
+
+
+      socket.emit(
+        "pk:error",
+        {
+          message:
+            error.message ||
+            "Failed to get PK state",
+        }
+      );
+
+    }
+
   }
-});
+);
 
 
 // ==========================================
 // START PK
 // ==========================================
 
-socket.on("pk:start", async (data) => {
-  try {
+socket.on(
+  "pk:start",
+  async (data) => {
 
-    const { battleId } = data;
+    try {
 
-    if (!battleId) {
-      return socket.emit("pk:error", {
-        message: "Battle ID is required",
-      });
-    }
+      const {
+        battleId,
+      } = data || {};
 
-    if (!socket.userId) {
-      return socket.emit("pk:error", {
-        message: "User not authenticated",
-      });
-    }
 
-    // ------------------------------------------
-    // Find battle
-    // ------------------------------------------
+      if (!battleId) {
 
-    const battle =
-      await PKBattle.findById(
-        battleId
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Battle ID is required",
+          }
+        );
+      }
+
+
+      if (!socket.userId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "User not authenticated",
+          }
+        );
+      }
+
+
+      const battle =
+        await PKBattle.findById(
+          battleId
+        );
+
+
+      if (!battle) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK battle not found",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Verify host
+      // ----------------------------------------
+
+      const userId =
+        socket.userId.toString();
+
+
+      const isHostA =
+        battle.hostA
+          .toString() === userId;
+
+
+      const isHostB =
+        battle.hostB
+          .toString() === userId;
+
+
+      if (
+        !isHostA &&
+        !isHostB
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "You are not a host of this PK",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Validate status
+      // ----------------------------------------
+
+      if (
+        battle.status !==
+        "pending"
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              battle.status ===
+              "active"
+                ? "PK is already active"
+                : "PK can no longer be started",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Start MongoDB battle
+      // ----------------------------------------
+
+      battle.status =
+        "active";
+
+      battle.startedAt =
+        new Date();
+
+      await battle.save();
+
+
+      // ----------------------------------------
+      // Start Redis room
+      // ----------------------------------------
+
+      await startPKRoom(
+        battleId,
+        battle.startedAt
       );
 
-    if (!battle) {
-      return socket.emit("pk:error", {
-        message: "PK battle not found",
-      });
-    }
 
-    // ------------------------------------------
-    // Verify host
-    // ------------------------------------------
+      // ----------------------------------------
+      // Synchronize scores
+      // ----------------------------------------
 
-    const isHostA =
-      battle.hostA.toString() ===
-      socket.userId.toString();
-
-    const isHostB =
-      battle.hostB.toString() ===
-      socket.userId.toString();
-
-    if (!isHostA && !isHostB) {
-
-      console.log(
-        `🚫 Unauthorized PK start attempt: ${socket.userId}`
-      );
-
-      return socket.emit("pk:error", {
-        message:
-          "You are not a host of this PK",
-      });
-    }
-
-
-    // ------------------------------------------
-// Both hosts must be present
-// ------------------------------------------
-
-const currentRoom =
-  await getPKRoomState(
-    battleId
-  );
-
-if (!currentRoom) {
-  return socket.emit("pk:error", {
-    message:
-      "PK room does not exist",
-  });
-}
-
-const hostAJoined =
-  currentRoom.users.includes(
-    battle.hostA.toString()
-  );
-
-const hostBJoined =
-  currentRoom.users.includes(
-    battle.hostB.toString()
-  );
-
-if (
-  !hostAJoined ||
-  !hostBJoined
-) {
-
-  return socket.emit("pk:error", {
-    message:
-      "Both hosts must join the PK before starting",
-  });
-}
-
-    // ------------------------------------------
-    // Prevent duplicate start
-    // ------------------------------------------
-
-    if (battle.status === "active") {
-      return socket.emit("pk:error", {
-        message: "PK is already active",
-      });
-    }
-
-    // ------------------------------------------
-    // Prevent restarting finished PK
-    // ------------------------------------------
-
-    if (
-      battle.status === "completed" ||
-      battle.status === "cancelled"
-    ) {
-      return socket.emit("pk:error", {
-        message:
-          "This PK can no longer be started",
-      });
-    }
-
-    // ------------------------------------------
-    // Start MongoDB battle
-    // ------------------------------------------
-
-    battle.status = "active";
-    battle.startedAt = new Date();
-
-    await battle.save();
-
-    schedulePKEnd(
-  battle
-);
-
-    // ------------------------------------------
-    // Start Redis PK room
-    // ------------------------------------------
-
-    await startPKRoom(
-  battleId,
-  battle.startedAt
-);
-
-    // ------------------------------------------
-    // Synchronize scores
-    // ------------------------------------------
-
-    await updatePKRoomScore(
-      battleId,
-      battle.hostAScore || 0,
-      battle.hostBScore || 0
-    );
-
-    // ------------------------------------------
-    // Get complete Redis state
-    // ------------------------------------------
-
-    const roomState =
-      await getPKRoomState(
-        battleId
-      );
-
-    const roomName =
-      `pk:${battleId}`;
-
-    // ------------------------------------------
-    // Broadcast PK started
-    // ------------------------------------------
-
-    io.to(roomName).emit(
-      "pk:started",
-      {
-        ...roomState,
-
+      await updatePKRoomScore(
         battleId,
 
-        startedAt:
-          battle.startedAt,
+        battle.hostAScore ||
+          0,
 
-        duration:
-          battle.duration,
+        battle.hostBScore ||
+          0
+      );
 
-        hostA:
-          battle.hostA,
 
-        hostB:
-          battle.hostB,
-      }
-    );
+      const state =
+        await getPKRoomState(
+          battleId
+        );
 
-    // Also send synchronized room state
-    io.to(roomName).emit(
-      "pk:room-state",
-      roomState
-    );
 
-    console.log(
-      `🚀 PK started: ${battleId}`
-    );
+      const roomName =
+        `pk:${battleId}`;
 
-    console.log(
-      "🥊 Redis PK state:",
-      roomState
-    );
 
-  } catch (error) {
+      // ----------------------------------------
+      // Broadcast START
+      // ----------------------------------------
 
-    console.error(
-      "PK start error:",
-      error
-    );
+      io.to(
+        roomName
+      ).emit(
+        "pk:started",
+        {
+          battleId,
 
-    socket.emit("pk:error", {
-      message:
-        error.message ||
-        "Failed to start PK",
-    });
+          started:
+            true,
+
+          startedAt:
+            battle.startedAt,
+
+          duration:
+            battle.duration,
+
+          hostA:
+            battle.hostA,
+
+          hostB:
+            battle.hostB,
+
+          hostAScore:
+            state?.hostAScore ||
+            0,
+
+          hostBScore:
+            state?.hostBScore ||
+            0,
+        }
+      );
+
+
+      // ----------------------------------------
+      // Broadcast state
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:room-state",
+        state
+      );
+
+
+      console.log(
+        `🚀 PK started: ${battleId}`
+      );
+
+    } catch (error) {
+
+      console.error(
+        "PK start error:",
+        error
+      );
+
+
+      socket.emit(
+        "pk:error",
+        {
+          message:
+            error.message ||
+            "Failed to start PK",
+        }
+      );
+
+    }
+
   }
-});
+);
 
 
 // ==========================================
 // ADD PK SCORE
 // ==========================================
 
-socket.on("pk:score", async (data) => {
-  try {
+socket.on(
+  "pk:score",
+  async (data) => {
 
-    const {
-      battleId,
-      points,
-    } = data;
+    try {
 
-    // ------------------------------------------
-    // Validate battle ID
-    // ------------------------------------------
-
-    if (!battleId) {
-      return socket.emit("pk:error", {
-        message: "Battle ID is required",
-      });
-    }
-
-    // ------------------------------------------
-    // Validate authentication
-    // ------------------------------------------
-
-    if (!socket.userId) {
-      return socket.emit("pk:error", {
-        message: "User not authenticated",
-      });
-    }
-
-    // ------------------------------------------
-    // Validate points
-    // ------------------------------------------
-
-    const numericPoints = Number(points);
-
-    if (
-      !Number.isFinite(numericPoints) ||
-      numericPoints <= 0
-    ) {
-      return socket.emit("pk:error", {
-        message: "Invalid score points",
-      });
-    }
-
-    // ------------------------------------------
-    // Find real PK battle
-    // ------------------------------------------
-
-    const battle =
-      await PKBattle.findById(battleId);
-
-    if (!battle) {
-      return socket.emit("pk:error", {
-        message: "PK battle not found",
-      });
-    }
-
-    // ------------------------------------------
-    // PK must be active
-    // ------------------------------------------
-
-    if (battle.status !== "active") {
-      return socket.emit("pk:error", {
-        message: "PK is not active",
-      });
-    }
-
-
-      // ------------------------------------------
-// Check PK expiration
-// ------------------------------------------
-
-const startedAt =
-  new Date(
-    battle.startedAt
-  ).getTime();
-
-const durationMs =
-  Number(battle.duration) * 1000;
-
-const expiresAt =
-  startedAt + durationMs;
-
-if (
-  Date.now() >= expiresAt
-) {
-
-  await finalizePKBattle(
-    battleId
-  );
-
-  return socket.emit("pk:error", {
-    message:
-      "PK has ended",
-  });
-}
-
-    // ------------------------------------------
-    // Verify host
-    // ------------------------------------------
-
-    const isHostA =
-      battle.hostA.toString() ===
-      socket.userId.toString();
-
-    const isHostB =
-      battle.hostB.toString() ===
-      socket.userId.toString();
-
-    if (!isHostA && !isHostB) {
-      return socket.emit("pk:error", {
-        message: "You are not a host of this PK",
-      });
-    }
-
-    // ------------------------------------------
-    // ATOMIC REDIS SCORE UPDATE
-    // ------------------------------------------
-
-    const scoreState =
-      await addPKRoomScore(
+      const {
         battleId,
-        isHostA,
-        numericPoints
+        points,
+      } = data || {};
+
+
+      if (!battleId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Battle ID is required",
+          }
+        );
+      }
+
+
+      if (!socket.userId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "User not authenticated",
+          }
+        );
+      }
+
+
+      const numericPoints =
+        Number(points);
+
+
+      if (
+        !Number.isFinite(
+          numericPoints
+        ) ||
+        numericPoints <= 0 ||
+        !Number.isSafeInteger(
+          numericPoints
+        )
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Invalid score points",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // TEMPORARY TEST LIMIT
+      //
+      // Remove this later when gifts/reactions
+      // become the trusted scoring source.
+      // ----------------------------------------
+
+      if (
+        numericPoints >
+        1000
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Maximum test score is 1000",
+          }
+        );
+      }
+
+
+      const battle =
+        await PKBattle.findById(
+          battleId
+        );
+
+
+      if (!battle) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK battle not found",
+          }
+        );
+      }
+
+
+      if (
+        battle.status !==
+        "active"
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK is not active",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Verify host
+      // ----------------------------------------
+
+      const userId =
+        socket.userId.toString();
+
+
+      const isHostA =
+        battle.hostA
+          .toString() === userId;
+
+
+      const isHostB =
+        battle.hostB
+          .toString() === userId;
+
+
+      if (
+        !isHostA &&
+        !isHostB
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "You are not a host of this PK",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Atomic Redis increment
+      // ----------------------------------------
+
+      const scoreState =
+        await addPKRoomScore(
+          battleId,
+          isHostA,
+          numericPoints
+        );
+
+
+      // ----------------------------------------
+      // Persist score using MongoDB ATOMIC $inc
+      //
+      // This prevents simultaneous Host A/B
+      // score updates from overwriting each other.
+      // ----------------------------------------
+
+      const increment =
+        isHostA
+          ? {
+              hostAScore:
+                numericPoints,
+            }
+          : {
+              hostBScore:
+                numericPoints,
+            };
+
+
+      await PKBattle.updateOne(
+        {
+          _id:
+            battleId,
+
+          status:
+            "active",
+        },
+
+        {
+          $inc:
+            increment,
+        }
       );
 
-    // ------------------------------------------
-    // Persist Redis result to MongoDB
-    // ------------------------------------------
 
-    battle.hostAScore =
-      scoreState.hostAScore;
-
-    battle.hostBScore =
-      scoreState.hostBScore;
-
-    await battle.save();
-
-    // ------------------------------------------
-    // Broadcast live score
-    // ------------------------------------------
-
-    io.to(
-      `pk:${battleId}`
-    ).emit(
-      "pk:score-updated",
-      {
-        battleId,
-
-        hostAScore:
-          scoreState.hostAScore,
-
-        hostBScore:
-          scoreState.hostBScore,
-      }
-    );
-
-    // ------------------------------------------
-    // Broadcast complete room state
-    // ------------------------------------------
-
-    io.to(
-      `pk:${battleId}`
-    ).emit(
-      "pk:room-state",
-      scoreState
-    );
-
-    // ------------------------------------------
-    // Log
-    // ------------------------------------------
-
-    console.log(
-      `🥊 PK score updated: ${battleId}`,
-      {
-        userId:
-          socket.userId,
-
-        points:
-          numericPoints,
-
-        side:
-          isHostA
-            ? "Host A"
-            : "Host B",
-
-        hostAScore:
-          scoreState.hostAScore,
-
-        hostBScore:
-          scoreState.hostBScore,
-      }
-    );
-
-  } catch (error) {
-
-    console.error(
-      "PK score socket error:",
-      error
-    );
-
-    socket.emit("pk:error", {
-      message:
-        error.message ||
-        "Failed to update PK score",
-    });
-  }
-});
+      const roomName =
+        `pk:${battleId}`;
 
 
-  // DISCONNECT
-  socket.on(
-    "disconnect",
-    () => {
+      // ----------------------------------------
+      // Broadcast score
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:score-updated",
+        {
+          battleId,
+
+          hostAScore:
+            scoreState.hostAScore,
+
+          hostBScore:
+            scoreState.hostBScore,
+
+          addedBy:
+            socket.userId,
+
+          points:
+            numericPoints,
+
+          side:
+            isHostA
+              ? "hostA"
+              : "hostB",
+        }
+      );
+
+
+      // ----------------------------------------
+      // Broadcast complete state
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:room-state",
+        scoreState
+      );
+
 
       console.log(
-        "🔴 Socket disconnected:",
-        socket.id
+        `🥊 PK score +${numericPoints}`,
+        {
+          battleId,
+
+          userId:
+            socket.userId,
+
+          side:
+            isHostA
+              ? "Host A"
+              : "Host B",
+
+          hostAScore:
+            scoreState.hostAScore,
+
+          hostBScore:
+            scoreState.hostBScore,
+        }
       );
 
-      if (socket.userId) {
 
-  onlineUsers.delete(socket.userId);
+    } catch (error) {
 
-  io.emit(
-    "online-users",
-    Array.from(onlineUsers.keys())
-  );
+      console.error(
+        "PK score socket error:",
+        error
+      );
 
-activeCalls.delete(socket.userId);
 
-const partner = callSessions.get(socket.userId);
+      socket.emit(
+        "pk:error",
+        {
+          message:
+            error.message ||
+            "Failed to update PK score",
+        }
+      );
 
-if (partner) {
-
-  io.to(partner).emit("call-ended");
-
-  activeCalls.delete(partner);
-
-  callSessions.delete(partner);
-
-}
-
-callSessions.delete(socket.userId);
-
-  console.log(
-    `👤 ${socket.userId} went offline`
-  );
-
-}
     }
-  );
-});
+
+  }
+);
+
+
+// ==========================================
+// FINISH PK
+// ==========================================
+
+socket.on(
+  "pk:finish",
+  async (data) => {
+
+    try {
+
+      const {
+        battleId,
+      } = data || {};
+
+
+      if (!battleId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Battle ID is required",
+          }
+        );
+      }
+
+
+      if (!socket.userId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "User not authenticated",
+          }
+        );
+      }
+
+
+      const battle =
+        await PKBattle.findById(
+          battleId
+        );
+
+
+      if (!battle) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK battle not found",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Verify host
+      // ----------------------------------------
+
+      const userId =
+        socket.userId.toString();
+
+
+      const isHostA =
+        battle.hostA
+          .toString() === userId;
+
+
+      const isHostB =
+        battle.hostB
+          .toString() === userId;
+
+
+      if (
+        !isHostA &&
+        !isHostB
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "You are not a host of this PK",
+          }
+        );
+      }
+
+
+      if (
+        battle.status !==
+        "active"
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "PK is not active",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // Redis is authoritative for final
+      // live score.
+      // ----------------------------------------
+
+      const finalState =
+        await getPKRoomState(
+          battleId
+        );
+
+
+      if (finalState) {
+
+        battle.hostAScore =
+          finalState.hostAScore;
+
+        battle.hostBScore =
+          finalState.hostBScore;
+
+      }
+
+
+      // ----------------------------------------
+      // Determine winner
+      // ----------------------------------------
+
+      if (
+        battle.hostAScore >
+        battle.hostBScore
+      ) {
+
+        battle.winner =
+          battle.hostA;
+
+      } else if (
+        battle.hostBScore >
+        battle.hostAScore
+      ) {
+
+        battle.winner =
+          battle.hostB;
+
+      } else {
+
+        battle.winner =
+          null;
+      }
+
+
+      battle.status =
+        "completed";
+
+      battle.endedAt =
+        new Date();
+
+
+      await battle.save();
+
+
+      const roomName =
+        `pk:${battleId}`;
+
+
+      // ----------------------------------------
+      // Broadcast final result
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:finished",
+        {
+          battleId,
+
+          status:
+            "completed",
+
+          endedAt:
+            battle.endedAt,
+
+          hostAScore:
+            battle.hostAScore,
+
+          hostBScore:
+            battle.hostBScore,
+
+          winner:
+            battle.winner,
+        }
+      );
+
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:room-state",
+        {
+          ...(finalState || {}),
+
+          battleId,
+
+          started:
+            false,
+
+          hostAScore:
+            battle.hostAScore,
+
+          hostBScore:
+            battle.hostBScore,
+        }
+      );
+
+
+      // ----------------------------------------
+      // Redis no longer needed
+      // ----------------------------------------
+
+      await deletePKRoom(
+        battleId
+      );
+
+
+      console.log(
+        `🏆 PK finished: ${battleId}`,
+        {
+          hostAScore:
+            battle.hostAScore,
+
+          hostBScore:
+            battle.hostBScore,
+
+          winner:
+            battle.winner,
+        }
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "PK finish socket error:",
+        error
+      );
+
+
+      socket.emit(
+        "pk:error",
+        {
+          message:
+            error.message ||
+            "Failed to finish PK",
+        }
+      );
+
+    }
+
+  }
+);
+
+
+// ==========================================
+// LEAVE PK
+// ==========================================
+
+socket.on(
+  "pk:leave",
+  async (data) => {
+
+    try {
+
+      const {
+        battleId,
+      } = data || {};
+
+
+      if (!battleId) {
+        return;
+      }
+
+
+      const roomName =
+        `pk:${battleId}`;
+
+
+      socket.leave(
+        roomName
+      );
+
+
+      await leavePKRoom(
+        battleId,
+        socket.userId
+      );
+
+
+      const rooms =
+        socketPKRooms.get(
+          socket.id
+        );
+
+
+      if (rooms) {
+
+        rooms.delete(
+          battleId
+        );
+
+      }
+
+
+      const state =
+        await getPKRoomState(
+          battleId
+        );
+
+
+      if (state) {
+
+        io.to(
+          roomName
+        ).emit(
+          "pk:room-state",
+          state
+        );
+
+      }
+
+
+      console.log(
+        `🚪 ${socket.userId} left PK ${battleId}`
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "PK leave error:",
+        error
+      );
+
+    }
+
+  }
+);
+
+  // DISCONNECT
+  // ==========================================
+// DISCONNECT
+// ==========================================
+
+socket.on(
+  "disconnect",
+  async () => {
+
+    console.log(
+      "🔴 Socket disconnected:",
+      socket.id
+    );
+
+
+    // ========================================
+    // PK CLEANUP
+    // ========================================
+
+    try {
+
+      const rooms =
+        socketPKRooms.get(
+          socket.id
+        );
+
+
+      if (rooms) {
+
+        for (
+          const battleId
+          of rooms
+        ) {
+
+          try {
+
+            await leavePKRoom(
+              battleId,
+              socket.userId
+            );
+
+
+            const roomName =
+              `pk:${battleId}`;
+
+
+            const state =
+              await getPKRoomState(
+                battleId
+              );
+
+
+            if (state) {
+
+              io.to(
+                roomName
+              ).emit(
+                "pk:room-state",
+                state
+              );
+
+            }
+
+
+            console.log(
+              `🚪 ${socket.userId} disconnected from PK ${battleId}`
+            );
+
+
+          } catch (error) {
+
+            console.error(
+              `PK disconnect cleanup failed for ${battleId}:`,
+              error
+            );
+
+          }
+
+        }
+
+
+        socketPKRooms.delete(
+          socket.id
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "PK disconnect cleanup error:",
+        error
+      );
+
+    }
+
+
+    // ========================================
+    // ONLINE USER CLEANUP
+    // ========================================
+
+    if (socket.userId) {
+
+      onlineUsers.delete(
+        socket.userId
+      );
+
+
+      io.emit(
+        "online-users",
+        Array.from(
+          onlineUsers.keys()
+        )
+      );
+
+
+      // ======================================
+      // CALL CLEANUP
+      // ======================================
+
+      activeCalls.delete(
+        socket.userId
+      );
+
+
+      const partner =
+        callSessions.get(
+          socket.userId
+        );
+
+
+      if (partner) {
+
+        io.to(
+          partner
+        ).emit(
+          "call-ended"
+        );
+
+
+        activeCalls.delete(
+          partner
+        );
+
+
+        callSessions.delete(
+          partner
+        );
+
+      }
+
+
+      callSessions.delete(
+        socket.userId
+      );
+
+
+      console.log(
+        `👤 ${socket.userId} went offline`
+      );
+
+    }
+
+  }
+);
 
 /* ================= START SERVER ================= */
 const PORT = process.env.PORT || 5000;
