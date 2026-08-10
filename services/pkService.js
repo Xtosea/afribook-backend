@@ -247,34 +247,71 @@ export const addPKScore = async (
 
 export const finishPK = async (
   battleId,
-  userId
+  userId,
+  finalScores = null
 ) => {
-  const battle = await PKBattle.findById(
-    battleId
-  );
+
+  const battle =
+    await PKBattle.findById(
+      battleId
+    );
+
 
   if (!battle) {
+
     throw new Error(
       "PK battle not found"
     );
+
   }
 
-  verifyHost(battle, userId);
 
-  if (battle.status !== "active") {
+  verifyHost(
+    battle,
+    userId
+  );
+
+
+  if (
+    battle.status !==
+    "active"
+  ) {
+
     throw new Error(
       "PK is not active"
     );
+
   }
 
-  battle.status = "completed";
-  battle.endedAt = new Date();
 
+  // ------------------------------------------
+  // Apply final Redis score if supplied
+  // ------------------------------------------
+
+  if (finalScores) {
+
+    battle.hostAScore =
+      Number(
+        finalScores.hostAScore
+      ) || 0;
+
+    battle.hostBScore =
+      Number(
+        finalScores.hostBScore
+      ) || 0;
+
+  }
+
+
+  // ------------------------------------------
   // Determine winner
+  // ------------------------------------------
+
   if (
     battle.hostAScore >
     battle.hostBScore
   ) {
+
     battle.winner =
       battle.hostA;
 
@@ -282,20 +319,30 @@ export const finishPK = async (
     battle.hostBScore >
     battle.hostAScore
   ) {
+
     battle.winner =
       battle.hostB;
 
   } else {
-    // Draw
-    battle.winner = null;
+
+    battle.winner =
+      null;
+
   }
+
+
+  battle.status =
+    "completed";
+
+  battle.endedAt =
+    new Date();
+
 
   await battle.save();
 
+
   return battle;
 };
-
-
 // ==========================================
 // GET PK
 // ==========================================
