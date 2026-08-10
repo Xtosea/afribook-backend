@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import Redis from "ioredis";
 
 const redisUrl = process.env.REDIS_URL;
 
@@ -6,34 +6,29 @@ if (!redisUrl) {
   console.warn("⚠️ REDIS_URL is not configured");
 }
 
-export const redisClient = createClient({
-  url: redisUrl,
-});
+const redis = redisUrl
+  ? new Redis(redisUrl, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: true,
+    })
+  : null;
 
-redisClient.on("error", (err) => {
-  console.error("❌ Redis/Valkey error:", err);
-});
+if (redis) {
+  redis.on("connect", () => {
+    console.log("🔌 Redis/Valkey connecting...");
+  });
 
-redisClient.on("connect", () => {
-  console.log("🔌 Redis/Valkey connecting...");
-});
+  redis.on("ready", () => {
+    console.log("✅ Redis/Valkey ready");
+  });
 
-redisClient.on("ready", () => {
-  console.log("✅ Redis/Valkey ready");
-});
+  redis.on("reconnecting", () => {
+    console.log("🔄 Redis/Valkey reconnecting...");
+  });
 
-redisClient.on("reconnecting", () => {
-  console.log("🔄 Redis/Valkey reconnecting...");
-});
+  redis.on("error", (error) => {
+    console.error("❌ Redis/Valkey error:", error.message);
+  });
+}
 
-export const connectRedis = async () => {
-  if (!redisUrl) {
-    throw new Error("REDIS_URL is missing");
-  }
-
-  if (!redisClient.isOpen) {
-    await redisClient.connect();
-  }
-
-  return redisClient;
-};
+export default redis;
