@@ -123,3 +123,48 @@ export const getPKRoomState = (
     startedAt: room.startedAt,
   };
 };
+
+
+// ==========================================
+// UPDATE PK SCORE IN SOCKET ROOM
+// ==========================================
+
+export const updatePKRoomScore = (
+  battleId,
+  hostAScore,
+  hostBScore
+) => {
+  const room = getPKRoom(battleId);
+
+  room.hostAScore = hostAScore;
+  room.hostBScore = hostBScore;
+
+  return {
+    battleId,
+    users: Array.from(room.users),
+    started: room.started,
+    startedAt: room.startedAt,
+    hostAScore: room.hostAScore,
+    hostBScore: room.hostBScore,
+  };
+};
+
+
+// ==========================================
+// GET PK SCORE
+// ==========================================
+
+export const getPKRoomScore = (
+  battleId
+) => {
+  const room = pkRooms.get(battleId);
+
+  if (!room) {
+    return null;
+  }
+
+  return {
+    hostAScore: room.hostAScore || 0,
+    hostBScore: room.hostBScore || 0,
+  };
+};
