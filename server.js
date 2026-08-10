@@ -19,7 +19,7 @@ import {
 
 import "./config/env.js";
 import "./config/redis.js";
-import { addPKScore } from "./services/pkService.js";
+
 import fileUpload from "express-fileupload";
 import helmet from "helmet";
 
@@ -924,46 +924,51 @@ socket.on("pk:score", async (data) => {
       points,
     } = data;
 
+    // ------------------------------------------
+    // Validate battle ID
+    // ------------------------------------------
+
     if (!battleId) {
       return socket.emit("pk:error", {
-        message:
-          "Battle ID is required",
+        message: "Battle ID is required",
       });
     }
+
+    // ------------------------------------------
+    // Validate authentication
+    // ------------------------------------------
 
     if (!socket.userId) {
       return socket.emit("pk:error", {
-        message:
-          "User not authenticated",
+        message: "User not authenticated",
       });
     }
 
-    const numericPoints =
-      Number(points);
+    // ------------------------------------------
+    // Validate points
+    // ------------------------------------------
+
+    const numericPoints = Number(points);
 
     if (
       !Number.isFinite(numericPoints) ||
       numericPoints <= 0
     ) {
       return socket.emit("pk:error", {
-        message:
-          "Invalid score points",
+        message: "Invalid score points",
       });
     }
 
     // ------------------------------------------
-    // Find real battle
+    // Find real PK battle
     // ------------------------------------------
 
     const battle =
-      await PKBattle.findById(
-        battleId
-      );
+      await PKBattle.findById(battleId);
 
     if (!battle) {
       return socket.emit("pk:error", {
-        message:
-          "PK battle not found",
+        message: "PK battle not found",
       });
     }
 
@@ -973,8 +978,7 @@ socket.on("pk:score", async (data) => {
 
     if (battle.status !== "active") {
       return socket.emit("pk:error", {
-        message:
-          "PK is not active",
+        message: "PK is not active",
       });
     }
 
@@ -992,90 +996,35 @@ socket.on("pk:score", async (data) => {
 
     if (!isHostA && !isHostB) {
       return socket.emit("pk:error", {
-        message:
-          "You are not a host of this PK",
+        message: "You are not a host of this PK",
       });
     }
 
     // ------------------------------------------
-// ATOMIC REDIS SCORE UPDATE
-// ------------------------------------------
+    // ATOMIC REDIS SCORE UPDATE
+    // ------------------------------------------
 
-const scoreState =
-  await addPKRoomScore(
-    battleId,
-    isHostA,
-    numericPoints
-  );
+    const scoreState =
+      await addPKRoomScore(
+        battleId,
+        isHostA,
+        numericPoints
+      );
 
-// ------------------------------------------
-// Persist Redis result to MongoDB
-// ------------------------------------------
+    // ------------------------------------------
+    // Persist Redis result to MongoDB
+    // ------------------------------------------
 
-battle.hostAScore =
-  scoreState.hostAScore;
+    battle.hostAScore =
+      scoreState.hostAScore;
 
-battle.hostBScore =
-  scoreState.hostBScore;
+    battle.hostBScore =
+      scoreState.hostBScore;
 
-await battle.save();
+    await battle.save();
 
-// ------------------------------------------
-// Broadcast live score
-// ------------------------------------------
-
-io.to(
-  `pk:${battleId}`
-).emit(
-  "pk:score-updated",
-  {
-    battleId,
-
-    hostAScore:
-      scoreState.hostAScore,
-
-    hostBScore:
-      scoreState.hostBScore,
-  }
-);
-
-// ------------------------------------------
-// Broadcast complete room state
-// ------------------------------------------
-
-io.to(
-  `pk:${battleId}`
-).emit(
-  "pk:room-state",
-  scoreState
-);
-
-// ------------------------------------------
-// Log
-// ------------------------------------------
-
-console.log(
-  `🥊 PK score updated: ${battleId}`,
-  {
-    userId:
-      socket.userId,
-
-    points:
-      numericPoints,
-
-    side:
-      isHostA
-        ? "Host A"
-        : "Host B",
-
-    hostAScore:
-      scoreState.hostAScore,
-
-    hostBScore:
-      scoreState.hostBScore,
-  }
-); ------------------------------------------
-    // Broadcast score
+    // ------------------------------------------
+    // Broadcast live score
     // ------------------------------------------
 
     io.to(
@@ -1086,10 +1035,10 @@ console.log(
         battleId,
 
         hostAScore:
-          result.hostAScore,
+          scoreState.hostAScore,
 
         hostBScore:
-          result.hostBScore,
+          scoreState.hostBScore,
       }
     );
 
@@ -1101,8 +1050,12 @@ console.log(
       `pk:${battleId}`
     ).emit(
       "pk:room-state",
-      state
+      scoreState
     );
+
+    // ------------------------------------------
+    // Log
+    // ------------------------------------------
 
     console.log(
       `🥊 PK score updated: ${battleId}`,
@@ -1113,11 +1066,16 @@ console.log(
         points:
           numericPoints,
 
+        side:
+          isHostA
+            ? "Host A"
+            : "Host B",
+
         hostAScore:
-          result.hostAScore,
+          scoreState.hostAScore,
 
         hostBScore:
-          result.hostBScore,
+          scoreState.hostBScore,
       }
     );
 
