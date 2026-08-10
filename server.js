@@ -660,15 +660,8 @@ socket.on("pk:leave", async (data) => {
     socket.leave(roomName);
 
     // Remove from Redis room
-    const state =
-      await leavePKRoom(
-        battleId,
-        socket.userId
-      );
-
-    // Notify remaining users
-    const state =
-  await leavePKRoom(
+     const state =
+     await leavePKRoom(
     battleId,
     socket.userId
   );
@@ -1005,28 +998,83 @@ socket.on("pk:score", async (data) => {
     }
 
     // ------------------------------------------
-    // Update MongoDB score
-    // ------------------------------------------
+// ATOMIC REDIS SCORE UPDATE
+// ------------------------------------------
 
-    const result =
-      await addPKScore(
-        battleId,
-        socket.userId,
-        numericPoints
-      );
+const scoreState =
+  await addPKRoomScore(
+    battleId,
+    isHostA,
+    numericPoints
+  );
 
-    // ------------------------------------------
-    // Update Redis live state
-    // ------------------------------------------
+// ------------------------------------------
+// Persist Redis result to MongoDB
+// ------------------------------------------
 
-    const state =
-      await updatePKRoomScore(
-        battleId,
-        result.hostAScore,
-        result.hostBScore
-      );
+battle.hostAScore =
+  scoreState.hostAScore;
 
-    // ------------------------------------------
+battle.hostBScore =
+  scoreState.hostBScore;
+
+await battle.save();
+
+// ------------------------------------------
+// Broadcast live score
+// ------------------------------------------
+
+io.to(
+  `pk:${battleId}`
+).emit(
+  "pk:score-updated",
+  {
+    battleId,
+
+    hostAScore:
+      scoreState.hostAScore,
+
+    hostBScore:
+      scoreState.hostBScore,
+  }
+);
+
+// ------------------------------------------
+// Broadcast complete room state
+// ------------------------------------------
+
+io.to(
+  `pk:${battleId}`
+).emit(
+  "pk:room-state",
+  scoreState
+);
+
+// ------------------------------------------
+// Log
+// ------------------------------------------
+
+console.log(
+  `🥊 PK score updated: ${battleId}`,
+  {
+    userId:
+      socket.userId,
+
+    points:
+      numericPoints,
+
+    side:
+      isHostA
+        ? "Host A"
+        : "Host B",
+
+    hostAScore:
+      scoreState.hostAScore,
+
+    hostBScore:
+      scoreState.hostBScore,
+  }
+); ------------------------------------------
     // Broadcast score
     // ------------------------------------------
 
