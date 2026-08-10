@@ -26,8 +26,7 @@ export const getPKRoom = async (battleId) => {
 
   const key = pkKey(battleId);
 
-  let room =
-    await redis.hgetall(key);
+  let room = await redis.hgetall(key);
 
   // ----------------------------------------
   // Create room if it doesn't exist
@@ -46,10 +45,7 @@ export const getPKRoom = async (battleId) => {
       hostBScore: "0",
     };
 
-    await redis.hset(
-      key,
-      room
-    );
+    await redis.hset(key, room);
 
     await redis.expire(
       key,
@@ -92,18 +88,13 @@ export const getPKRoom = async (battleId) => {
       room.started === "true",
 
     startedAt:
-      room.startedAt ||
-      null,
+      room.startedAt || null,
 
     hostAScore:
-      Number(
-        room.hostAScore || 0
-      ),
+      Number(room.hostAScore || 0),
 
     hostBScore:
-      Number(
-        room.hostBScore || 0
-      ),
+      Number(room.hostBScore || 0),
   };
 };
 
@@ -341,9 +332,7 @@ export const updatePKRoomScore = async (
   // Make sure room exists
   // ----------------------------------------
 
-  await getPKRoom(
-    battleId
-  );
+  await getPKRoom(battleId);
 
   // ----------------------------------------
   // Update scores
@@ -402,6 +391,10 @@ export const addPKRoomScore = async (
   const numericPoints =
     Number(points);
 
+  // ----------------------------------------
+  // Validate points
+  // ----------------------------------------
+
   if (
     !Number.isFinite(numericPoints) ||
     numericPoints <= 0
@@ -415,18 +408,20 @@ export const addPKRoomScore = async (
   // Make sure room exists
   // ----------------------------------------
 
-  await getPKRoom(
-    battleId
-  );
+  await getPKRoom(battleId);
 
   // ----------------------------------------
-  // Atomically increment correct host
+  // Determine score field
   // ----------------------------------------
 
   const scoreField =
     isHostA
       ? "hostAScore"
       : "hostBScore";
+
+  // ----------------------------------------
+  // Atomically increment score
+  // ----------------------------------------
 
   await redis.hincrby(
     key,
@@ -453,6 +448,7 @@ export const addPKRoomScore = async (
     );
 
   return {
+
     battleId,
 
     hostAScore:
