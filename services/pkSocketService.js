@@ -75,7 +75,7 @@ export const getPKRoom = async (battleId) => {
   }
 
   // ----------------------------------------
-  // Return normalized state
+  // Normalize state
   // ----------------------------------------
 
   return {
@@ -88,13 +88,15 @@ export const getPKRoom = async (battleId) => {
       room.started === "true",
 
     startedAt:
-      room.startedAt || null,
+      room.startedAt ||
+      null,
 
     hostAScore:
       Number(room.hostAScore || 0),
 
     hostBScore:
       Number(room.hostBScore || 0),
+
   };
 };
 
@@ -134,7 +136,6 @@ export const joinPKRoom = async (
     )
   );
 
-  // Refresh TTL whenever somebody joins
   await redis.expire(
     key,
     ROOM_TTL
@@ -164,7 +165,8 @@ export const leavePKRoom = async (
     );
   }
 
-  const key = pkKey(battleId);
+  const key =
+    pkKey(battleId);
 
   const exists =
     await redis.exists(key);
@@ -193,10 +195,6 @@ export const leavePKRoom = async (
 
     return null;
   }
-
-  // ----------------------------------------
-  // Save remaining users
-  // ----------------------------------------
 
   await redis.hset(
     key,
@@ -235,23 +233,16 @@ export const startPKRoom = async (
     );
   }
 
-  const key = pkKey(battleId);
+  const key =
+    pkKey(battleId);
 
   const room =
     await getPKRoom(battleId);
-
-  // ----------------------------------------
-  // Preserve existing start time
-  // ----------------------------------------
 
   const finalStartedAt =
     room.startedAt ||
     startedAt ||
     new Date().toISOString();
-
-  // ----------------------------------------
-  // Mark Redis room active
-  // ----------------------------------------
 
   await redis.hset(
     key,
@@ -264,15 +255,10 @@ export const startPKRoom = async (
     }
   );
 
-  // Refresh room lifetime
   await redis.expire(
     key,
     ROOM_TTL
   );
-
-  // ----------------------------------------
-  // Return complete Redis state
-  // ----------------------------------------
 
   return getPKRoomState(
     battleId
@@ -310,7 +296,7 @@ export const getPKRoomState = async (
 
 
 // ==========================================
-// UPDATE PK SCORE
+// UPDATE COMPLETE SCORE
 // ==========================================
 
 export const updatePKRoomScore = async (
@@ -328,15 +314,9 @@ export const updatePKRoomScore = async (
   const key =
     pkKey(battleId);
 
-  // ----------------------------------------
-  // Make sure room exists
-  // ----------------------------------------
-
-  await getPKRoom(battleId);
-
-  // ----------------------------------------
-  // Update scores
-  // ----------------------------------------
+  await getPKRoom(
+    battleId
+  );
 
   await redis.hset(
     key,
@@ -353,15 +333,10 @@ export const updatePKRoomScore = async (
     }
   );
 
-  // Refresh TTL while PK is being used
   await redis.expire(
     key,
     ROOM_TTL
   );
-
-  // ----------------------------------------
-  // Return complete state
-  // ----------------------------------------
 
   return getPKRoomState(
     battleId
@@ -391,10 +366,6 @@ export const addPKRoomScore = async (
   const numericPoints =
     Number(points);
 
-  // ----------------------------------------
-  // Validate points
-  // ----------------------------------------
-
   if (
     !Number.isFinite(numericPoints) ||
     numericPoints <= 0
@@ -404,24 +375,14 @@ export const addPKRoomScore = async (
     );
   }
 
-  // ----------------------------------------
-  // Make sure room exists
-  // ----------------------------------------
-
-  await getPKRoom(battleId);
-
-  // ----------------------------------------
-  // Determine score field
-  // ----------------------------------------
+  await getPKRoom(
+    battleId
+  );
 
   const scoreField =
     isHostA
       ? "hostAScore"
       : "hostBScore";
-
-  // ----------------------------------------
-  // Atomically increment score
-  // ----------------------------------------
 
   await redis.hincrby(
     key,
@@ -429,18 +390,10 @@ export const addPKRoomScore = async (
     numericPoints
   );
 
-  // ----------------------------------------
-  // Keep room alive
-  // ----------------------------------------
-
   await redis.expire(
     key,
     ROOM_TTL
   );
-
-  // ----------------------------------------
-  // Read final atomic state
-  // ----------------------------------------
 
   const room =
     await getPKRoom(
@@ -448,7 +401,6 @@ export const addPKRoomScore = async (
     );
 
   return {
-
     battleId,
 
     hostAScore:
@@ -456,6 +408,7 @@ export const addPKRoomScore = async (
 
     hostBScore:
       room.hostBScore,
+
   };
 };
 
@@ -486,6 +439,7 @@ export const getPKRoomScore = async (
 
     hostBScore:
       room.hostBScore,
+
   };
 };
 
