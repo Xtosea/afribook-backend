@@ -498,8 +498,11 @@ socket.on("ice-candidate", (data) => {
 // PK SOCKET EVENTS
 // ==========================================
 
+// ==========================================
 // JOIN PK
-socket.on("pk:join", (data) => {
+// ==========================================
+
+socket.on("pk:join", async (data) => {
   try {
     const { battleId } = data;
 
@@ -515,15 +518,67 @@ socket.on("pk:join", (data) => {
       });
     }
 
+    // Find real PK battle
+    const battle = await PKBattle.findById(battleId);
+
+    if (!battle) {
+      return socket.emit("pk:error", {
+        message: "PK battle not found",
+      });
+    }
+
+    // Only hosts can join the PK
+    const isHostA =
+      battle.hostA.toString() ===
+      socket.userId.toString();
+
+    const isHostB =
+      battle.hostB.toString() ===
+      socket.userId.toString();
+
+    if (!isHostA && !isHostB) {
+      return socket.emit("pk:error", {
+        message: "You are not a host of this PK",
+      });
+    }
+
     const roomName = `pk:${battleId}`;
 
     socket.join(roomName);
 
-    const state = joinPKRoom(
+    // Add user to live room
+    joinPKRoom(
       battleId,
       socket.userId
     );
 
+    // Synchronize room with MongoDB
+    if (battle.status === "active") {
+
+      const state = startPKRoom(
+        battleId,
+        battle.startedAt
+      );
+
+      updatePKRoomScore(
+        battleId,
+        battle.hostAScore || 0,
+        battle.hostBScore || 0
+      );
+
+    } else {
+
+      updatePKRoomScore(
+        battleId,
+        battle.hostAScore || 0,
+        battle.hostBScore || 0
+      );
+    }
+
+    const state =
+      getPKRoomState(battleId);
+
+    // Send state to everyone
     io.to(roomName).emit(
       "pk:room-state",
       state
@@ -533,14 +588,22 @@ socket.on("pk:join", (data) => {
       `🥊 ${socket.userId} joined PK ${battleId}`
     );
 
+    console.log(
+      "🥊 Synced PK state:",
+      state
+    );
+
   } catch (error) {
+
     console.error(
       "PK join error:",
       error
     );
 
     socket.emit("pk:error", {
-      message: "Failed to join PK",
+      message:
+        error.message ||
+        "Failed to join PK",
     });
   }
 });
