@@ -14,6 +14,7 @@ import {
   getPKRoomState,
   startPKRoom,
   updatePKRoomScore,
+  deletePKRoom,
 } from "./services/pkRedisService.js";
 
 import "./config/env.js";
