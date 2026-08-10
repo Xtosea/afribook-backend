@@ -667,10 +667,18 @@ socket.on("pk:leave", async (data) => {
       );
 
     // Notify remaining users
-    io.to(roomName).emit(
-      "pk:room-state",
-      state
-    );
+    const state =
+  await leavePKRoom(
+    battleId,
+    socket.userId
+  );
+
+if (state) {
+  io.to(roomName).emit(
+    "pk:room-state",
+    state
+  );
+}
 
     console.log(
       `🚪 ${socket.userId} left PK ${battleId}`
@@ -828,11 +836,10 @@ socket.on("pk:start", async (data) => {
     // Start Redis PK room
     // ------------------------------------------
 
-    const state =
-      await startPKRoom(
-        battleId,
-        battle.startedAt
-      );
+    await startPKRoom(
+  battleId,
+  battle.startedAt
+);
 
     // ------------------------------------------
     // Synchronize scores
