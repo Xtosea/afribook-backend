@@ -171,7 +171,7 @@ export const finishPKController = async (
 
 
     // ------------------------------------------
-    // Get final live Redis score
+    // Get final Redis score
     // ------------------------------------------
 
     const roomState =
@@ -181,59 +181,19 @@ export const finishPKController = async (
 
 
     // ------------------------------------------
-    // Finish MongoDB battle
+    // Finish using final live score
     // ------------------------------------------
 
     const battle =
       await finishPK(
         battleId,
-        userId
+        userId,
+        roomState
       );
 
 
     // ------------------------------------------
-    // Synchronize final Redis score
-    // ------------------------------------------
-
-    if (roomState) {
-
-      battle.hostAScore =
-        roomState.hostAScore;
-
-      battle.hostBScore =
-        roomState.hostBScore;
-
-
-      if (
-        battle.hostAScore >
-        battle.hostBScore
-      ) {
-
-        battle.winner =
-          battle.hostA;
-
-      } else if (
-        battle.hostBScore >
-        battle.hostAScore
-      ) {
-
-        battle.winner =
-          battle.hostB;
-
-      } else {
-
-        battle.winner =
-          null;
-      }
-
-
-      await battle.save();
-
-    }
-
-
-    // ------------------------------------------
-    // Remove Redis room
+    // Delete live Redis room
     // ------------------------------------------
 
     await deletePKRoom(
