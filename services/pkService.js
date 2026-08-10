@@ -129,26 +129,39 @@ export const addPKScore = async (
   userId,
   points
 ) => {
+
   if (!battleId || !userId) {
     throw new Error(
       "Battle ID and user ID are required"
     );
   }
 
-  const numericPoints = Number(points);
+
+  const numericPoints =
+    Number(points);
+
 
   if (
-    !Number.isFinite(numericPoints) ||
-    numericPoints <= 0
+    !Number.isFinite(
+      numericPoints
+    ) ||
+    numericPoints <= 0 ||
+    !Number.isSafeInteger(
+      numericPoints
+    )
   ) {
+
     throw new Error(
       "Invalid PK points"
     );
   }
 
-  const battle = await PKBattle.findById(
-    battleId
-  );
+
+  const battle =
+    await PKBattle.findById(
+      battleId
+    );
+
 
   if (!battle) {
     throw new Error(
@@ -156,33 +169,74 @@ export const addPKScore = async (
     );
   }
 
-  if (battle.status !== "active") {
+
+  if (
+    battle.status !== "active"
+  ) {
+
     throw new Error(
       "PK is not active"
     );
   }
 
-  verifyHost(battle, userId);
 
-  if (
-    battle.hostA.toString() ===
-    userId.toString()
-  ) {
-    battle.hostAScore += numericPoints;
+  const {
+    isHostA,
+    isHostB,
+  } =
+    verifyHost(
+      battle,
+      userId
+    );
 
-  } else if (
-    battle.hostB.toString() ===
-    userId.toString()
-  ) {
-    battle.hostBScore += numericPoints;
+
+  // ------------------------------------------
+  // MongoDB ATOMIC SCORE UPDATE
+  // ------------------------------------------
+
+  const increment =
+    isHostA
+      ? { hostAScore: numericPoints }
+      : { hostBScore: numericPoints };
+
+
+  const updatedBattle =
+    await PKBattle.findByIdAndUpdate(
+      battleId,
+
+      {
+        $inc: increment,
+      },
+
+      {
+        new: true,
+      }
+    );
+
+
+  if (!updatedBattle) {
+
+    throw new Error(
+      "Failed to update PK score"
+    );
   }
 
-  await battle.save();
 
   return {
-    battle,
-    hostAScore: battle.hostAScore,
-    hostBScore: battle.hostBScore,
+
+    battle:
+      updatedBattle,
+
+    hostAScore:
+      updatedBattle.hostAScore,
+
+    hostBScore:
+      updatedBattle.hostBScore,
+
+    isHostA,
+
+    isHostB,
+
   };
 };
 
