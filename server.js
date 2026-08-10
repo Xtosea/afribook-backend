@@ -550,37 +550,30 @@ socket.on("pk:join", async (data) => {
 
     socket.join(roomName);
 
-    // Add user to live room
-    joinPKRoom(
+    // Add user to Redis/Valkey room
+    await joinPKRoom(
       battleId,
       socket.userId
     );
 
-    // Synchronize room with MongoDB
+    // Synchronize Redis/Valkey with MongoDB
     if (battle.status === "active") {
 
-      const state = startPKRoom(
-        battleId,
-        battle.startedAt
-      );
-
-      updatePKRoomScore(
-        battleId,
-        battle.hostAScore || 0,
-        battle.hostBScore || 0
-      );
-
-    } else {
-
-      updatePKRoomScore(
-        battleId,
-        battle.hostAScore || 0,
-        battle.hostBScore || 0
+      await startPKRoom(
+        battleId
       );
     }
 
+    // Always synchronize scores from MongoDB
+    await updatePKRoomScore(
+      battleId,
+      battle.hostAScore || 0,
+      battle.hostBScore || 0
+    );
+
+    // Get final Redis/Valkey state
     const state =
-      getPKRoomState(battleId);
+      await getPKRoomState(battleId);
 
     // Send state to everyone
     io.to(roomName).emit(
@@ -613,23 +606,30 @@ socket.on("pk:join", async (data) => {
 });
 
 
+// ==========================================
 // LEAVE PK
-socket.on("pk:leave", (data) => {
+// ==========================================
+
+socket.on("pk:leave", async (data) => {
   try {
+
     const { battleId } = data;
 
     if (!battleId) return;
 
-    const roomName = `pk:${battleId}`;
+    const roomName =
+      `pk:${battleId}`;
 
     socket.leave(roomName);
 
-    const state = leavePKRoom(
-      battleId,
-      socket.userId
-    );
+    const state =
+      await leavePKRoom(
+        battleId,
+        socket.userId
+      );
 
     if (state) {
+
       io.to(roomName).emit(
         "pk:room-state",
         state
@@ -641,6 +641,7 @@ socket.on("pk:leave", (data) => {
     );
 
   } catch (error) {
+
     console.error(
       "PK leave error:",
       error
@@ -649,16 +650,21 @@ socket.on("pk:leave", (data) => {
 });
 
 
+// ==========================================
 // GET PK ROOM STATE
-socket.on("pk:get-state", (data) => {
+// ==========================================
+
+socket.on("pk:get-state", async (data) => {
   try {
+
     const { battleId } = data;
 
     if (!battleId) return;
 
-    const state = getPKRoomState(
-      battleId
-    );
+    const state =
+      await getPKRoomState(
+        battleId
+      );
 
     socket.emit(
       "pk:room-state",
@@ -666,10 +672,17 @@ socket.on("pk:get-state", (data) => {
     );
 
   } catch (error) {
+
     console.error(
       "PK state error:",
       error
     );
+
+    socket.emit("pk:error", {
+      message:
+        error.message ||
+        "Failed to get PK state",
+    });
   }
 });
 
@@ -680,6 +693,7 @@ socket.on("pk:get-state", (data) => {
 
 socket.on("pk:start", async (data) => {
   try {
+
     const { battleId } = data;
 
     if (!battleId) {
@@ -694,10 +708,11 @@ socket.on("pk:start", async (data) => {
       });
     }
 
-    // Find the actual PK battle
-    const battle = await PKBattle.findById(
-      battleId
-    );
+    // Find actual PK battle
+    const battle =
+      await PKBattle.findById(
+        battleId
+      );
 
     if (!battle) {
       return socket.emit("pk:error", {
@@ -715,29 +730,35 @@ socket.on("pk:start", async (data) => {
       socket.userId.toString();
 
     if (!isHostA && !isHostB) {
+
       console.log(
         `🚫 Unauthorized PK start attempt: ${socket.userId}`
       );
 
       return socket.emit("pk:error", {
-        message: "You are not a host of this PK",
+        message:
+          "You are not a host of this PK",
       });
     }
 
-    // Don't start an already active PK
+    // Don't start already active PK
     if (battle.status === "active") {
+
       return socket.emit("pk:error", {
-        message: "PK is already active",
+        message:
+          "PK is already active",
       });
     }
 
-    // Don't restart a completed/cancelled PK
+    // Don't restart completed/cancelled PK
     if (
       battle.status === "completed" ||
       battle.status === "cancelled"
     ) {
+
       return socket.emit("pk:error", {
-        message: "This PK can no longer be started",
+        message:
+          "This PK can no longer be started",
       });
     }
 
@@ -747,14 +768,16 @@ socket.on("pk:start", async (data) => {
 
     await battle.save();
 
-    // Start live PK room state
-    const state = startPKRoom(
-      battleId
-    );
+    // Start Redis/Valkey room
+    const state =
+      await startPKRoom(
+        battleId
+      );
 
-    const roomName = `pk:${battleId}`;
+    const roomName =
+      `pk:${battleId}`;
 
-    // Tell everyone inside the PK room
+    // Tell everyone inside PK room
     io.to(roomName).emit(
       "pk:started",
       {
@@ -788,7 +811,9 @@ socket.on("pk:start", async (data) => {
     );
 
     socket.emit("pk:error", {
-      message: "Failed to start PK",
+      message:
+        error.message ||
+        "Failed to start PK",
     });
   }
 });
@@ -800,50 +825,67 @@ socket.on("pk:start", async (data) => {
 
 socket.on("pk:score", async (data) => {
   try {
-    const { battleId, points } = data;
+
+    const {
+      battleId,
+      points
+    } = data;
 
     if (!battleId) {
       return socket.emit("pk:error", {
-        message: "Battle ID is required",
+        message:
+          "Battle ID is required",
       });
     }
 
     if (!socket.userId) {
       return socket.emit("pk:error", {
-        message: "User not authenticated",
+        message:
+          "User not authenticated",
       });
     }
 
-    const numericPoints = Number(points);
+    const numericPoints =
+      Number(points);
 
     if (
-      !Number.isFinite(numericPoints) ||
+      !Number.isFinite(
+        numericPoints
+      ) ||
       numericPoints <= 0
     ) {
+
       return socket.emit("pk:error", {
-        message: "Invalid score points",
+        message:
+          "Invalid score points",
       });
     }
 
-    // Find the real battle
-    const battle = await PKBattle.findById(
-      battleId
-    );
+    // Find real battle
+    const battle =
+      await PKBattle.findById(
+        battleId
+      );
 
     if (!battle) {
       return socket.emit("pk:error", {
-        message: "PK battle not found",
+        message:
+          "PK battle not found",
       });
     }
 
     // PK must be active
-    if (battle.status !== "active") {
+    if (
+      battle.status !== "active"
+    ) {
+
       return socket.emit("pk:error", {
-        message: "PK is not active",
+        message:
+          "PK is not active",
       });
     }
 
-    // Only Host A or Host B can receive PK score
+    // Only Host A or Host B
     const isHostA =
       battle.hostA.toString() ===
       socket.userId.toString();
@@ -853,42 +895,58 @@ socket.on("pk:score", async (data) => {
       socket.userId.toString();
 
     if (!isHostA && !isHostB) {
+
       return socket.emit("pk:error", {
-        message: "You are not a host of this PK",
+        message:
+          "You are not a host of this PK",
       });
     }
 
-    // Update authoritative MongoDB score
-    const result = await addPKScore(
-      battleId,
-      socket.userId,
-      numericPoints
-    );
+    // MongoDB is authoritative
+    const result =
+      await addPKScore(
+        battleId,
+        socket.userId,
+        numericPoints
+      );
 
-    // Update live in-memory room
-    const state = updatePKRoomScore(
+    // Update Redis/Valkey
+    await updatePKRoomScore(
       battleId,
       result.hostAScore,
       result.hostBScore
     );
 
-    // Broadcast to everyone in this PK
-    io.to(`pk:${battleId}`).emit(
+    // Broadcast to everyone
+    io.to(
+      `pk:${battleId}`
+    ).emit(
       "pk:score-updated",
       {
         battleId,
-        hostAScore: result.hostAScore,
-        hostBScore: result.hostBScore,
+
+        hostAScore:
+          result.hostAScore,
+
+        hostBScore:
+          result.hostBScore,
       }
     );
 
     console.log(
       `🥊 PK score updated: ${battleId}`,
       {
-        userId: socket.userId,
-        points: numericPoints,
-        hostAScore: result.hostAScore,
-        hostBScore: result.hostBScore,
+        userId:
+          socket.userId,
+
+        points:
+          numericPoints,
+
+        hostAScore:
+          result.hostAScore,
+
+        hostBScore:
+          result.hostBScore,
       }
     );
 
@@ -906,7 +964,6 @@ socket.on("pk:score", async (data) => {
     });
   }
 });
-
 
 
   // DISCONNECT
