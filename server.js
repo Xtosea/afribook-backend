@@ -13,6 +13,7 @@ import {
   leavePKRoom,
   startPKRoom,
   getPKRoomState,
+  updatePKRoomScore,
 } from "./services/pkSocketService.js";
 import fileUpload from "express-fileupload";
 import helmet from "helmet";
@@ -721,6 +722,120 @@ socket.on("pk:start", async (data) => {
 
     socket.emit("pk:error", {
       message: "Failed to start PK",
+    });
+  }
+});
+
+
+// ==========================================
+// ADD PK SCORE
+// ==========================================
+
+socket.on("pk:score", async (data) => {
+  try {
+    const { battleId, points } = data;
+
+    if (!battleId) {
+      return socket.emit("pk:error", {
+        message: "Battle ID is required",
+      });
+    }
+
+    if (!socket.userId) {
+      return socket.emit("pk:error", {
+        message: "User not authenticated",
+      });
+    }
+
+    const numericPoints = Number(points);
+
+    if (
+      !Number.isFinite(numericPoints) ||
+      numericPoints <= 0
+    ) {
+      return socket.emit("pk:error", {
+        message: "Invalid score points",
+      });
+    }
+
+    // Find the real battle
+    const battle = await PKBattle.findById(
+      battleId
+    );
+
+    if (!battle) {
+      return socket.emit("pk:error", {
+        message: "PK battle not found",
+      });
+    }
+
+    // PK must be active
+    if (battle.status !== "active") {
+      return socket.emit("pk:error", {
+        message: "PK is not active",
+      });
+    }
+
+    // Only Host A or Host B can receive PK score
+    const isHostA =
+      battle.hostA.toString() ===
+      socket.userId.toString();
+
+    const isHostB =
+      battle.hostB.toString() ===
+      socket.userId.toString();
+
+    if (!isHostA && !isHostB) {
+      return socket.emit("pk:error", {
+        message: "You are not a host of this PK",
+      });
+    }
+
+    // Update authoritative MongoDB score
+    const result = await addPKScore(
+      battleId,
+      socket.userId,
+      numericPoints
+    );
+
+    // Update live in-memory room
+    const state = updatePKRoomScore(
+      battleId,
+      result.hostAScore,
+      result.hostBScore
+    );
+
+    // Broadcast to everyone in this PK
+    io.to(`pk:${battleId}`).emit(
+      "pk:score-updated",
+      {
+        battleId,
+        hostAScore: result.hostAScore,
+        hostBScore: result.hostBScore,
+      }
+    );
+
+    console.log(
+      `🥊 PK score updated: ${battleId}`,
+      {
+        userId: socket.userId,
+        points: numericPoints,
+        hostAScore: result.hostAScore,
+        hostBScore: result.hostBScore,
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      "PK score socket error:",
+      error
+    );
+
+    socket.emit("pk:error", {
+      message:
+        error.message ||
+        "Failed to update PK score",
     });
   }
 });
