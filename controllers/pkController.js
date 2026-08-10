@@ -8,9 +8,16 @@ import {
   getPK,
 } from "../services/pkService.js";
 
+import {
+  getPKRoomState,
+  deletePKRoom,
+} from "../services/pkSocketService.js";
+
+
 // ===============================
 // CREATE PK
 // ===============================
+
 
 export const createPKController = async (req, res) => {
   try {
@@ -135,31 +142,137 @@ export const addPKScoreController = async (req, res) => {
 // FINISH PK
 // ===============================
 
-export const finishPKController = async (req, res) => {
+export const finishPKController = async (
+  req,
+  res
+) => {
+
   try {
-    const { battleId } = req.params;
 
-    const userId = req.user?._id || req.user?.id;
+    const {
+      battleId,
+    } = req.params;
 
-const battle = await finishPK(
-  battleId,
-  userId
-);
+
+    const userId =
+      req.user?._id ||
+      req.user?.id;
+
+
+    if (!userId) {
+
+      return res.status(401).json({
+        success: false,
+        message:
+          "Authentication required",
+      });
+
+    }
+
+
+    // ------------------------------------------
+    // Get final live Redis score
+    // ------------------------------------------
+
+    const roomState =
+      await getPKRoomState(
+        battleId
+      );
+
+
+    // ------------------------------------------
+    // Finish MongoDB battle
+    // ------------------------------------------
+
+    const battle =
+      await finishPK(
+        battleId,
+        userId
+      );
+
+
+    // ------------------------------------------
+    // Synchronize final Redis score
+    // ------------------------------------------
+
+    if (roomState) {
+
+      battle.hostAScore =
+        roomState.hostAScore;
+
+      battle.hostBScore =
+        roomState.hostBScore;
+
+
+      if (
+        battle.hostAScore >
+        battle.hostBScore
+      ) {
+
+        battle.winner =
+          battle.hostA;
+
+      } else if (
+        battle.hostBScore >
+        battle.hostAScore
+      ) {
+
+        battle.winner =
+          battle.hostB;
+
+      } else {
+
+        battle.winner =
+          null;
+      }
+
+
+      await battle.save();
+
+    }
+
+
+    // ------------------------------------------
+    // Remove Redis room
+    // ------------------------------------------
+
+    await deletePKRoom(
+      battleId
+    );
+
 
     return res.json({
+
       success: true,
-      message: "PK completed",
+
+      message:
+        "PK completed",
+
       battle,
+
     });
+
 
   } catch (error) {
-    console.error("Finish PK error:", error);
+
+    console.error(
+      "Finish PK error:",
+      error
+    );
+
 
     return res.status(400).json({
+
       success: false,
-      message: error.message || "Failed to finish PK",
+
+      message:
+        error.message ||
+        "Failed to finish PK",
+
     });
+
   }
+
 };
 
 
