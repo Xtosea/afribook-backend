@@ -344,6 +344,91 @@ export const updatePKRoomScore = async (
       battleId
     );
 
+   
+    // ==========================================
+// ATOMICALLY ADD PK SCORE
+// ==========================================
+
+export const addPKRoomScore = async (
+  battleId,
+  isHostA,
+  points
+) => {
+
+  if (!redis) {
+    throw new Error(
+      "Redis/Valkey is not configured"
+    );
+  }
+
+  const key =
+    pkKey(battleId);
+
+  const numericPoints =
+    Number(points);
+
+  if (
+    !Number.isFinite(numericPoints) ||
+    numericPoints <= 0
+  ) {
+    throw new Error(
+      "Invalid score points"
+    );
+  }
+
+  // ----------------------------------------
+  // Make sure the room exists
+  // ----------------------------------------
+
+  await getPKRoom(battleId);
+
+  // ----------------------------------------
+  // Atomically increment the correct host
+  // ----------------------------------------
+
+  const scoreField =
+    isHostA
+      ? "hostAScore"
+      : "hostBScore";
+
+  await redis.hincrby(
+    key,
+    scoreField,
+    numericPoints
+  );
+
+  // ----------------------------------------
+  // Keep room alive
+  // ----------------------------------------
+
+  await redis.expire(
+    key,
+    ROOM_TTL
+  );
+
+  // ----------------------------------------
+  // Read final atomic state
+  // ----------------------------------------
+
+  const room =
+    await getPKRoom(
+      battleId
+    );
+
+  return {
+    battleId,
+
+    hostAScore:
+      room.hostAScore,
+
+    hostBScore:
+      room.hostBScore,
+  };
+};
+
+
+
+
   // ----------------------------------------
   // Update scores
   // ----------------------------------------
@@ -434,83 +519,3 @@ export const resetPKRoom = async (
 
 
 
-// ==========================================
-// ATOMICALLY ADD PK SCORE
-// ==========================================
-
-export const addPKRoomScore = async (
-  battleId,
-  isHostA,
-  points
-) => {
-
-  if (!redis) {
-    throw new Error(
-      "Redis/Valkey is not configured"
-    );
-  }
-
-  const key =
-    pkKey(battleId);
-
-  const numericPoints =
-    Number(points);
-
-  if (
-    !Number.isFinite(numericPoints) ||
-    numericPoints <= 0
-  ) {
-    throw new Error(
-      "Invalid score points"
-    );
-  }
-
-  // ----------------------------------------
-  // Make sure the room exists
-  // ----------------------------------------
-
-  await getPKRoom(battleId);
-
-  // ----------------------------------------
-  // Atomically increment the correct host
-  // ----------------------------------------
-
-  const scoreField =
-    isHostA
-      ? "hostAScore"
-      : "hostBScore";
-
-  await redis.hincrby(
-    key,
-    scoreField,
-    numericPoints
-  );
-
-  // ----------------------------------------
-  // Keep room alive
-  // ----------------------------------------
-
-  await redis.expire(
-    key,
-    ROOM_TTL
-  );
-
-  // ----------------------------------------
-  // Read final atomic state
-  // ----------------------------------------
-
-  const room =
-    await getPKRoom(
-      battleId
-    );
-
-  return {
-    battleId,
-
-    hostAScore:
-      room.hostAScore,
-
-    hostBScore:
-      room.hostBScore,
-  };
-};
