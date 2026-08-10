@@ -559,10 +559,11 @@ socket.on("pk:join", async (data) => {
     // Synchronize Redis/Valkey with MongoDB
     if (battle.status === "active") {
 
-      await startPKRoom(
-        battleId
-      );
-    }
+  await startPKRoom(
+    battleId,
+    battle.startedAt
+  );
+}
 
     // Always synchronize scores from MongoDB
     await updatePKRoomScore(
