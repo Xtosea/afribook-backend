@@ -8,6 +8,7 @@ import {
   addPKScoreController,
   finishPKController,
   getPKController,
+  getPKHistoryController,
 } from "../controllers/pkController.js";
 
 import { verifyToken } from "../middleware/authMiddleware.js";
@@ -24,6 +25,18 @@ router.post(
   "/",
   verifyToken,
   createPKController
+);
+
+
+// ==========================================
+// PK HISTORY
+// GET /api/pk/history
+// ==========================================
+
+router.get(
+  "/history",
+  verifyToken,
+  getPKHistoryController
 );
 
 
@@ -73,6 +86,5 @@ router.get(
   verifyToken,
   getPKController
 );
-
 
 export default router;
