@@ -7,6 +7,7 @@ import {
   finishPK,
   getPK,
   getPKHistory,
+  getPKStats,
 } from "../services/pkService.js";
 
 import {
@@ -290,6 +291,52 @@ export const getPKHistoryController = async (
   }
 };
 
+
+
+// ===============================
+// GET PK STATISTICS
+// ===============================
+
+export const getPKStatsController = async (
+  req,
+  res
+) => {
+  try {
+
+    const userId =
+      req.user?._id ||
+      req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const stats =
+      await getPKStats(userId);
+
+    return res.json({
+      success: true,
+      stats,
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Get PK stats error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to load PK statistics",
+    });
+  }
+};
 
 // ===============================
 // GET PK
