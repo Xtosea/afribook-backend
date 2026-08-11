@@ -36,6 +36,25 @@ const walletSchema = new mongoose.Schema(
       default: 0,
     },
 
+
+/* ================= VIRTUAL COINS ================= */
+
+coinBalance: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
+
+lifetimeCoinsPurchased: {
+  type: Number,
+  default: 0,
+},
+
+lifetimeCoinsSpent: {
+  type: Number,
+  default: 0,
+},
+
     /* ================= ANALYTICS ================= */
 
     lifetimeDeposits: {
