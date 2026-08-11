@@ -43,69 +43,69 @@ router.get("/", verifyToken, async (req, res) => {
 /* ================= CONVERT POINTS ================= */
 router.post("/convert", verifyToken, async (req, res) => {
   try {
-    let wallet = await Wallet.findOne({ user: req.user.id });
+    let wallet = await Wallet.findOne({
+      user: req.user.id,
+    });
 
     if (!wallet) {
-      wallet = await Wallet.create({ user: req.user.id });
-    }
-
-    if (wallet.points < 10000) {
-      return res.status(400).json({
-        error: "Minimum 10000 points required",
+      wallet = await Wallet.create({
+        user: req.user.id,
       });
     }
 
-    const pointsConverted = wallet.points;
-const cash = pointsConverted * RATE;
+    const points = Number(wallet.points || 0);
 
-    wallet.balance = (wallet.balance || 0) + cash;
-    wallet.lifetimeEarned = (wallet.lifetimeEarned || 0) + cash;
+    if (points < 10000) {
+      return res.status(400).json({
+        success: false,
+        error: "Minimum 10,000 points required",
+      });
+    }
+
+    const cash = points * RATE;
+
+    // Move earned points into cash balance
+    wallet.balance =
+      (wallet.balance || 0) + cash;
+
+    wallet.lifetimeEarned =
+      (wallet.lifetimeEarned || 0) + cash;
+
     wallet.points = 0;
 
     await wallet.save();
 
+    await Transaction.create({
+      user: req.user.id,
+      type: "conversion",
+      category: "points_conversion",
+      amount: cash,
+      direction: "credit",
+      status: "success",
+      reference: `POINTS-${Date.now()}`,
+      description:
+        "Converted points to wallet balance",
+      metadata: {
+        pointsConverted: points,
+        conversionRate: RATE,
+      },
+    });
 
-const reference = `WD-${Date.now()}`;
-
-await Transaction.create({
-  user: req.user.id,
-  type: "withdrawal",
-  category: "withdrawal",
-  amount: Number(amount),
-  direction: "debit",
-  status: "pending",
-  reference,
-  description: "Withdrawal request",
-  metadata: {
-    bankName,
-    accountNumber,
-    accountName,
-  },
-});
-
-
-await Transaction.create({
-  user: req.user.id,
-  type: "conversion",
-  category: "points_conversion",
-  amount: cash,
-  direction: "credit",
-  status: "success",
-  reference: `POINTS-${Date.now()}`,
-  description: "Converted points to wallet balance",
-  metadata: {
-    pointsConverted,
-  },
-});
-
-    res.json({
+    return res.json({
       success: true,
+      message: "Points converted successfully",
       balance: wallet.balance,
       earned: cash,
+      pointsConverted: points,
     });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Conversion failed" });
+    console.error("Point conversion error:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: "Conversion failed",
+    });
   }
 });
 
