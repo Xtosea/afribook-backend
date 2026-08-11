@@ -203,13 +203,16 @@ router.post("/withdraw", verifyToken, async (req, res) => {
 
     await wallet.save();
 
-    const withdrawal = await Withdrawal.create({
+  const reference = `WD-${Date.now()}-${req.user.id}`;
+
+const withdrawal = await Withdrawal.create({
   user: req.user.id,
-  amount,
+  amount: Number(amount),
   bankName,
   accountNumber,
   accountName,
   reference,
+  type: "points",
   status: "pending",
 });
 
