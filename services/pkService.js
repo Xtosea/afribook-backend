@@ -57,6 +57,85 @@ export const createPK = async (
 };
 
 
+
+// ==========================================
+// GET USER PK HISTORY
+// ==========================================
+
+export const getPKHistory = async (
+  userId,
+  page = 1,
+  limit = 20
+) => {
+  if (!userId) {
+    throw new Error("Authentication required");
+  }
+
+  const safePage = Math.max(
+    1,
+    Number(page) || 1
+  );
+
+  const safeLimit = Math.min(
+    50,
+    Math.max(
+      1,
+      Number(limit) || 20
+    )
+  );
+
+  const skip =
+    (safePage - 1) * safeLimit;
+
+  const filter = {
+    status: "completed",
+    $or: [
+      { hostA: userId },
+      { hostB: userId },
+    ],
+  };
+
+  const [battles, total] =
+    await Promise.all([
+      PKBattle.find(filter)
+        .populate(
+          "hostA",
+          "name username profilePic"
+        )
+        .populate(
+          "hostB",
+          "name username profilePic"
+        )
+        .populate(
+          "winner",
+          "name username profilePic"
+        )
+        .sort({
+          endedAt: -1,
+          createdAt: -1,
+        })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean(),
+
+      PKBattle.countDocuments(filter),
+    ]);
+
+  return {
+    battles,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      pages: Math.ceil(
+        total / safeLimit
+      ),
+      hasMore:
+        skip + battles.length < total,
+    },
+  };
+};
+
 // ==========================================
 // VERIFY HOST
 // ==========================================
