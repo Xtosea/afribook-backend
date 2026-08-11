@@ -136,6 +136,90 @@ export const getPKHistory = async (
   };
 };
 
+
+// ==========================================
+// GET USER PK STATISTICS
+// ==========================================
+
+export const getPKStats = async (
+  userId
+) => {
+  if (!userId) {
+    throw new Error("Authentication required");
+  }
+
+  const battles = await PKBattle.find({
+    $or: [
+      { hostA: userId },
+      { hostB: userId },
+    ],
+    status: "completed",
+  });
+
+  let totalBattles = battles.length;
+  let wins = 0;
+  let losses = 0;
+  let draws = 0;
+  let totalPointsScored = 0;
+  let bestScore = 0;
+
+  const currentUserId =
+    userId.toString();
+
+  for (const battle of battles) {
+
+    const isHostA =
+      battle.hostA.toString() ===
+      currentUserId;
+
+    const myScore = isHostA
+      ? battle.hostAScore || 0
+      : battle.hostBScore || 0;
+
+    const opponentScore = isHostA
+      ? battle.hostBScore || 0
+      : battle.hostAScore || 0;
+
+    totalPointsScored += myScore;
+
+    if (myScore > bestScore) {
+      bestScore = myScore;
+    }
+
+    if (!battle.winner) {
+      draws++;
+      continue;
+    }
+
+    const winnerId =
+      battle.winner.toString();
+
+    if (winnerId === currentUserId) {
+      wins++;
+    } else {
+      losses++;
+    }
+  }
+
+  const winRate =
+    totalBattles > 0
+      ? Number(
+          ((wins / totalBattles) * 100).toFixed(1)
+        )
+      : 0;
+
+  return {
+    totalBattles,
+    wins,
+    losses,
+    draws,
+    winRate,
+    totalPointsScored,
+    bestScore,
+  };
+};
+
+
 // ==========================================
 // VERIFY HOST
 // ==========================================
