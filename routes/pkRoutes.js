@@ -9,6 +9,7 @@ import {
   finishPKController,
   getPKController,
   getPKHistoryController,
+  getPKStatsController,
 } from "../controllers/pkController.js";
 
 import { verifyToken } from "../middleware/authMiddleware.js";
@@ -29,7 +30,7 @@ router.post(
 
 
 // ==========================================
-// PK HISTORY
+// GET MY PK HISTORY
 // GET /api/pk/history
 // ==========================================
 
@@ -39,6 +40,17 @@ router.get(
   getPKHistoryController
 );
 
+
+// ==========================================
+// GET MY PK STATISTICS
+// GET /api/pk/stats
+// ==========================================
+
+router.get(
+  "/stats",
+  verifyToken,
+  getPKStatsController
+);
 
 // ==========================================
 // START PK
