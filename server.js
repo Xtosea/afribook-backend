@@ -593,7 +593,7 @@ const finalizePKBattle = async (
     // Remove Redis room
     // --------------------------------------
 
-    await resetPKRoom(
+    await deletePKRoom(
       battleId
     );
 
