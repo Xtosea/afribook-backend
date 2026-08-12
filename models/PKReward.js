@@ -19,11 +19,11 @@ const pkRewardSchema = new mongoose.Schema(
     // ==========================================
 
     winner: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+  index: true,
+},
 
     loser: {
       type: mongoose.Schema.Types.ObjectId,
