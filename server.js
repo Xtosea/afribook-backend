@@ -2007,14 +2007,76 @@ socket.on(
         new Date();
 
 
+      
+      // ----------------------------------------
+      // Determine winner
+      // ----------------------------------------
+
+      if (
+        battle.hostAScore >
+        battle.hostBScore
+      ) {
+
+        battle.winner =
+          battle.hostA;
+
+      } else if (
+        battle.hostBScore >
+        battle.hostAScore
+      ) {
+
+        battle.winner =
+          battle.hostB;
+
+      } else {
+
+        battle.winner =
+          null;
+      }
+
+
+      battle.status =
+        "completed";
+
+      battle.endedAt =
+        new Date();
+
+
       await battle.save();
 
 
-      const roomName =
-        `pk:${battleId}`;
+// ----------------------------------------
+// Settle PK reward
+// ----------------------------------------
+
+const reward =
+  await settlePKReward(
+    battle._id
+  );
+
+console.log(
+  `💰 PK reward settled: ${battleId}`,
+  {
+    result: reward.result,
+    totalCoinsSpent: reward.totalCoinsSpent,
+    platformFee: reward.platformFee,
+    creatorRewardPool: reward.creatorRewardPool,
+    winnerReward: reward.winnerReward,
+    status: reward.status,
+    reference: reward.reference,
+  }
+);
 
 
-      // ----------------------------------------
+// ----------------------------------------
+// Room
+// ----------------------------------------
+
+const roomName =
+  `pk:${battleId}`;
+
+
+// ----------------------------------------
 // Broadcast final result
 // ----------------------------------------
 
