@@ -1,6 +1,7 @@
 // services/pkService.js
 
 import PKBattle from "../models/PKBattle.js";
+import { settlePKReward } from "./pkRewardService.js";
 
 
 // ==========================================
@@ -495,16 +496,27 @@ export const finishPK = async (
 
 
   battle.status =
-    "completed";
+  "completed";
 
-  battle.endedAt =
-    new Date();
+battle.endedAt =
+  new Date();
+
+await battle.save();
 
 
-  await battle.save();
+// ==========================================
+// SETTLE PK REWARD
+// ==========================================
+
+const reward =
+  await settlePKReward(
+    battle._id
+  );
 
 
-  return battle;
+return {
+  battle,
+  reward,
 };
 // ==========================================
 // GET PK
