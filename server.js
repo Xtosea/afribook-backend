@@ -23,6 +23,10 @@ import {
   finishPK,
 } from "./services/pkService.js";
 
+import {
+  settlePKReward,
+} from "./services/pkRewardService.js";
+
 import "./config/env.js";
 import "./config/redis.js";
 
@@ -523,6 +527,30 @@ const finalizePKBattle = async (
     }
 
     await battle.save();
+
+
+    // --------------------------------------
+// Settle PK reward
+// --------------------------------------
+
+const reward =
+  await settlePKReward(
+    battle._id
+  );
+
+console.log(
+  `💰 PK reward settled: ${battleId}`,
+  {
+    result: reward.result,
+    totalCoinsSpent: reward.totalCoinsSpent,
+    platformFee: reward.platformFee,
+    creatorRewardPool: reward.creatorRewardPool,
+    winnerReward: reward.winnerReward,
+    status: reward.status,
+    reference: reward.reference,
+  }
+);
+
 
     // --------------------------------------
     // Final state
@@ -1518,8 +1546,6 @@ socket.on(
           }
         );
       }
-
-
       // ----------------------------------------
       // TEMPORARY TEST LIMIT
       //
@@ -1916,54 +1942,97 @@ socket.on(
 
 
       // ----------------------------------------
-      // Broadcast final result
-      // ----------------------------------------
+// Broadcast final result
+// ----------------------------------------
 
-      io.to(
-        roomName
-      ).emit(
-        "pk:finished",
-        {
-          battleId,
+// Main PK completion event
+io.to(
+  roomName
+).emit(
+  "pk:finished",
+  {
+    ...finalState,
 
-          status:
-            "completed",
+    battleId,
 
-          endedAt:
-            battle.endedAt,
+    status:
+      "completed",
 
-          hostAScore:
-            battle.hostAScore,
+    endedAt:
+      battle.endedAt,
 
-          hostBScore:
-            battle.hostBScore,
+    hostAScore:
+      battle.hostAScore,
 
-          winner:
-            battle.winner,
-        }
-      );
+    hostBScore:
+      battle.hostBScore,
+
+    winner:
+      battle.winner,
+
+    reward,
+  }
+);
 
 
-      io.to(
-        roomName
-      ).emit(
-        "pk:room-state",
-        {
-          ...(finalState || {}),
+// ----------------------------------------
+// PK ended event
+// ----------------------------------------
 
-          battleId,
+io.to(
+  roomName
+).emit(
+  "pk:ended",
+  {
+    ...finalState,
 
-          started:
-            false,
+    battleId,
 
-          hostAScore:
-            battle.hostAScore,
+    status:
+      "completed",
 
-          hostBScore:
-            battle.hostBScore,
-        }
-      );
+    endedAt:
+      battle.endedAt,
 
+    hostAScore:
+      battle.hostAScore,
+
+    hostBScore:
+      battle.hostBScore,
+
+    winner:
+      battle.winner,
+
+    reward,
+  }
+);
+
+
+// ----------------------------------------
+// Final room state
+// ----------------------------------------
+
+io.to(
+  roomName
+).emit(
+  "pk:room-state",
+  {
+    ...(finalState || {}),
+
+    battleId,
+
+    started:
+      false,
+
+    hostAScore:
+      battle.hostAScore,
+
+    hostBScore:
+      battle.hostBScore,
+
+    reward,
+  }
+);
 
       // ----------------------------------------
       // Redis no longer needed
