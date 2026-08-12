@@ -2007,42 +2007,50 @@ socket.on(
         new Date();
 
 
-      
-      // ----------------------------------------
-      // Determine winner
-      // ----------------------------------------
-
-      if (
-        battle.hostAScore >
-        battle.hostBScore
-      ) {
-
-        battle.winner =
-          battle.hostA;
-
-      } else if (
-        battle.hostBScore >
-        battle.hostAScore
-      ) {
-
-        battle.winner =
-          battle.hostB;
-
-      } else {
-
-        battle.winner =
-          null;
-      }
-
-
-      battle.status =
-        "completed";
-
-      battle.endedAt =
-        new Date();
-
-
       await battle.save();
+
+
+      // ----------------------------------------
+// Final state
+// ----------------------------------------
+
+const finalState = {
+
+  battleId,
+
+  hostA:
+    battle.hostA,
+
+  hostB:
+    battle.hostB,
+
+  hostAScore:
+    battle.hostAScore,
+
+  hostBScore:
+    battle.hostBScore,
+
+  winner:
+    battle.winner
+      ? battle.winner.toString()
+      : null,
+
+  draw:
+    battle.winner === null,
+
+  startedAt:
+    battle.startedAt,
+
+  endedAt:
+    battle.endedAt,
+
+  duration:
+    battle.duration,
+
+  status:
+    "completed",
+
+};
 
 
 // ----------------------------------------
