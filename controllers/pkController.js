@@ -186,12 +186,12 @@ export const finishPKController = async (
     // Finish using final live score
     // ------------------------------------------
 
-    const battle =
-      await finishPK(
-        battleId,
-        userId,
-        roomState
-      );
+    const result =
+  await finishPK(
+    battleId,
+    userId,
+    roomState
+  );
 
 
     // ------------------------------------------
@@ -205,14 +205,18 @@ export const finishPKController = async (
 
     return res.json({
 
-      success: true,
+  success: true,
 
-      message:
-        "PK completed",
+  message:
+    "PK completed",
 
-      battle,
+  battle:
+    result.battle,
 
-    });
+  reward:
+    result.reward,
+
+});
 
 
   } catch (error) {
