@@ -26,6 +26,9 @@ import {
 import {
   settlePKReward,
 } from "./services/pkRewardService.js";
+import {
+  sendPKGift,
+} from "./services/pkGiftService.js";
 
 import "./config/env.js";
 import "./config/redis.js";
@@ -1914,6 +1917,269 @@ socket.on(
           message:
             error.message ||
             "Failed to update PK score",
+        }
+      );
+
+    }
+
+  }
+);
+
+
+// ==========================================
+// SEND PK GIFT
+// ==========================================
+//
+// Client:
+// socket.emit("pk:gift", {
+//   battleId,
+//   receiverId,
+//   giftId,
+// });
+//
+// Server:
+// 1. Validates the PK
+// 2. Deducts User.coins
+// 3. Records CoinTransaction
+// 4. Adds PK points
+// 5. Synchronizes Redis
+// 6. Broadcasts the gift to the PK room
+// ==========================================
+
+socket.on(
+  "pk:gift",
+  async (data) => {
+
+    try {
+
+      const {
+        battleId,
+        receiverId,
+        giftId,
+      } = data || {};
+
+
+      // ----------------------------------------
+      // AUTHENTICATION
+      // ----------------------------------------
+
+      if (!socket.userId) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "User not authenticated",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // VALIDATION
+      // ----------------------------------------
+
+      if (
+        !battleId ||
+        !receiverId ||
+        !giftId
+      ) {
+
+        return socket.emit(
+          "pk:error",
+          {
+            message:
+              "Battle ID, receiver ID and gift ID are required",
+          }
+        );
+      }
+
+
+      // ----------------------------------------
+      // SEND GIFT
+      //
+      // This handles:
+      // - User.coins deduction
+      // - insufficient coins
+      // - gift validation
+      // - PK validation
+      // - PK score update
+      // - CoinTransaction
+      // ----------------------------------------
+
+      const result =
+        await sendPKGift({
+          senderId:
+            socket.userId,
+
+          battleId,
+
+          receiverId,
+
+          giftId,
+        });
+
+
+      // ----------------------------------------
+      // SYNCHRONIZE REDIS SCORE
+      // ----------------------------------------
+
+      const mongoBattle =
+        result.battle;
+
+
+      if (!mongoBattle) {
+
+        throw new Error(
+          "Gift was processed but PK battle data was not returned"
+        );
+      }
+
+
+      const scoreState =
+        await updatePKRoomScore(
+          battleId,
+
+          mongoBattle.hostAScore,
+
+          mongoBattle.hostBScore
+        );
+
+
+      const roomName =
+        `pk:${battleId}`;
+
+
+      // ----------------------------------------
+      // BROADCAST GIFT
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:gift-received",
+        {
+
+          battleId,
+
+          senderId:
+            socket.userId.toString(),
+
+          receiverId:
+            receiverId.toString(),
+
+          gift:
+            result.gift,
+
+          receiverSide:
+            result.receiverSide,
+
+          balanceAfter:
+            result.balanceAfter,
+
+          hostAScore:
+            scoreState.hostAScore,
+
+          hostBScore:
+            scoreState.hostBScore,
+
+        }
+      );
+
+
+      // ----------------------------------------
+      // SEND SUCCESS TO SENDER
+      // ----------------------------------------
+
+      socket.emit(
+        "pk:gift-sent",
+        {
+
+          success:
+            true,
+
+          battleId,
+
+          receiverId,
+
+          gift:
+            result.gift,
+
+          balanceBefore:
+            result.balanceBefore,
+
+          balanceAfter:
+            result.balanceAfter,
+
+          hostAScore:
+            scoreState.hostAScore,
+
+          hostBScore:
+            scoreState.hostBScore,
+
+        }
+      );
+
+
+      // ----------------------------------------
+      // BROADCAST COMPLETE ROOM STATE
+      // ----------------------------------------
+
+      io.to(
+        roomName
+      ).emit(
+        "pk:room-state",
+        scoreState
+      );
+
+
+      console.log(
+        "🎁 PK gift sent:",
+        {
+          battleId,
+
+          senderId:
+            socket.userId,
+
+          receiverId,
+
+          giftId,
+
+          gift:
+            result.gift?.name,
+
+          coinCost:
+            result.gift?.coinCost,
+
+          pkPoints:
+            result.gift?.pkPoints,
+
+          balanceAfter:
+            result.balanceAfter,
+
+          hostAScore:
+            scoreState.hostAScore,
+
+          hostBScore:
+            scoreState.hostBScore,
+        }
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "❌ PK gift socket error:",
+        error
+      );
+
+
+      socket.emit(
+        "pk:error",
+        {
+          message:
+            error.message ||
+            "Failed to send PK gift",
         }
       );
 
