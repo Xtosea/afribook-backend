@@ -33,30 +33,106 @@ export const createPK = async (
     );
   }
 
-  const existingPK = await PKBattle.findOne({
-  status: { $in: ["pending", "active"] },
-  $or: [
-    { hostA: { $in: [hostA, hostB] } },
-    { hostB: { $in: [hostA, hostB] } },
-  ],
-});
+  // ==========================================
+// CLEAN UP STALE PK BATTLES
+// ==========================================
 
-console.log("🥊 CREATE PK CHECK:", {
-  requestedHostA: hostA?.toString(),
-  requestedHostB: hostB?.toString(),
+// Pending battles should not lock users forever.
+// If nobody started the PK within 15 minutes,
+// consider it abandoned.
+const pendingTimeoutMs =
+  15 * 60 * 1000;
 
-  existingPK: existingPK
-    ? {
-        id: existingPK._id?.toString(),
-        hostA: existingPK.hostA?.toString(),
-        hostB: existingPK.hostB?.toString(),
-        status: existingPK.status,
-        startedAt: existingPK.startedAt,
-        endedAt: existingPK.endedAt,
-        createdAt: existingPK.createdAt,
-      }
-    : null,
-});
+const pendingCutoff =
+  new Date(Date.now() - pendingTimeoutMs);
+
+
+// Cancel stale pending battles involving either user
+await PKBattle.updateMany(
+  {
+    status: "pending",
+
+    createdAt: {
+      $lt: pendingCutoff,
+    },
+
+    $or: [
+      { hostA },
+      { hostB },
+    ],
+  },
+  {
+    $set: {
+      status: "cancelled",
+      endedAt: new Date(),
+    },
+  }
+);
+
+
+// ==========================================
+// CHECK FOR CURRENT PK
+// ==========================================
+
+const existingPK =
+  await PKBattle.findOne({
+    status: {
+      $in: [
+        "pending",
+        "active",
+      ],
+    },
+
+    $or: [
+      { hostA },
+      { hostB },
+    ],
+  });
+
+
+console.log(
+  "🥊 CREATE PK CHECK:",
+  {
+    hostA:
+      hostA?.toString(),
+
+    hostB:
+      hostB?.toString(),
+
+    existingPK:
+      existingPK
+        ? {
+            id:
+              existingPK._id?.toString(),
+
+            hostA:
+              existingPK.hostA?.toString(),
+
+            hostB:
+              existingPK.hostB?.toString(),
+
+            status:
+              existingPK.status,
+
+            startedAt:
+              existingPK.startedAt,
+
+            endedAt:
+              existingPK.endedAt,
+
+            createdAt:
+              existingPK.createdAt,
+          }
+        : null,
+  }
+);
+
+
+if (existingPK) {
+  throw new Error(
+    "One of the users is already in a PK"
+  );
+}
 
 if (existingPK) {
   throw new Error(
