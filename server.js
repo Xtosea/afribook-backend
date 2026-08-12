@@ -1952,26 +1952,25 @@ socket.on(
 
 
       // ----------------------------------------
-      // Redis is authoritative for final
-      // live score.
-      // ----------------------------------------
+// Redis is authoritative for final
+// live score.
+// ----------------------------------------
 
-      const finalState =
-        await getPKRoomState(
-          battleId
-        );
+const liveState =
+  await getPKRoomState(
+    battleId
+  );
 
 
-      if (finalState) {
+if (liveState) {
 
-        battle.hostAScore =
-          finalState.hostAScore;
+  battle.hostAScore =
+    liveState.hostAScore;
 
-        battle.hostBScore =
-          finalState.hostBScore;
+  battle.hostBScore =
+    liveState.hostBScore;
 
-      }
-
+}
 
       // ----------------------------------------
       // Determine winner
