@@ -130,9 +130,6 @@ transactionSchema.index({
   createdAt: -1,
 });
 
-transactionSchema.index({
-  reference: 1,
-});
 
 export default mongoose.model(
   "Transaction",
