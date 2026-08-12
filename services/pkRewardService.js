@@ -384,12 +384,15 @@ export const settlePKReward = async (
               },
               {
                 $inc: {
-                  earningBalance:
-                    winnerReward,
+  balance:
+    winnerReward,
 
-                  lifetimeEarned:
-                    winnerReward,
-                },
+  earningBalance:
+    winnerReward,
+
+  lifetimeEarned:
+    winnerReward,
+},
               },
               {
                 new: true,
