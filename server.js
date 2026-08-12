@@ -598,18 +598,91 @@ console.log(
     // Broadcast final result
     // --------------------------------------
 
-    io.to(roomName).emit(
-      "pk:ended",
-      finalState
-    );
-
-    // Also broadcast final room state
-    io.to(roomName).emit(
-      "pk:room-state",
+    io.to(
+      roomName
+    ).emit(
+      "pk:finished",
       {
         ...finalState,
 
-        started: false,
+        battleId,
+
+        status:
+          "completed",
+
+        endedAt:
+          battle.endedAt,
+
+        hostAScore:
+          battle.hostAScore,
+
+        hostBScore:
+          battle.hostBScore,
+
+        winner:
+          battle.winner,
+
+        reward,
+      }
+    );
+
+
+    // --------------------------------------
+    // PK ended event
+    // --------------------------------------
+
+    io.to(
+      roomName
+    ).emit(
+      "pk:ended",
+      {
+        ...finalState,
+
+        battleId,
+
+        status:
+          "completed",
+
+        endedAt:
+          battle.endedAt,
+
+        hostAScore:
+          battle.hostAScore,
+
+        hostBScore:
+          battle.hostBScore,
+
+        winner:
+          battle.winner,
+
+        reward,
+      }
+    );
+
+
+    // --------------------------------------
+    // Final room state
+    // --------------------------------------
+
+    io.to(
+      roomName
+    ).emit(
+      "pk:room-state",
+      {
+        ...(finalState || {}),
+
+        battleId,
+
+        started:
+          false,
+
+        hostAScore:
+          battle.hostAScore,
+
+        hostBScore:
+          battle.hostBScore,
+
+        reward,
       }
     );
 
