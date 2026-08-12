@@ -7,6 +7,10 @@ import Gift from "../models/Gift.js";
 import PKBattle from "../models/PKBattle.js";
 import CoinTransaction from "../models/CoinTransaction.js";
 import Wallet from "../models/Wallet.js";
+import {
+  addPKRoomScore,
+} from "./pkSocketService.js";
+
 
 
 // ==========================================
@@ -250,6 +254,18 @@ export const sendPKGift = async ({
 
 
         // ==========================================
+// UPDATE LIVE REDIS PK SCORE
+// ==========================================
+
+const liveScore =
+  await addPKRoomScore(
+    battleId,
+    receiverIsHostA,
+    pkPoints
+  );
+
+
+        // ==========================================
         // RECORD COIN TRANSACTION
         // ==========================================
 
@@ -354,6 +370,31 @@ export const sendPKGift = async ({
         };
       }
     );
+
+
+     result = {
+  battle: updatedBattle,
+
+  liveScore,
+
+  gift: {
+    id: gift._id,
+    name: gift.name,
+    emoji: gift.emoji,
+    coinCost,
+    pkPoints,
+  },
+
+  receiverId,
+
+  receiverSide:
+    receiverIsHostA
+      ? "A"
+      : "B",
+
+  balanceBefore,
+  balanceAfter,
+};
 
 
     return result;
