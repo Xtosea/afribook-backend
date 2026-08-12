@@ -36,14 +36,15 @@ export const createPK = async (
   const existingPK = await PKBattle.findOne({
   status: { $in: ["pending", "active"] },
   $or: [
-    { hostA },
-    { hostB },
+    { hostA: { $in: [hostA, hostB] } },
+    { hostB: { $in: [hostA, hostB] } },
   ],
 });
 
 console.log("🥊 CREATE PK CHECK:", {
-  hostA: hostA?.toString(),
-  hostB: hostB?.toString(),
+  requestedHostA: hostA?.toString(),
+  requestedHostB: hostB?.toString(),
+
   existingPK: existingPK
     ? {
         id: existingPK._id?.toString(),
@@ -56,6 +57,12 @@ console.log("🥊 CREATE PK CHECK:", {
       }
     : null,
 });
+
+if (existingPK) {
+  throw new Error(
+    "One of the users is already in a PK"
+  );
+}
 
   if (existingPK) {
     throw new Error(
