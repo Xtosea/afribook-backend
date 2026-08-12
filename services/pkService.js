@@ -4,7 +4,9 @@ import PKBattle from "../models/PKBattle.js";
 import { settlePKReward } from "./pkRewardService.js";
 
 
-// ==========================================
+
+
+  // ==========================================
 // CREATE PK
 // ==========================================
 
@@ -34,74 +36,22 @@ export const createPK = async (
   }
 
   // ==========================================
-// CREATE PK
-// ==========================================
-
-export const createPK = async (
-  hostA,
-  hostB,
-  duration = 300
-) => {
-
-  if (!hostA || !hostB) {
-    throw new Error(
-      "Both PK hosts are required"
-    );
-  }
-
-
-  if (
-    hostA.toString() ===
-    hostB.toString()
-  ) {
-    throw new Error(
-      "A user cannot battle themselves"
-    );
-  }
-
-
-  const safeDuration =
-    Number(duration);
-
-
-  if (
-    !Number.isFinite(safeDuration) ||
-    safeDuration < 30 ||
-    safeDuration > 3600
-  ) {
-    throw new Error(
-      "PK duration must be between 30 seconds and 1 hour"
-    );
-  }
-
-
-  // ==========================================
-  // CLEAN UP STALE PK BATTLES
+  // CLEAN UP STALE PENDING PK
   // ==========================================
 
-  // Pending PKs expire after 15 minutes
-  const pendingTimeoutMs =
-    15 * 60 * 1000;
+  // A pending PK invitation expires after 15 minutes.
+  const pendingTimeoutMs = 15 * 60 * 1000;
 
-  const pendingCutoff =
-    new Date(
-      Date.now() -
-      pendingTimeoutMs
-    );
-
-
-  // ==========================================
-  // CANCEL ABANDONED PENDING PKs
-  // ==========================================
+  const pendingCutoff = new Date(
+    Date.now() - pendingTimeoutMs
+  );
 
   await PKBattle.updateMany(
     {
       status: "pending",
-
       createdAt: {
         $lt: pendingCutoff,
       },
-
       $or: [
         { hostA },
         { hostB },
@@ -115,67 +65,45 @@ export const createPK = async (
     }
   );
 
-
   // ==========================================
   // FIND EXPIRED ACTIVE PKs
   // ==========================================
 
-  const activePKs =
-    await PKBattle.find({
-      status: "active",
-
-      startedAt: {
-        $ne: null,
-      },
-
-      $or: [
-        { hostA },
-        { hostB },
-      ],
-    });
-
+  const activePKs = await PKBattle.find({
+    status: "active",
+    startedAt: {
+      $ne: null,
+    },
+    $or: [
+      { hostA },
+      { hostB },
+    ],
+  });
 
   // ==========================================
   // AUTO-FINISH EXPIRED ACTIVE PKs
   // ==========================================
 
-  const now =
-    Date.now();
+  const now = Date.now();
 
-
-  for (
-    const activePK of activePKs
-  ) {
-
-    const startedAt =
-      new Date(
-        activePK.startedAt
-      ).getTime();
-
+  for (const activePK of activePKs) {
+    const startedAt = new Date(
+      activePK.startedAt
+    ).getTime();
 
     const durationMs =
-      Number(
-        activePK.duration || 300
-      ) * 1000;
-
+      Number(activePK.duration || 300) * 1000;
 
     const expiresAt =
-      startedAt +
-      durationMs;
+      startedAt + durationMs;
 
-
-    if (
-      now >= expiresAt
-    ) {
-
+    if (now >= expiresAt) {
       console.log(
         "⏰ Auto-finishing expired PK:",
         activePK._id.toString()
       );
 
-
       try {
-
         await finishPK(
           activePK._id,
           null,
@@ -183,122 +111,91 @@ export const createPK = async (
           true
         );
 
-
         console.log(
           "✅ Expired PK automatically completed:",
           activePK._id.toString()
         );
-
       } catch (error) {
-
         console.error(
           "❌ Failed to auto-finish expired PK:",
           activePK._id.toString(),
           error
         );
-
       }
-
     }
-
   }
-
 
   // ==========================================
   // CHECK FOR CURRENT PK
   // ==========================================
 
-  const existingPK =
-    await PKBattle.findOne({
-
-      status: {
-        $in: [
-          "pending",
-          "active",
-        ],
-      },
-
-      $or: [
-        { hostA },
-        { hostB },
+  const existingPK = await PKBattle.findOne({
+    status: {
+      $in: [
+        "pending",
+        "active",
       ],
-
-    });
-
+    },
+    $or: [
+      { hostA },
+      { hostB },
+    ],
+  });
 
   console.log(
     "🥊 CREATE PK CHECK:",
     {
-      hostA:
-        hostA?.toString(),
+      hostA: hostA?.toString(),
+      hostB: hostB?.toString(),
 
-      hostB:
-        hostB?.toString(),
+      existingPK: existingPK
+        ? {
+            id: existingPK._id?.toString(),
 
-      existingPK:
-        existingPK
-          ? {
-              id:
-                existingPK._id?.toString(),
+            hostA:
+              existingPK.hostA?.toString(),
 
-              hostA:
-                existingPK.hostA?.toString(),
+            hostB:
+              existingPK.hostB?.toString(),
 
-              hostB:
-                existingPK.hostB?.toString(),
+            status:
+              existingPK.status,
 
-              status:
-                existingPK.status,
+            startedAt:
+              existingPK.startedAt,
 
-              startedAt:
-                existingPK.startedAt,
+            endedAt:
+              existingPK.endedAt,
 
-              endedAt:
-                existingPK.endedAt,
-
-              createdAt:
-                existingPK.createdAt,
-            }
-          : null,
+            createdAt:
+              existingPK.createdAt,
+          }
+        : null,
     }
   );
 
-
   // ==========================================
-  // STILL ACTIVE?
+  // BLOCK ONLY IF STILL ACTIVE/PENDING
   // ==========================================
 
   if (existingPK) {
-
     throw new Error(
       "One of the users is already in a PK"
     );
-
   }
-
 
   // ==========================================
   // CREATE NEW PK
   // ==========================================
 
-  const battle =
-    await PKBattle.create({
-
-      hostA,
-
-      hostB,
-
-      duration:
-        safeDuration,
-
-      status:
-        "pending",
-
-    });
-
+  const battle = await PKBattle.create({
+    hostA,
+    hostB,
+    duration: safeDuration,
+    status: "pending",
+  });
 
   return battle;
-
 };
 
 
@@ -519,9 +416,9 @@ export const startPK = async (
   }
 
   battle.status = "active";
-  qQ,battle.startedAt = new Date();
+  battle.startedAt = new Date();
 
-  await battle.save();
+ await battle.save();
 
   return battle;
 };
