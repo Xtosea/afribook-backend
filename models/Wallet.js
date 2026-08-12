@@ -11,23 +11,39 @@ const walletSchema = new mongoose.Schema(
 
     /* ================= MONEY ================= */
 
-    // Money deposited by the user
-    walletBalance: {
-      type: Number,
-      default: 0,
-    },
+// Available spendable cash
+balance: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
 
-    // Money earned from creators, ads, referrals, etc.
-    earningBalance: {
-      type: Number,
-      default: 0,
-    },
+// Money deposited by the user
+walletBalance: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
 
-    // Withdrawals waiting for approval
-    pendingWithdrawal: {
-      type: Number,
-      default: 0,
-    },
+// Money earned from creators, PK, ads, referrals, etc.
+earningBalance: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
+
+// Withdrawals waiting for approval
+pending: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
+
+pendingWithdrawal: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
 
     /* ================= POINTS ================= */
 
