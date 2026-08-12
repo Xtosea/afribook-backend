@@ -411,8 +411,9 @@ export const addPKScore = async (
 
 export const finishPK = async (
   battleId,
-  userId,
-  finalScores = null
+  userId = null,
+  finalScores = null,
+  systemFinish = false
 ) => {
 
   const battle =
@@ -430,10 +431,12 @@ export const finishPK = async (
   }
 
 
+  if (!systemFinish) {
   verifyHost(
     battle,
     userId
   );
+}
 
 
   if (
