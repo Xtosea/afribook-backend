@@ -1,3 +1,4 @@
+import { MongoClient } from "mongodb";
 
 let client;
 let db;
