@@ -5,197 +5,105 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 import { sendEmail } from "../utils/mailer.js";
-import { addPoints }
-from "../utils/addPoints.js";
+import { addPoints } from "../utils/addPoints.js";
 import Wallet from "../models/Wallet.js";
 
 const router = express.Router();
 
 /* ================= REGISTER ================= */
+
 router.post("/register", async (req, res) => {
-
   const {
-  name,
-  email,
-  password,
-  referralCode,
-  redirect,
-} = req.body;
+    name,
+    identifier,
+    password,
+    referralCode,
+  } = req.body;
 
-  if (!name || !email || !password) {
+  if (!name || !identifier || !password) {
     return res.status(400).json({
-      error: "All fields are required",
+      error: "Name, email or phone, and password are required",
     });
   }
 
   try {
+    const cleanIdentifier = identifier.trim();
+
+    const isEmail = cleanIdentifier.includes("@");
+
+    const query = isEmail
+      ? { email: cleanIdentifier.toLowerCase() }
+      : { phone: cleanIdentifier };
 
     // CHECK EXISTING USER
-    const existingUser =
-      await User.findOne({ email });
+    const existingUser = await User.findOne(query);
 
     if (existingUser) {
       return res.status(400).json({
-        error: "User already exists",
+        error: isEmail
+          ? "Email already exists"
+          : "Phone number already exists",
       });
     }
 
     // HASH PASSWORD
-    const hashedPassword =
-      await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // GENERATE VERIFY TOKEN
-    const verifyToken =
-      crypto.randomBytes(32).toString("hex");
+    // GENERATE REFERRAL CODE
+    const generatedReferralCode =
+      "AFR" +
+      Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
 
-    // CREATE USER
-    const user = await User.create({
-  name,
-  email,
-  password: hashedPassword,
-  verifyToken,
-  verifyTokenExpiry:
-    Date.now() + 3600000,
-});
+    // CHECK REFERRER
+    let referredBy = null;
 
-// Create wallet for user
-await Wallet.create({
-  user: user._id,
-});
-
-    console.log(
-      "Generated token:",
-      verifyToken
-    );
-
-    console.log(
-      "Saved user token:",
-      user.verifyToken
-    );
-
-    /* ================= REFERRAL ================= */
     if (referralCode) {
-
-      const referrer =
-        await User.findOne({
-          referralCode,
-        });
+      const referrer = await User.findOne({
+        referralCode: referralCode.trim(),
+      });
 
       if (referrer) {
-
-        await addPoints(
-          referrer._id,
-          500,
-          "referral"
-        );
+        referredBy = referrer._id;
       }
     }
 
-    /* ================= SEND EMAIL ================= */
-    const verifyUrl =
-       `https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${encodeURIComponent(user.email)}&redirect=${encodeURIComponent(redirect || "/")}`;
+    // CREATE USER
+    const userData = {
+      name: name.trim(),
+      password: hashedPassword,
+      referralCode: generatedReferralCode,
+      referredBy,
+    };
 
-    await sendEmail({
-      to: user.email,
-      subject:
-        "Verify your AfricSocial account",
-
-      html: `
-        <h2>
-          Welcome to AfricSocial,
-          ${user.name}
-        </h2>
-
-        <p>
-          Please verify your email:
-        </p>
-
-        <a href="${verifyUrl}" target="_blank">
-          Click here to verify your email
-        </a>
-
-        <p>
-          OR copy & paste this link:
-        </p>
-
-        <p>${verifyUrl}</p>
-      `,
-    });
-
-    res.status(201).json({
-      message:
-        "Registration successful. Please verify your email.",
-    });
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: "Server error",
-    });
-  }
-});
-
-/* ================= VERIFY EMAIL ================= */
-router.get("/verify/:token", async (req, res) => {
-
-  try {
-
-    const { token } = req.params;
-
-    const { email } = req.query;
-
-    // FIND USER
-    let user =
-      await User.findOne({
-        verifyToken: token,
-      });
-
-    // INVALID TOKEN
-    if (!user) {
-
-      const alreadyVerifiedUser =
-        await User.findOne({
-          email,
-          isVerified: true,
-        });
-
-      if (alreadyVerifiedUser) {
-
-        return res.json({
-          message:
-            "User already verified",
-        });
-      }
-
-      return res.status(400).json({
-        error: "Invalid token",
-      });
+    // Only add the identifier that was actually supplied.
+    // We do NOT create email: "" or phone: "".
+    if (isEmail) {
+      userData.email = cleanIdentifier.toLowerCase();
+    } else {
+      userData.phone = cleanIdentifier;
     }
 
-    // TOKEN EXPIRED
-    if (
-      user.verifyTokenExpiry <
-      Date.now()
-    ) {
+    const user = await User.create(userData);
 
-      return res.status(400).json({
-        error: "Token expired",
-      });
+    // CREATE WALLET
+    await Wallet.create({
+      user: user._id,
+    });
+
+    // REFERRAL REWARD
+    if (referredBy) {
+      await addPoints(
+        referredBy,
+        500,
+        "referral"
+      );
     }
-
-    // VERIFY USER
-    user.isVerified = true;
-
-    user.verifyToken = null;
-
-    user.verifyTokenExpiry = null;
-
-    await user.save();
 
     // CREATE LOGIN TOKEN
-    const authToken = jwt.sign(
+    const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
       {
@@ -203,81 +111,75 @@ router.get("/verify/:token", async (req, res) => {
       }
     );
 
-    return res.json({
-      message:
-        "Verified successfully",
-
-      token: authToken,
+    return res.status(201).json({
+      message: "Registration successful",
+      token,
 
       user: {
         _id: user._id,
         name: user.name,
-        email: user.email,
-        profilePic:
-          user.profilePic || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePic: user.profilePic || "",
+        referralCode: user.referralCode,
       },
     });
 
   } catch (err) {
+    console.error("REGISTER ERROR:", err);
 
-    console.error(err);
-
-    res.status(500).json({
+    return res.status(500).json({
       error: "Server error",
+      message: err.message,
     });
   }
 });
 
-/* ================= LOGIN ================= */
-router.post("/login", async (req, res) => {
 
+/* ================= LOGIN ================= */
+
+router.post("/login", async (req, res) => {
   const {
-    email,
+    identifier,
     password,
   } = req.body;
 
-  if (!email || !password) {
-
+  if (!identifier || !password) {
     return res.status(400).json({
-      error:
-        "All fields are required",
+      error: "Email/phone and password are required",
     });
   }
 
   try {
+    const cleanIdentifier = identifier.trim();
 
-    const user =
-      await User.findOne({ email });
+    const isEmail = cleanIdentifier.includes("@");
+
+    const query = isEmail
+      ? { email: cleanIdentifier.toLowerCase() }
+      : { phone: cleanIdentifier };
+
+    const user = await User.findOne(query);
 
     if (!user) {
-
       return res.status(400).json({
-        error:
-          "Invalid credentials",
+        error: "Invalid credentials",
       });
     }
 
-    // CHECK VERIFIED
-    if (!user.isVerified) {
+    // IMPORTANT:
+    // NO EMAIL VERIFICATION CHECK HERE.
+    //
+    // Users can log in immediately after registration.
 
-      return res.status(403).json({
-        error:
-          "Please verify your email before logging in",
-      });
-    }
-
-    // CHECK PASSWORD
-    const isMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
+    const isMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
 
     if (!isMatch) {
-
       return res.status(400).json({
-        error:
-          "Invalid credentials",
+        error: "Invalid credentials",
       });
     }
 
@@ -290,139 +192,57 @@ router.post("/login", async (req, res) => {
       }
     );
 
-    // RESPONSE
-    res.json({
+    return res.json({
+      message: "Login successful",
       token,
 
       user: {
         _id: user._id,
         name: user.name,
-        email: user.email,
-        profilePic:
-          user.profilePic || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePic: user.profilePic || "",
       },
     });
 
   } catch (err) {
+    console.error("LOGIN ERROR:", err);
 
-    console.error(err);
-
-    res.status(500).json({
+    return res.status(500).json({
       error: "Server error",
     });
   }
 });
 
-/* ================= RESEND VERIFICATION ================= */
-router.post(
-  "/resend-verification",
-  async (req, res) => {
-
-    const { email, redirect } = req.body;
-
-    try {
-
-      const user =
-        await User.findOne({
-          email,
-        });
-
-      if (!user) {
-
-        return res.status(404).json({
-          error: "User not found",
-        });
-      }
-
-      if (user.isVerified) {
-
-        return res.status(400).json({
-          error:
-            "Email already verified",
-        });
-      }
-
-      // NEW TOKEN
-      const verifyToken =
-        crypto.randomBytes(32)
-          .toString("hex");
-
-      user.verifyToken =
-        verifyToken;
-
-      user.verifyTokenExpiry =
-        Date.now() + 3600000;
-
-      await user.save();
-
-      // VERIFY URL
-const verifyUrl =
-`https://africsocial.globelynks.com/verify-email/${verifyToken}?email=${encodeURIComponent(user.email)}&redirect=${encodeURIComponent(redirect || "/")}`;
-
-      // SEND EMAIL
-      await sendEmail({
-        to: user.email,
-
-        subject:
-          "Verify your AfricSocial account",
-
-        html: `
-          <h2>
-            Email Verification
-          </h2>
-
-          <p>
-            Click the link below
-            to verify your account:
-          </p>
-
-          <a href="${verifyUrl}">
-            ${verifyUrl}
-          </a>
-        `,
-      });
-
-      res.json({
-        message:
-          "Verification email resent",
-      });
-
-    } catch (err) {
-
-      console.error(err);
-
-      res.status(500).json({
-        error: "Server error",
-      });
-    }
-  }
-);
 
 /* ================= FORGOT PASSWORD ================= */
+
 router.post(
   "/forgot-password",
   async (req, res) => {
-
     const { email } = req.body;
 
-    try {
+    if (!email) {
+      return res.status(400).json({
+        error: "Email is required",
+      });
+    }
 
-      const user =
-        await User.findOne({
-          email,
-        });
+    try {
+      const user = await User.findOne({
+        email: email.trim().toLowerCase(),
+      });
 
       if (!user) {
-
         return res.status(404).json({
           error: "User not found",
         });
       }
 
-      // GENERATE TOKEN
-      const token =
-        crypto.randomBytes(32)
-          .toString("hex");
+      // GENERATE RESET TOKEN
+      const token = crypto
+        .randomBytes(32)
+        .toString("hex");
 
       user.resetToken = token;
 
@@ -431,11 +251,9 @@ router.post(
 
       await user.save();
 
-      // FIXED URL
       const resetUrl =
         `https://africsocial.globelynks.com/reset-password/${token}`;
 
-      // SEND EMAIL
       await sendEmail({
         to: user.email,
 
@@ -443,12 +261,11 @@ router.post(
           "AfricSocial Password Reset",
 
         html: `
-          <h2>
-            Password Reset
-          </h2>
+          <h2>Password Reset</h2>
 
           <p>
-            Click the link below:
+            Click the link below to reset
+            your AfricSocial password:
           </p>
 
           <a href="${resetUrl}">
@@ -457,52 +274,55 @@ router.post(
         `,
       });
 
-      res.json({
+      return res.json({
         message:
           "Password reset email sent!",
       });
 
     } catch (err) {
+      console.error(
+        "FORGOT PASSWORD ERROR:",
+        err
+      );
 
-      console.error(err);
-
-      res.status(500).json({
+      return res.status(500).json({
         error: "Server error",
       });
     }
   }
 );
 
+
 /* ================= RESET PASSWORD ================= */
+
 router.post(
   "/reset-password/:token",
   async (req, res) => {
-
     const { token } = req.params;
+    const { password } = req.body;
 
-    const { password } =
-      req.body;
+    if (!password) {
+      return res.status(400).json({
+        error: "Password is required",
+      });
+    }
 
     try {
+      const user = await User.findOne({
+        resetToken: token,
 
-      const user =
-        await User.findOne({
-          resetToken: token,
-
-          resetTokenExpiry: {
-            $gt: Date.now(),
-          },
-        });
+        resetTokenExpiry: {
+          $gt: Date.now(),
+        },
+      });
 
       if (!user) {
-
         return res.status(400).json({
           error:
             "Invalid or expired token",
         });
       }
 
-      // HASH PASSWORD
       const hashedPassword =
         await bcrypt.hash(
           password,
@@ -514,39 +334,41 @@ router.post(
 
       user.resetToken = null;
 
-      user.resetTokenExpiry =
-        null;
+      user.resetTokenExpiry = null;
 
       await user.save();
 
-      res.json({
+      return res.json({
         message:
           "Password reset successful!",
       });
 
     } catch (err) {
+      console.error(
+        "RESET PASSWORD ERROR:",
+        err
+      );
 
-      console.error(err);
-
-      res.status(500).json({
+      return res.status(500).json({
         error: "Server error",
       });
     }
   }
 );
 
+
 /* ================= DELETE USERS ================= */
+
 router.get(
   "/delete-all-users",
   async (req, res) => {
-
     await User.deleteMany({});
 
     res.json({
-      message:
-        "All users deleted",
+      message: "All users deleted",
     });
   }
 );
+
 
 export default router;
