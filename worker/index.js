@@ -1,122 +1,70 @@
+import { MongoClient } from "mongodb";
+
+let client;
+let db;
+
+async function getDatabase(env) {
+  if (!env.MONGO_URI) {
+    throw new Error("MONGO_URI is not configured");
+  }
+
+  if (!client) {
+    client = new MongoClient(env.MONGO_URI);
+    await client.connect();
+    db = client.db();
+  }
+
+  return db;
+}
+
 export default {
   async fetch(request, env) {
-    try {
-      const incomingUrl = new URL(request.url);
+    const url = new URL(request.url);
 
-      // ----------------------------------------
-      // Health check
-      // ----------------------------------------
-      if (incomingUrl.pathname === "/") {
+    if (url.pathname === "/api/health") {
+      return Response.json({
+        status: "ok",
+        service: "africsocial-api",
+        platform: "cloudflare-workers",
+        mode: "direct-mongodb",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (url.pathname === "/api/db-test") {
+      try {
+        const database = await getDatabase(env);
+
+        const result = await database
+          .command({ ping: 1 });
+
         return Response.json({
           status: "ok",
-          service: "africsocial-api",
-          platform: "cloudflare-workers",
-          mode: "api-gateway",
+          database: "mongodb-atlas",
+          connected: result.ok === 1,
           timestamp: new Date().toISOString(),
         });
-      }
+      } catch (error) {
+        console.error("MongoDB test failed:", error);
 
-      // ----------------------------------------
-      // Make sure backend URL exists
-      // ----------------------------------------
-      if (!env.BACKEND_URL) {
         return Response.json(
           {
             status: "error",
-            message: "BACKEND_URL is not configured",
+            database: "mongodb-atlas",
+            message: error.message,
           },
           { status: 500 }
         );
       }
-
-      // ----------------------------------------
-      // Build backend URL
-      // ----------------------------------------
-      const backendBase = env.BACKEND_URL.replace(/\/+$/, "");
-
-      const backendUrl =
-        backendBase +
-        incomingUrl.pathname +
-        incomingUrl.search;
-
-      // ----------------------------------------
-      // Forward request
-      // ----------------------------------------
-      const headers = new Headers(request.headers);
-
-      // Tell backend request came through Cloudflare
-      headers.set(
-        "X-Forwarded-Host",
-        incomingUrl.host
-      );
-
-      headers.set(
-        "X-Forwarded-Proto",
-        incomingUrl.protocol.replace(":", "")
-      );
-
-      headers.set(
-        "X-Forwarded-For",
-        request.headers.get("CF-Connecting-IP") || ""
-      );
-
-      headers.set(
-        "X-AfricSocial-Gateway",
-        "cloudflare-workers"
-      );
-
-      const backendRequest = new Request(
-        backendUrl,
-        {
-          method: request.method,
-          headers,
-          body:
-            request.method === "GET" ||
-            request.method === "HEAD"
-              ? undefined
-              : request.body,
-          redirect: "follow",
-        }
-      );
-
-      const response = await fetch(
-        backendRequest
-      );
-
-      // ----------------------------------------
-      // Return backend response
-      // ----------------------------------------
-      const responseHeaders =
-        new Headers(response.headers);
-
-      responseHeaders.set(
-        "X-AfricSocial-Gateway",
-        "cloudflare-workers"
-      );
-
-      return new Response(
-        response.body,
-        {
-          status: response.status,
-          statusText: response.statusText,
-          headers: responseHeaders,
-        }
-      );
-
-    } catch (error) {
-
-      console.error(
-        "Worker gateway error:",
-        error
-      );
-
-      return Response.json(
-        {
-          status: "error",
-          message: "Backend gateway error",
-        },
-        { status: 502 }
-      );
     }
+
+    return Response.json(
+      {
+        status: "ok",
+        service: "africsocial-api",
+        message: "Worker is running",
+      },
+      { status: 200 }
+    );
   },
 };
