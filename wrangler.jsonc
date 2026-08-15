@@ -6,5 +6,10 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "workers_dev": true
+  "workers_dev": true,
+  "alias": {
+    "net": "cf-mongodb-polyfills/net",
+    "tls": "cf-mongodb-polyfills/tls",
+    "dns": "cf-mongodb-polyfills/dns"
+  }
 }
