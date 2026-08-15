@@ -1,14 +1,18 @@
 import { MongoClient } from "mongodb";
 
-let clientPromise;
+let mongoClientPromise = null;
 
-function getMongoClient(uri) {
-  if (!clientPromise) {
+async function getMongoClient(uri) {
+  if (!mongoClientPromise) {
     const client = new MongoClient(uri);
-    clientPromise = client.connect();
+
+    mongoClientPromise = client.connect().catch((error) => {
+      mongoClientPromise = null;
+      throw error;
+    });
   }
 
-  return clientPromise;
+  return mongoClientPromise;
 }
 
 export default {
@@ -28,7 +32,7 @@ export default {
     }
 
     // ==========================================
-    // HEALTH CHECK
+    // API HEALTH
     // ==========================================
     if (url.pathname === "/api/health") {
       return Response.json({
@@ -40,7 +44,7 @@ export default {
     }
 
     // ==========================================
-    // MONGODB HEALTH CHECK
+    // MONGODB HEALTH
     // ==========================================
     if (url.pathname === "/api/db-health") {
       try {
@@ -58,9 +62,11 @@ export default {
 
         const client = await getMongoClient(env.MONGO_URI);
 
-        await client
-          .db()
-          .command({ ping: 1 });
+        const db = client.db();
+
+        await db.command({
+          ping: 1,
+        });
 
         return Response.json({
           status: "ok",
@@ -68,7 +74,6 @@ export default {
           connected: true,
           timestamp: new Date().toISOString(),
         });
-
       } catch (error) {
         console.error("MongoDB connection error:", error);
 
