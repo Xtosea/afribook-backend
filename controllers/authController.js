@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Wallet from "../models/Wallet.js";
+import { addPoints } from "../utils/addPoints.js";
 
 // ================= REGISTER =================
 
@@ -68,17 +69,24 @@ export const register = async (req, res) => {
 
     // ================= CHECK REFERRER =================
 
-    let referredBy = null;
+let referredBy = null;
 
-    if (ref) {
-      const referrer = await User.findOne({
-        referralCode: ref.trim(),
-      });
+if (ref) {
+  const referrer = await User.findOne({
+    referralCode: ref.trim(),
+  });
 
-      if (referrer) {
-        referredBy = referrer._id;
-      }
-    }
+  if (referrer) {
+    referredBy = referrer._id;
+
+    // Award 10 referral points
+    await addPoints(
+      referrer._id,
+      10,
+      "referral"
+    );
+  }
+}
 
     // ================= CREATE USER =================
 
