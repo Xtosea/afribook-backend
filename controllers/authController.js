@@ -2,12 +2,13 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Wallet from "../models/Wallet.js";
+import { addPoints } from "../utils/addPoints.js";
 
 // ================= REGISTER =================
 
 export const register = async (req, res) => {
+  console.log("Register body:", req.body);
 
-console.log("Register body:", req.body);
   try {
     const {
       name,
@@ -16,37 +17,49 @@ console.log("Register body:", req.body);
       ref,
     } = req.body;
 
-    if (!name || !password) {
+    if (!name || !identifier || !password) {
       return res.status(400).json({
-        message: "Name and password are required",
+        message:
+          "Name, email or phone, and password are required",
       });
     }
 
-    const isEmail =
-      identifier && identifier.includes("@");
+    const cleanIdentifier = identifier.trim();
 
-    let userExists = null;
+    const isEmail = cleanIdentifier.includes("@");
 
-    if (identifier) {
-      userExists = await User.findOne(
-        isEmail
-          ? { email: identifier }
-          : { phone: identifier }
-      );
+    // Normalize email
+    const normalizedEmail = isEmail
+      ? cleanIdentifier.toLowerCase()
+      : null;
 
-      if (userExists) {
-        return res.status(400).json({
-          message: isEmail
-            ? "Email already exists"
-            : "Phone number already exists",
-        });
-      }
+    const normalizedPhone = !isEmail
+      ? cleanIdentifier
+      : null;
+
+    // ================= CHECK EXISTING USER =================
+
+    const userExists = await User.findOne(
+      isEmail
+        ? { email: normalizedEmail }
+        : { phone: normalizedPhone }
+    );
+
+    if (userExists) {
+      return res.status(400).json({
+        message: isEmail
+          ? "Email already exists"
+          : "Phone number already exists",
+      });
     }
+
+    // ================= HASH PASSWORD =================
 
     const hashedPassword =
       await bcrypt.hash(password, 10);
 
-    // Generate referral code
+    // ================= GENERATE REFERRAL CODE =================
+
     const referralCode =
       "AFR" +
       Math.random()
@@ -54,75 +67,129 @@ console.log("Register body:", req.body);
         .substring(2, 8)
         .toUpperCase();
 
-    // Check who referred this user
-    let referredBy = null;
+    // ================= CHECK REFERRER =================
 
-    if (ref) {
-      const referrer =
-        await User.findOne({
-          referralCode: ref,
-        });
+let referredBy = null;
 
-      if (referrer) {
-        referredBy = referrer._id;
-      }
-    }
+if (ref) {
+  const referrer = await User.findOne({
+    referralCode: ref.trim(),
+  });
 
-    const user = await User.create({
-      name,
-      email: isEmail ? identifier : "",
-      phone:
-        identifier && !isEmail
-          ? identifier
-          : "",
+  if (referrer) {
+    referredBy = referrer._id;
+
+    // Award 10 referral points
+    await addPoints(
+      referrer._id,
+      10,
+      "referral"
+    );
+  }
+}
+
+    // ================= CREATE USER =================
+
+    const userData = {
+      name: name.trim(),
       password: hashedPassword,
-
       referralCode,
       referredBy,
-    });
+    };
+
+    // Only save the identifier that was supplied.
+    // Do NOT save email: "" or phone: "".
+
+    if (isEmail) {
+      userData.email = normalizedEmail;
+    } else {
+      userData.phone = normalizedPhone;
+    }
+
+    const user = await User.create(userData);
+
+    // ================= CREATE WALLET =================
 
     await Wallet.create({
       user: user._id,
     });
 
+    // ================= CREATE LOGIN TOKEN =================
+
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
     );
 
-    res.json({
+    return res.status(201).json({
+      message: "Registration successful",
       token,
-      user,
+
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePic: user.profilePic || "",
+        referralCode: user.referralCode,
+      },
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error("REGISTER ERROR:", error);
+
+    return res.status(500).json({
       error: error.message,
     });
   }
 };
 
+
 // ================= LOGIN =================
 
 export const login = async (req, res) => {
   try {
-    const { identifier, password } =
-      req.body;
+    const {
+      identifier,
+      password,
+    } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({
+        message:
+          "Email/phone and password are required",
+      });
+    }
+
+    const cleanIdentifier =
+      identifier.trim();
 
     const isEmail =
-      identifier && identifier.includes("@");
+      cleanIdentifier.includes("@");
 
     const user = await User.findOne(
       isEmail
-        ? { email: identifier }
-        : { phone: identifier }
+        ? {
+            email:
+              cleanIdentifier.toLowerCase(),
+          }
+        : {
+            phone: cleanIdentifier,
+          }
     );
 
     if (!user) {
       return res.status(400).json({
-        message: "User not found",
+        message: "Invalid credentials",
       });
     }
+
+    // IMPORTANT:
+    // There is NO isVerified check.
+    // Email verification is no longer mandatory.
 
     const match =
       await bcrypt.compare(
@@ -132,29 +199,36 @@ export const login = async (req, res) => {
 
     if (!match) {
       return res.status(400).json({
-        message: "Wrong password",
+        message: "Invalid credentials",
       });
     }
 
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
     );
 
-    res.json({
+    return res.json({
+      message: "Login successful",
       token,
-      user,
+
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePic: user.profilePic || "",
+      },
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
       error: error.message,
     });
   }
 };
-
-
-
-await Wallet.create({
-  user: newUser._id,
-});
