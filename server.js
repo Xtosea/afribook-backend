@@ -110,7 +110,9 @@ const allowedOrigins = [
   process.env.FRONTEND_BACKUP_URL,
   "https://africsocial.globelynks.com",
    "https://africbook.globelynks.com",
-  "https://afribook-vite.vercel.app",
+  "https://africimage.globelynks.com",
+  "https://afribook.globelynks.com",
+
 
 ];
 
