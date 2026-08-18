@@ -164,12 +164,6 @@ content="${safeDescription}"
 />
 
 
-
-<meta
-  property="og:image:secure_url"
-  content="${imageUrl}"
-/>
-
 <meta
   property="og:image"
   content="${imageUrl}"
@@ -187,12 +181,12 @@ content="${safeDescription}"
 
 <meta
   property="og:image:width"
-  content="1200"
+  content="720"
 />
 
 <meta
   property="og:image:height"
-  content="630"
+  content="1280"
 />
 
 <meta
