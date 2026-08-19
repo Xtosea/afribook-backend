@@ -35,8 +35,9 @@ export default {
       try {
         const database = await getDatabase(env);
 
-        const result = await database
-          .command({ ping: 1 });
+        const result = await database.command({
+          ping: 1,
+        });
 
         return Response.json({
           status: "ok",
