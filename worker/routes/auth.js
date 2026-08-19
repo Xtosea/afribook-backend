@@ -1,0 +1,252 @@
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+function json(data, status = 200) {
+  return Response.json(data, { status });
+}
+
+export async function register(request, env, db) {
+  try {
+    const {
+      name,
+      identifier,
+      password,
+      ref,
+    } = await request.json();
+
+    if (!name || !identifier || !password) {
+      return json({
+        message: "Name, email or phone, and password are required",
+      }, 400);
+    }
+
+    const cleanIdentifier = identifier.trim();
+    const cleanName = name.trim();
+
+    const isEmail = cleanIdentifier.includes("@");
+
+    const email = isEmail
+      ? cleanIdentifier.toLowerCase()
+      : null;
+
+    const phone = !isEmail
+      ? cleanIdentifier
+      : null;
+
+    // ================= CHECK EXISTING USER =================
+
+    const existingUser = await db.collection("users").findOne(
+      isEmail
+        ? { email }
+        : { phone }
+    );
+
+    if (existingUser) {
+      return json({
+        message: isEmail
+          ? "Email already exists"
+          : "Phone number already exists",
+      }, 400);
+    }
+
+    // ================= HASH PASSWORD =================
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ================= REFERRAL CODE =================
+
+    const referralCode =
+      "AFR" +
+      Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
+
+    // ================= REFERRER =================
+
+    let referredBy = null;
+
+    if (ref) {
+      const referrer = await db.collection("users").findOne({
+        referralCode: ref.trim(),
+      });
+
+      if (referrer) {
+        referredBy = referrer._id;
+      }
+    }
+
+    // ================= CREATE USER =================
+
+    const userData = {
+      name: cleanName,
+      password: hashedPassword,
+      referralCode,
+      referredBy,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // IMPORTANT:
+    // Only save the identifier supplied.
+    // Do NOT save email: "" or phone: "".
+
+    if (isEmail) {
+      userData.email = email;
+    } else {
+      userData.phone = phone;
+    }
+
+    const result = await db.collection("users").insertOne(userData);
+
+    const userId = result.insertedId;
+
+    // ================= CREATE WALLET =================
+
+    await db.collection("wallets").insertOne({
+      user: userId,
+      points: 0,
+      balance: 0,
+      lifetimeEarned: 0,
+      pending: 0,
+      storyLikes: 0,
+      storyViews: 0,
+      reelLikes: 0,
+      reelViews: 0,
+      videoLikes: 0,
+      videoViews: 0,
+      referralPoints: 0,
+      leaderboardPoints: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // ================= REFERRAL REWARD =================
+
+    if (referredBy) {
+      await db.collection("wallets").updateOne(
+        { user: referredBy },
+        {
+          $inc: {
+            points: 10,
+            referralPoints: 10,
+          },
+          $set: {
+            updatedAt: new Date(),
+          },
+        }
+      );
+    }
+
+    // ================= JWT =================
+
+    const token = jwt.sign(
+      { id: userId.toString() },
+      env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    return json({
+      message: "Registration successful",
+      token,
+
+      user: {
+        _id: userId,
+        name: userData.name,
+        email: userData.email || "",
+        phone: userData.phone || "",
+        profilePic: "",
+        referralCode,
+      },
+    }, 201);
+
+  } catch (error) {
+    console.error("REGISTER ERROR:", error);
+
+    return json({
+      error: error.message,
+    }, 500);
+  }
+}
+
+
+// ================= LOGIN =================
+
+export async function login(request, env, db) {
+  try {
+    const {
+      identifier,
+      password,
+    } = await request.json();
+
+    if (!identifier || !password) {
+      return json({
+        message: "Email/phone and password are required",
+      }, 400);
+    }
+
+    const cleanIdentifier = identifier.trim();
+
+    const isEmail = cleanIdentifier.includes("@");
+
+    const user = await db.collection("users").findOne(
+      isEmail
+        ? {
+            email: cleanIdentifier.toLowerCase(),
+          }
+        : {
+            phone: cleanIdentifier,
+          }
+    );
+
+    if (!user) {
+      return json({
+        message: "Invalid credentials",
+      }, 400);
+    }
+
+    const match = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!match) {
+      return json({
+        message: "Invalid credentials",
+      }, 400);
+    }
+
+    // No mandatory email verification.
+
+    const token = jwt.sign(
+      { id: user._id.toString() },
+      env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    return json({
+      message: "Login successful",
+      token,
+
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePic: user.profilePic || "",
+        referralCode: user.referralCode || "",
+      },
+    });
+
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+
+    return json({
+      error: error.message,
+    }, 500);
+  }
+}
