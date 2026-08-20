@@ -176,14 +176,14 @@ export async function register(request, env, db) {
 
 export async function login(request, env, db) {
   try {
-    console.log("LOGIN: started");
+    
 
     const {
       identifier,
       password,
     } = await request.json();
 
-    console.log("LOGIN: request parsed");
+    
 
     if (!identifier || !password) {
       return json({
@@ -207,10 +207,7 @@ export async function login(request, env, db) {
           }
     );
 
-    console.log(
-      "LOGIN: user found:",
-      !!user
-    );
+    
 
     if (!user) {
       return json({
@@ -218,7 +215,7 @@ export async function login(request, env, db) {
       }, 400);
     }
 
-    console.log("LOGIN: password comparison starting");
+    
 
     const match = await bcrypt.compare(
       password,
@@ -236,7 +233,7 @@ export async function login(request, env, db) {
       }, 400);
     }
 
-    console.log("LOGIN: JWT starting");
+    
 
     if (!env.JWT_SECRET) {
       throw new Error("JWT_SECRET is missing");
