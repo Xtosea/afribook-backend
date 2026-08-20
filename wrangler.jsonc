@@ -10,6 +10,6 @@
   "alias": {
     "net": "cf-mongodb-polyfills/net",
     "tls": "cf-mongodb-polyfills/tls",
-    "dns": "cf-mongodb-polyfills/dns"
+    "dns": "./worker/dns-polyfill.js"
   }
 }
