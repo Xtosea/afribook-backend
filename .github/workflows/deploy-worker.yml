@@ -1,0 +1,43 @@
+name: Deploy AfricSocial Worker
+
+on:
+  push:
+    branches:
+      - cloudflare-workers
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Wrangler
+        run: npm install --global wrangler
+
+      - name: Check Wrangler
+        run: wrangler --version
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          IMAGEKIT_PRIVATE_KEY: ${{ secrets.IMAGEKIT_PRIVATE_KEY }}
+        run: |
+          printf "%s" "$JWT_SECRET" | wrangler secret put JWT_SECRET --config wrangler.jsonc
+          printf "%s" "$IMAGEKIT_PRIVATE_KEY" | wrangler secret put IMAGEKIT_PRIVATE_KEY --config wrangler.jsonc
+          wrangler deploy --config wrangler.jsonc

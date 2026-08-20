@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "africsocial-api",
+  "main": "worker/index.js",
+
+  "compatibility_date": "2026-08-15",
+
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+
+  "workers_dev": true,
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+
+  "alias": {
+    "net": "cf-mongodb-polyfills/net",
+    "tls": "cf-mongodb-polyfills/tls",
+    "dns": "./worker/dns-polyfill.js"
+  }
+}
