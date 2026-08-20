@@ -4,6 +4,10 @@ import {
   login,
 } from "./routes/auth.js";
 
+import {
+  getWallet,
+} from "./routes/wallet.js";
+
 let client;
 let db;
 
@@ -152,6 +156,35 @@ export default {
       }
     }
 
+    // ================= WALLET =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/wallet"
+) {
+  try {
+    const database =
+      await getDatabase(env);
+
+    return await getWallet(
+      request,
+      env,
+      database
+    );
+
+  } catch (error) {
+    console.error(
+      "WALLET ROUTE ERROR:",
+      error
+    );
+
+    return json({
+      error: error.message,
+    }, 500);
+  }
+}
+
+    
     // ================= DEFAULT =================
 
     return json({
