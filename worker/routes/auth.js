@@ -176,10 +176,14 @@ export async function register(request, env, db) {
 
 export async function login(request, env, db) {
   try {
+    console.log("LOGIN: started");
+
     const {
       identifier,
       password,
     } = await request.json();
+
+    console.log("LOGIN: request parsed");
 
     if (!identifier || !password) {
       return json({
@@ -191,6 +195,8 @@ export async function login(request, env, db) {
 
     const isEmail = cleanIdentifier.includes("@");
 
+    console.log("LOGIN: identifier type:", isEmail ? "email" : "phone");
+
     const user = await db.collection("users").findOne(
       isEmail
         ? {
@@ -201,15 +207,27 @@ export async function login(request, env, db) {
           }
     );
 
+    console.log(
+      "LOGIN: user found:",
+      !!user
+    );
+
     if (!user) {
       return json({
         message: "Invalid credentials",
       }, 400);
     }
 
+    console.log("LOGIN: password comparison starting");
+
     const match = await bcrypt.compare(
       password,
       user.password
+    );
+
+    console.log(
+      "LOGIN: password comparison result:",
+      match
     );
 
     if (!match) {
@@ -218,15 +236,28 @@ export async function login(request, env, db) {
       }, 400);
     }
 
-    // No mandatory email verification.
+    console.log("LOGIN: JWT starting");
+
+    if (!env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is missing");
+    }
+
+    console.log(
+      "LOGIN: JWT_SECRET exists:",
+      !!env.JWT_SECRET
+    );
 
     const token = jwt.sign(
-      { id: user._id.toString() },
+      {
+        id: user._id.toString(),
+      },
       env.JWT_SECRET,
       {
         expiresIn: "7d",
       }
     );
+
+    console.log("LOGIN: JWT generated");
 
     return json({
       message: "Login successful",
@@ -243,10 +274,18 @@ export async function login(request, env, db) {
     });
 
   } catch (error) {
-    console.error("LOGIN ERROR:", error);
+    console.error(
+      "LOGIN ERROR MESSAGE:",
+      error?.message
+    );
+
+    console.error(
+      "LOGIN ERROR STACK:",
+      error?.stack
+    );
 
     return json({
-      error: error.message,
+      error: error?.message || "Login failed",
     }, 500);
   }
 }
