@@ -13,6 +13,9 @@ import {
   updateUser,
   getMutualFriends,
 } from "./routes/users.js";
+import {
+  imageKitAuth,
+} from "./routes/imagekit.js";
 
 let client;
 let db;
@@ -190,6 +193,19 @@ if (
   }
 }
 
+
+
+    // ================= IMAGEKIT =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/imagekit/auth"
+) {
+  return await imageKitAuth(
+    request,
+    env
+  );
+}
 
     // ================= USERS =================
 
