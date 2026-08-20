@@ -8,6 +8,12 @@ import {
   getWallet,
 } from "./routes/wallet.js";
 
+import {
+  getUser,
+  updateUser,
+  getMutualFriends,
+} from "./routes/users.js";
+
 let client;
 let db;
 
@@ -181,6 +187,75 @@ if (
     return json({
       error: error.message,
     }, 500);
+  }
+}
+
+
+    // ================= USERS =================
+
+// GET USER PROFILE
+if (
+  request.method === "GET" &&
+  url.pathname.startsWith("/api/users/")
+) {
+  const parts =
+    url.pathname.split("/").filter(Boolean);
+
+  // /api/users/:userId/mutual
+  if (
+    parts.length === 4 &&
+    parts[3] === "mutual"
+  ) {
+    const userId = parts[2];
+
+    const database =
+      await getDatabase(env);
+
+    return await getMutualFriends(
+      request,
+      env,
+      database,
+      userId
+    );
+  }
+
+  // /api/users/:userId
+  if (parts.length === 3) {
+    const userId = parts[2];
+
+    const database =
+      await getDatabase(env);
+
+    return await getUser(
+      request,
+      env,
+      database,
+      userId
+    );
+  }
+}
+
+
+// UPDATE USER PROFILE
+if (
+  request.method === "PUT" &&
+  url.pathname.startsWith("/api/users/")
+) {
+  const parts =
+    url.pathname.split("/").filter(Boolean);
+
+  if (parts.length === 3) {
+    const userId = parts[2];
+
+    const database =
+      await getDatabase(env);
+
+    return await updateUser(
+      request,
+      env,
+      database,
+      userId
+    );
   }
 }
 
