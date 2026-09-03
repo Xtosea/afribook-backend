@@ -30,6 +30,12 @@ import {
 import {
   syncContacts,
 } from "./routes/contacts.js";
+
+import {
+  getNotifications,
+  markNotificationsRead,
+  getUnreadNotificationCount,
+} from "./routes/notifications.js";
 import {
   imageKitAuth,
 } from "./routes/imagekit.js";
@@ -488,6 +494,38 @@ if (
         request,
         env,
         database
+      );
+    }
+
+    // ================= NOTIFICATIONS =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/notifications"
+    ) {
+      return await getNotifications(
+        request,
+        env
+      );
+    }
+
+    if (
+      request.method === "PUT" &&
+      url.pathname === "/api/notifications/read"
+    ) {
+      return await markNotificationsRead(
+        request,
+        env
+      );
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/notifications/unread-count"
+    ) {
+      return await getUnreadNotificationCount(
+        request,
+        env
       );
     }
 
