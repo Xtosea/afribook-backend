@@ -35,6 +35,26 @@ import {
   markNotificationsRead,
   getUnreadNotificationCount,
 } from "./routes/notifications.js";
+
+import {
+  createPost,
+  getPosts,
+  getUserPosts,
+  getTrending,
+  getPost,
+  likePost,
+  sharePost,
+  savePost,
+  editPost,
+  deletePost,
+  viewPost,
+  commentPost,
+  getSavedPosts,
+  sharePostToFeed,
+  createReel,
+  getReels,
+  viewReel,
+} from "./routes/posts.js";
 import {
   imageKitAuth,
 } from "./routes/imagekit.js";
@@ -479,6 +499,231 @@ if (
         env,
         database
       );
+    }
+
+    // ================= POSTS =================
+
+    // CREATE POST
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/posts"
+    ) {
+      return await createPost(request, env);
+    }
+
+    // GET REELS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/posts/reels"
+    ) {
+      return await getReels(request, env);
+    }
+
+    // CREATE REEL
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/posts/reels"
+    ) {
+      return await createReel(request, env);
+    }
+
+    // GET SAVED POSTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/posts/saved/all"
+    ) {
+      return await getSavedPosts(request, env);
+    }
+
+    // GET TRENDING POSTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/posts/trending"
+    ) {
+      return await getTrending(request, env);
+    }
+
+    // GET USER POSTS
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/posts/user/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        return await getUserPosts(
+          request,
+          env,
+          parts[3]
+        );
+      }
+    }
+
+    // VIEW REEL
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/posts/reels/view/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 5) {
+        return await viewReel(
+          request,
+          env,
+          parts[4]
+        );
+      }
+    }
+
+    // POST-SPECIFIC ROUTES
+    if (
+      url.pathname.startsWith("/api/posts/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      // Expected:
+      // /api/posts/:id/action
+      // parts = ["api", "posts", "id", "action"]
+
+      if (parts.length === 4) {
+        const postId = parts[2];
+        const action = parts[3];
+
+        if (
+          request.method === "POST" &&
+          action === "like"
+        ) {
+          return await likePost(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "POST" &&
+          action === "share"
+        ) {
+          return await sharePost(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "POST" &&
+          action === "view"
+        ) {
+          return await viewPost(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "POST" &&
+          action === "comment"
+        ) {
+          return await commentPost(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "POST" &&
+          action === "share-to-feed"
+        ) {
+          return await sharePostToFeed(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "PUT" &&
+          action === "save"
+        ) {
+          return await savePost(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "PUT" &&
+          action === "edit"
+        ) {
+          return await editPost(
+            request,
+            env,
+            postId
+          );
+        }
+
+        if (
+          request.method === "DELETE" &&
+          action === "delete"
+        ) {
+          return await deletePost(
+            request,
+            env,
+            postId
+          );
+        }
+      }
+
+      // GET /api/posts/:id
+      if (
+        request.method === "GET" &&
+        parts.length === 3
+      ) {
+        return await getPost(
+          request,
+          env,
+          parts[2]
+        );
+      }
+
+      // PUT /api/posts/:id
+      if (
+        request.method === "PUT" &&
+        parts.length === 3
+      ) {
+        return await editPost(
+          request,
+          env,
+          parts[2]
+        );
+      }
+
+      // DELETE /api/posts/:id
+      if (
+        request.method === "DELETE" &&
+        parts.length === 3
+      ) {
+        return await deletePost(
+          request,
+          env,
+          parts[2]
+        );
+      }
+    }
+
+    // GET ALL POSTS / MAIN FEED
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/posts"
+    ) {
+      return await getPosts(request, env);
     }
 
     // ================= DEFAULT =================
