@@ -9,10 +9,27 @@ import {
 } from "./routes/wallet.js";
 
 import {
+  getUsers,
   getUser,
   updateUser,
   getMutualFriends,
+  getFollowers,
+  getFollowing,
+  toggleFollow,
 } from "./routes/users.js";
+
+import {
+  sendFriendRequest,
+  getFriendRequests,
+  acceptFriendRequest,
+  getFriendSuggestions,
+  getFriendList,
+  syncFriendContacts,
+} from "./routes/friends.js";
+
+import {
+  syncContacts,
+} from "./routes/contacts.js";
 import {
   imageKitAuth,
 } from "./routes/imagekit.js";
@@ -276,6 +293,204 @@ if (
 }
 
     
+
+    // ================= USERS =================
+
+    // GET ALL USERS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/users"
+    ) {
+      const database = await getDatabase(env);
+
+      return await getUsers(
+        request,
+        env,
+        database
+      );
+    }
+
+    // GET FOLLOWERS
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/users/") &&
+      url.pathname.endsWith("/followers")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        const userId = parts[2];
+        const database = await getDatabase(env);
+
+        return await getFollowers(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
+    }
+
+    // GET FOLLOWING
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/users/") &&
+      url.pathname.endsWith("/following")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        const userId = parts[2];
+        const database = await getDatabase(env);
+
+        return await getFollowing(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
+    }
+
+    // FOLLOW / UNFOLLOW
+    if (
+      request.method === "PUT" &&
+      url.pathname.startsWith("/api/users/") &&
+      url.pathname.endsWith("/follow")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        const userId = parts[2];
+        const database = await getDatabase(env);
+
+        return await toggleFollow(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
+    }
+
+    // ================= FRIENDS =================
+
+    // SEND FRIEND REQUEST
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/friends/request/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        const userId = parts[3];
+        const database = await getDatabase(env);
+
+        return await sendFriendRequest(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
+    }
+
+    // GET FRIEND REQUESTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/friends/requests"
+    ) {
+      const database = await getDatabase(env);
+
+      return await getFriendRequests(
+        request,
+        env,
+        database
+      );
+    }
+
+    // ACCEPT FRIEND REQUEST
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/friends/accept/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        const userId = parts[3];
+        const database = await getDatabase(env);
+
+        return await acceptFriendRequest(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
+    }
+
+    // FRIEND SUGGESTIONS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/friends/suggestions"
+    ) {
+      const database = await getDatabase(env);
+
+      return await getFriendSuggestions(
+        request,
+        env,
+        database
+      );
+    }
+
+    // FRIEND LIST
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/friends/list"
+    ) {
+      const database = await getDatabase(env);
+
+      return await getFriendList(
+        request,
+        env,
+        database
+      );
+    }
+
+    // FRIEND CONTACT SYNC
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/friends/sync-contacts"
+    ) {
+      const database = await getDatabase(env);
+
+      return await syncFriendContacts(
+        request,
+        env,
+        database
+      );
+    }
+
+    // ================= CONTACTS =================
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/contacts/sync"
+    ) {
+      const database = await getDatabase(env);
+
+      return await syncContacts(
+        request,
+        env,
+        database
+      );
+    }
+
     // ================= DEFAULT =================
 
     return json({
