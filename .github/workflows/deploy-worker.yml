@@ -3,7 +3,7 @@ name: Deploy AfricSocial Worker
 on:
   push:
     branches:
-      - cloudflare-workers
+      - main
 
   workflow_dispatch:
 
@@ -26,7 +26,7 @@ jobs:
         run: npm ci
 
       - name: Install Wrangler
-        run: npm install --global wrangler
+        run: npm install --global wrangler@4.123.0
 
       - name: Check Wrangler
         run: wrangler --version
