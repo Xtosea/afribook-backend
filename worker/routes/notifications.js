@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getDatabase } from "../index.js";
+import { getDatabase } from "../utils/db.js";
 import { authenticate } from "../utils/auth.js";
 
 function corsHeaders() {

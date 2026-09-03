@@ -1,4 +1,3 @@
-import { MongoClient } from "mongodb";
 import {
   register,
   login,
@@ -39,23 +38,8 @@ import {
 import {
   imageKitAuth,
 } from "./routes/imagekit.js";
+import { getDatabase } from "./utils/db.js";
 
-let client;
-let db;
-
-async function getDatabase(env) {
-  if (!env.MONGO_URI) {
-    throw new Error("MONGO_URI is not configured");
-  }
-
-  if (!client) {
-    client = new MongoClient(env.MONGO_URI);
-    await client.connect();
-    db = client.db();
-  }
-
-  return db;
-}
 
 function corsHeaders() {
   return {
@@ -494,38 +478,6 @@ if (
         request,
         env,
         database
-      );
-    }
-
-    // ================= NOTIFICATIONS =================
-
-    if (
-      request.method === "GET" &&
-      url.pathname === "/api/notifications"
-    ) {
-      return await getNotifications(
-        request,
-        env
-      );
-    }
-
-    if (
-      request.method === "PUT" &&
-      url.pathname === "/api/notifications/read"
-    ) {
-      return await markNotificationsRead(
-        request,
-        env
-      );
-    }
-
-    if (
-      request.method === "GET" &&
-      url.pathname === "/api/notifications/unread-count"
-    ) {
-      return await getUnreadNotificationCount(
-        request,
-        env
       );
     }
 
