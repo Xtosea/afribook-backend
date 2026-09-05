@@ -27,9 +27,4 @@
     }
   },
 
-  "alias": {
-    "net": "cf-mongodb-polyfills/net",
-    "tls": "cf-mongodb-polyfills/tls",
-    "dns": "./worker/dns-polyfill.js"
-  }
 }
