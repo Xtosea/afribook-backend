@@ -35,11 +35,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          IMAGEKIT_PRIVATE_KEY: ${{ secrets.IMAGEKIT_PRIVATE_KEY }}
         run: |
-          printf "%s" "$JWT_SECRET" | wrangler secret put JWT_SECRET --config wrangler.jsonc
-          printf "%s" "$IMAGEKIT_PRIVATE_KEY" | wrangler secret put IMAGEKIT_PRIVATE_KEY --config wrangler.jsonc
           wrangler deploy --config wrangler.jsonc || {
             echo "===== WRANGLER LOGS ====="
             find "$HOME/.config/.wrangler/logs" -maxdepth 1 -type f -print -exec cat {} \;
