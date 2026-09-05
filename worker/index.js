@@ -60,6 +60,10 @@ import {
 } from "./routes/imagekit.js";
 import { getDatabase } from "./utils/db.js";
 
+import {
+  getLeaderboardTop,
+} from "./routes/leaderboard.js";
+
 
 function corsHeaders() {
   return {
@@ -724,6 +728,33 @@ if (
       url.pathname === "/api/posts"
     ) {
       return await getPosts(request, env);
+    }
+
+    // ================= LEADERBOARD =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/leaderboard/top"
+    ) {
+      try {
+        const database = await getDatabase(env);
+
+        return await getLeaderboardTop(
+          request,
+          env,
+          database
+        );
+
+      } catch (error) {
+        console.error(
+          "LEADERBOARD ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          error: error.message,
+        }, 500);
+      }
     }
 
     // ================= DEFAULT =================
