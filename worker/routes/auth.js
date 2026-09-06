@@ -88,6 +88,7 @@ export async function register(request, env, db) {
     const userData = {
       name: cleanName,
       password: hashedPassword,
+      role: "user",
       referralCode,
       referredBy,
       createdAt: new Date(),
@@ -165,6 +166,7 @@ export async function register(request, env, db) {
         email: userData.email || "",
         phone: userData.phone || "",
         profilePic: "",
+        role: userData.role || "user",
         referralCode,
       },
     }, 201);
@@ -273,6 +275,7 @@ export async function login(request, env, db) {
         email: user.email || "",
         phone: user.phone || "",
         profilePic: user.profilePic || "",
+        role: user.role || "user",
         referralCode: user.referralCode || "",
       },
     });

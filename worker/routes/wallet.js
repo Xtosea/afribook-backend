@@ -234,6 +234,15 @@ export async function convertPoints(request, env, db) {
 
     const userId = new ObjectId(payload.id);
 
+    // ================= CHECK USER ROLE =================
+
+    const user = await db.collection("users").findOne(
+      { _id: userId },
+      { projection: { role: 1 } }
+    );
+
+    const isAdmin = user?.role === "admin";
+
     let wallet = await db.collection("wallets").findOne({
       user: userId,
     });
@@ -262,7 +271,16 @@ export async function convertPoints(request, env, db) {
 
     const points = Number(wallet.points || 0);
 
-    if (points < 10000) {
+    // Admins may convert below 10,000 points for testing.
+    // Normal users must have at least 10,000 points.
+    if (points <= 0) {
+      return json({
+        success: false,
+        error: "No points available for conversion",
+      }, 400);
+    }
+
+    if (points < 10000 && !isAdmin) {
       return json({
         success: false,
         error: "Minimum 10,000 points required",
