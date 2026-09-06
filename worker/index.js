@@ -5,6 +5,7 @@ import {
 
 import {
   getWallet,
+  convertPoints,
 } from "./routes/wallet.js";
 
 import {
@@ -224,6 +225,36 @@ if (
   }
 }
 
+
+
+    // ================= WALLET CONVERSION =================
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/wallet/convert"
+    ) {
+      try {
+        const database =
+          await getDatabase(env);
+
+        return await convertPoints(
+          request,
+          env,
+          database
+        );
+
+      } catch (error) {
+        console.error(
+          "WALLET CONVERSION ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
 
 
     // ================= IMAGEKIT =================
