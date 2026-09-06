@@ -313,6 +313,7 @@ export async function convertPoints(request, env, db) {
       user: userId,
       type: "conversion",
       category: "points_conversion",
+      points: -points,
       amount: cash,
       currency: "NGN",
       paymentMethod: "wallet",
@@ -345,6 +346,349 @@ export async function convertPoints(request, env, db) {
     return json({
       success: false,
       error: "Conversion failed",
+    }, 500);
+  }
+}
+
+/* ================= TRANSACTION HISTORY ================= */
+
+export async function getTransactions(request, env, db) {
+  try {
+    if (!env.JWT_SECRET) {
+      return json({
+        success: false,
+        error: "JWT_SECRET is not configured",
+      }, 500);
+    }
+
+    const token = getToken(request);
+
+    if (!token) {
+      return json({
+        success: false,
+        error: "Authentication required",
+      }, 401);
+    }
+
+    const payload = await verifyJWT(
+      token,
+      env.JWT_SECRET
+    );
+
+    if (!payload.id || !ObjectId.isValid(payload.id)) {
+      return json({
+        success: false,
+        error: "Invalid authentication token",
+      }, 401);
+    }
+
+    const userId = new ObjectId(payload.id);
+
+    const url = new URL(request.url);
+
+    const page = Math.max(
+      Number(url.searchParams.get("page") || 1),
+      1
+    );
+
+    const limit = Math.min(
+      Math.max(
+        Number(url.searchParams.get("limit") || 20),
+        1
+      ),
+      100
+    );
+
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      user: userId,
+    };
+
+    const [transactions, total] = await Promise.all([
+      db.collection("transactions")
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+
+      db.collection("transactions")
+        .countDocuments(filter),
+    ]);
+
+    return json({
+      success: true,
+      transactions,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+
+  } catch (error) {
+    console.error(
+      "GET TRANSACTIONS ERROR:",
+      error
+    );
+
+    return json({
+      success: false,
+      error: error.message,
+    }, 500);
+  }
+}
+
+/* ================= ADMIN POINTS ADJUSTMENT ================= */
+
+export async function adminAdjustPoints(request, env, db) {
+  try {
+    if (!env.JWT_SECRET) {
+      return json({
+        success: false,
+        error: "JWT_SECRET is not configured",
+      }, 500);
+    }
+
+    const token = getToken(request);
+
+    if (!token) {
+      return json({
+        success: false,
+        error: "Authentication required",
+      }, 401);
+    }
+
+    const payload = await verifyJWT(
+      token,
+      env.JWT_SECRET
+    );
+
+    if (!payload.id || !ObjectId.isValid(payload.id)) {
+      return json({
+        success: false,
+        error: "Invalid authentication token",
+      }, 401);
+    }
+
+    const adminUserId = new ObjectId(payload.id);
+
+    /* ================= VERIFY ADMIN ================= */
+
+    const adminUser = await db.collection("users").findOne(
+      { _id: adminUserId },
+      { projection: { role: 1 } }
+    );
+
+    if (adminUser?.role !== "admin") {
+      return json({
+        success: false,
+        error: "Admin access required",
+      }, 403);
+    }
+
+    /* ================= READ REQUEST ================= */
+
+    let body;
+
+    try {
+      body = await request.json();
+    } catch {
+      return json({
+        success: false,
+        error: "Invalid JSON request body",
+      }, 400);
+    }
+
+    const { userId, action, points, reason } = body;
+
+    if (!userId || !ObjectId.isValid(userId)) {
+      return json({
+        success: false,
+        error: "Valid target userId is required",
+      }, 400);
+    }
+
+    if (action !== "add" && action !== "deduct") {
+      return json({
+        success: false,
+        error: "Action must be either add or deduct",
+      }, 400);
+    }
+
+    const amount = Number(points);
+
+    if (
+      !Number.isInteger(amount) ||
+      amount <= 0
+    ) {
+      return json({
+        success: false,
+        error: "Points must be a positive whole number",
+      }, 400);
+    }
+
+    if (
+      !reason ||
+      typeof reason !== "string" ||
+      !reason.trim()
+    ) {
+      return json({
+        success: false,
+        error: "Reason is required",
+      }, 400);
+    }
+
+    const targetUserId = new ObjectId(userId);
+
+    /* ================= VERIFY TARGET USER ================= */
+
+    const targetUser = await db.collection("users").findOne(
+      { _id: targetUserId },
+      { projection: { _id: 1 } }
+    );
+
+    if (!targetUser) {
+      return json({
+        success: false,
+        error: "Target user not found",
+      }, 404);
+    }
+
+    /* ================= CALCULATE CHANGE ================= */
+
+    const pointsChange =
+      action === "add"
+        ? amount
+        : -amount;
+
+    /* ================= UPDATE WALLET ================= */
+
+    let updateResult;
+
+    if (action === "deduct") {
+      updateResult = await db.collection("wallets").findOneAndUpdate(
+        {
+          user: targetUserId,
+          points: { $gte: amount },
+        },
+        {
+          $inc: {
+            points: -amount,
+          },
+          $set: {
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            user: targetUserId,
+            balance: 0,
+            lifetimeEarned: 0,
+            pending: 0,
+            createdAt: new Date(),
+          },
+        },
+        {
+          returnDocument: "after",
+        }
+      );
+    } else {
+      updateResult = await db.collection("wallets").findOneAndUpdate(
+        { user: targetUserId },
+        {
+          $inc: {
+            points: amount,
+          },
+          $set: {
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            user: targetUserId,
+            balance: 0,
+            lifetimeEarned: 0,
+            pending: 0,
+            createdAt: new Date(),
+          },
+        },
+        {
+          upsert: true,
+          returnDocument: "after",
+        }
+      );
+    }
+
+    const updatedWallet =
+      updateResult?.value || updateResult;
+
+    if (!updatedWallet) {
+      return json({
+        success: false,
+        error: "Insufficient points for deduction",
+      }, 400);
+    }
+
+    const newPoints = Number(
+      updatedWallet.points || 0
+    );
+
+    /* ================= RECORD TRANSACTION ================= */
+
+    await db.collection("transactions").insertOne({
+      user: targetUserId,
+      type: "points",
+      category: "admin_adjustment",
+      points: pointsChange,
+      amount: 0,
+      currency: "NGN",
+      paymentMethod: "admin",
+      reference: `ADMIN-POINTS-${Date.now()}`,
+      status: "success",
+      description: reason.trim(),
+      metadata: {
+        action,
+        reason: reason.trim(),
+        adminUser: adminUserId.toString(),
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    /* ================= NOTIFY USER ================= */
+
+    await db.collection("notifications").insertOne({
+      recipient: targetUserId,
+      type: "POINT_ADJUSTMENT",
+      text:
+        action === "add"
+          ? `An admin added ${amount} points to your wallet`
+          : `An admin deducted ${amount} points from your wallet`,
+      count: 1,
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return json({
+      success: true,
+      message:
+        action === "add"
+          ? "Points added successfully"
+          : "Points deducted successfully",
+      userId: targetUserId.toString(),
+      pointsChanged: pointsChange,
+      points: newPoints,
+    });
+
+  } catch (error) {
+    console.error(
+      "ADMIN POINTS ADJUSTMENT ERROR:",
+      error
+    );
+
+    return json({
+      success: false,
+      error: error.message,
     }, 500);
   }
 }

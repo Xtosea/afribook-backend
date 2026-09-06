@@ -168,6 +168,24 @@ async function addPoints(db, userId, amount, type) {
     { upsert: true }
   );
 
+  await db.collection("transactions").insertOne({
+    user: new ObjectId(userId),
+    type: "points",
+    category: type,
+    points: amount,
+    amount: 0,
+    currency: "NGN",
+    paymentMethod: "wallet",
+    reference: `POINTS-${type}-${Date.now()}`,
+    status: "success",
+    description: `Earned ${amount} points`,
+    metadata: {
+      source: type,
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
   await db.collection("notifications").insertOne({
     recipient: new ObjectId(userId),
     type: "POINT_REWARD",

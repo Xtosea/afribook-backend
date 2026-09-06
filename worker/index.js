@@ -6,6 +6,8 @@ import {
 import {
   getWallet,
   convertPoints,
+  getTransactions,
+  adminAdjustPoints,
 } from "./routes/wallet.js";
 
 import {
@@ -225,6 +227,66 @@ if (
   }
 }
 
+
+
+    // ================= WALLET TRANSACTION HISTORY =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/wallet/transactions"
+    ) {
+      try {
+        const database =
+          await getDatabase(env);
+
+        return await getTransactions(
+          request,
+          env,
+          database
+        );
+
+      } catch (error) {
+        console.error(
+          "WALLET TRANSACTIONS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+
+    // ================= ADMIN WALLET POINTS =================
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/admin/wallet/points"
+    ) {
+      try {
+        const database =
+          await getDatabase(env);
+
+        return await adminAdjustPoints(
+          request,
+          env,
+          database
+        );
+
+      } catch (error) {
+        console.error(
+          "ADMIN WALLET POINTS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
 
 
     // ================= WALLET CONVERSION =================
