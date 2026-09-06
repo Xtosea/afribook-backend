@@ -191,3 +191,142 @@ export async function getWallet(request, env, db) {
     }, 500);
   }
 }
+/* ================= CONVERT POINTS ================= */
+
+const RATE = 0.5;
+
+export async function convertPoints(request, env, db) {
+  try {
+    if (!env.JWT_SECRET) {
+      return json({
+        success: false,
+        error: "JWT_SECRET is not configured",
+      }, 500);
+    }
+
+    const token = getToken(request);
+
+    if (!token) {
+      return json({
+        success: false,
+        error: "Authentication required",
+      }, 401);
+    }
+
+    const payload = await verifyJWT(
+      token,
+      env.JWT_SECRET
+    );
+
+    if (!payload.id) {
+      return json({
+        success: false,
+        error: "Invalid authentication token",
+      }, 401);
+    }
+
+    if (!ObjectId.isValid(payload.id)) {
+      return json({
+        success: false,
+        error: "Invalid user ID",
+      }, 401);
+    }
+
+    const userId = new ObjectId(payload.id);
+
+    let wallet = await db.collection("wallets").findOne({
+      user: userId,
+    });
+
+    if (!wallet) {
+      wallet = {
+        user: userId,
+        balance: 0,
+        points: 0,
+        storyLikes: 0,
+        storyViews: 0,
+        reelLikes: 0,
+        reelViews: 0,
+        videoLikes: 0,
+        videoViews: 0,
+        referralPoints: 0,
+        leaderboardPoints: 0,
+        lifetimeEarned: 0,
+        pending: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await db.collection("wallets").insertOne(wallet);
+    }
+
+    const points = Number(wallet.points || 0);
+
+    if (points < 10000) {
+      return json({
+        success: false,
+        error: "Minimum 10,000 points required",
+      }, 400);
+    }
+
+    const cash = points * RATE;
+
+    const newBalance =
+      (wallet.balance || 0) + cash;
+
+    const newLifetimeEarned =
+      (wallet.lifetimeEarned || 0) + cash;
+
+    await db.collection("wallets").updateOne(
+      {
+        _id: wallet._id,
+      },
+      {
+        $set: {
+          balance: newBalance,
+          lifetimeEarned: newLifetimeEarned,
+          points: 0,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    await db.collection("transactions").insertOne({
+      user: userId,
+      type: "conversion",
+      category: "points_conversion",
+      amount: cash,
+      currency: "NGN",
+      paymentMethod: "wallet",
+      reference: `POINTS-${Date.now()}`,
+      gatewayReference: "",
+      status: "success",
+      description: "Converted points to wallet balance",
+      metadata: {
+        pointsConverted: points,
+        conversionRate: RATE,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return json({
+      success: true,
+      message: "Points converted successfully",
+      balance: newBalance,
+      earned: cash,
+      pointsConverted: points,
+    });
+
+  } catch (error) {
+    console.error(
+      "POINT CONVERSION ERROR:",
+      error
+    );
+
+    return json({
+      success: false,
+      error: "Conversion failed",
+    }, 500);
+  }
+}
