@@ -240,8 +240,87 @@ export async function getWallet(request, env, db) {
       await db.collection("wallets").insertOne(wallet);
     }
 
+    // ================= SELECTED DISPLAY CURRENCY =================
+
+    const url = new URL(request.url);
+
+    const currency = String(
+      url.searchParams.get("currency") || BASE_CURRENCY
+    ).toUpperCase();
+
+    if (!SUPPORTED_CURRENCIES.includes(currency)) {
+      return json({
+        error: `Unsupported currency: ${currency}`,
+      }, 400);
+    }
+
+    // ================= BASE NGN VALUES =================
+
+    const balance = Number(wallet.balance || 0);
+    const lifetimeEarned = Number(
+      wallet.lifetimeEarned || 0
+    );
+    const pending = Number(wallet.pending || 0);
+
+    let displayBalance = balance;
+    let displayLifetimeEarned = lifetimeEarned;
+    let displayPending = pending;
+    let exchangeRate = 1;
+    let exchangeData = null;
+
+    // ================= CURRENCY CONVERSION =================
+
+    if (currency !== BASE_CURRENCY) {
+      exchangeData = await getExchangeRates();
+
+      const ngnRate = Number(
+        exchangeData.rates[BASE_CURRENCY]
+      );
+
+      const targetRate = Number(
+        exchangeData.rates[currency]
+      );
+
+      if (
+        !Number.isFinite(ngnRate) ||
+        ngnRate <= 0 ||
+        !Number.isFinite(targetRate) ||
+        targetRate <= 0
+      ) {
+        throw new Error(
+          `Exchange rate unavailable for ${currency}`
+        );
+      }
+
+      // ExchangeRate-API uses USD as its base.
+      // Convert NGN -> USD -> selected currency.
+
+      exchangeRate = targetRate / ngnRate;
+
+      displayBalance = balance * exchangeRate;
+      displayLifetimeEarned =
+        lifetimeEarned * exchangeRate;
+      displayPending = pending * exchangeRate;
+    }
+
     return json({
-      balance: wallet.balance || 0,
+      // ================= AUTHORITATIVE NGN VALUES =================
+
+      balance,
+      lifetimeEarned,
+      pending,
+
+      // ================= SELECTED DISPLAY CURRENCY =================
+
+      currency,
+      displayBalance,
+      displayLifetimeEarned,
+      displayPending,
+      exchangeRate,
+      baseCurrency: BASE_CURRENCY,
+
+      // ================= POINTS / COUNTERS =================
+
       points: wallet.points || 0,
       storyLikes: wallet.storyLikes || 0,
       storyViews: wallet.storyViews || 0,
@@ -251,8 +330,27 @@ export async function getWallet(request, env, db) {
       videoViews: wallet.videoViews || 0,
       referralPoints: wallet.referralPoints || 0,
       leaderboardPoints: wallet.leaderboardPoints || 0,
-      lifetimeEarned: wallet.lifetimeEarned || 0,
-      pending: wallet.pending || 0,
+
+      // ================= RATE INFORMATION =================
+
+      exchangeRateSource:
+        currency === BASE_CURRENCY
+          ? null
+          : "ExchangeRate-API Open Access",
+
+      exchangeRateUpdatedAt:
+        exchangeData?.lastUpdateUnix
+          ? new Date(
+              exchangeData.lastUpdateUnix * 1000
+            )
+          : null,
+
+      exchangeRateNextUpdateAt:
+        exchangeData?.nextUpdateUnix
+          ? new Date(
+              exchangeData.nextUpdateUnix * 1000
+            )
+          : null,
     });
 
   } catch (error) {
@@ -274,6 +372,7 @@ export async function getWallet(request, env, db) {
     }, 500);
   }
 }
+
 /* ================= CONVERT POINTS ================= */
 
 export async function convertPoints(request, env, db) {
