@@ -8,6 +8,7 @@ import {
   convertPoints,
   getTransactions,
   adminAdjustPoints,
+  adminSearchUsers,
 } from "./routes/wallet.js";
 
 import {
@@ -259,7 +260,36 @@ if (
     }
 
 
-    // ================= ADMIN WALLET POINTS =================
+    // ================= ADMIN WALLET USER SEARCH =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/admin/wallet/users"
+) {
+  try {
+    const database =
+      await getDatabase(env);
+
+    return await adminSearchUsers(
+      request,
+      env,
+      database
+    );
+
+  } catch (error) {
+    console.error(
+      "ADMIN WALLET USER SEARCH ROUTE ERROR:",
+      error
+    );
+
+    return json({
+      success: false,
+      error: error.message,
+    }, 500);
+  }
+}
+
+// ================= ADMIN WALLET POINTS =================
 
     if (
       request.method === "POST" &&

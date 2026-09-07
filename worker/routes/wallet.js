@@ -692,3 +692,154 @@ export async function adminAdjustPoints(request, env, db) {
     }, 500);
   }
 }
+
+/* ================= ADMIN WALLET USER SEARCH ================= */
+
+export async function adminSearchUsers(request, env, db) {
+  try {
+    if (!env.JWT_SECRET) {
+      return json({
+        success: false,
+        error: "JWT_SECRET is not configured",
+      }, 500);
+    }
+
+    const token = getToken(request);
+
+    if (!token) {
+      return json({
+        success: false,
+        error: "Authentication required",
+      }, 401);
+    }
+
+    const payload = await verifyJWT(
+      token,
+      env.JWT_SECRET
+    );
+
+    if (!payload.id || !ObjectId.isValid(payload.id)) {
+      return json({
+        success: false,
+        error: "Invalid authentication token",
+      }, 401);
+    }
+
+    const adminUserId = new ObjectId(payload.id);
+
+    /* ================= VERIFY ADMIN ================= */
+
+    const adminUser = await db.collection("users").findOne(
+      { _id: adminUserId },
+      { projection: { role: 1 } }
+    );
+
+    if (adminUser?.role !== "admin") {
+      return json({
+        success: false,
+        error: "Admin access required",
+      }, 403);
+    }
+
+    /* ================= READ SEARCH ================= */
+
+    const url = new URL(request.url);
+
+    const search =
+      (url.searchParams.get("search") || "").trim();
+
+    if (search.length < 2) {
+      return json({
+        success: true,
+        users: [],
+      });
+    }
+
+    const regex =
+      new RegExp(
+        search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i"
+      );
+
+    /* ================= FIND USERS ================= */
+
+    const users = await db.collection("users")
+      .find({
+        $or: [
+          { name: regex },
+          { email: regex },
+          { phone: regex },
+        ],
+      })
+      .project({
+        _id: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        profilePic: 1,
+        intro: 1,
+      })
+      .limit(10)
+      .toArray();
+
+    /* ================= GET WALLET POINTS ================= */
+
+    const userIds =
+      users.map(user => user._id);
+
+    const wallets =
+      userIds.length
+        ? await db.collection("wallets")
+            .find({
+              user: {
+                $in: userIds,
+              },
+            })
+            .project({
+              user: 1,
+              points: 1,
+            })
+            .toArray()
+        : [];
+
+    const walletMap =
+      new Map(
+        wallets.map(wallet => [
+          wallet.user.toString(),
+          Number(wallet.points || 0),
+        ])
+      );
+
+    /* ================= FORMAT RESULTS ================= */
+
+    const results =
+      users.map(user => ({
+        _id: user._id.toString(),
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePic: user.profilePic || "",
+        intro: user.intro || "",
+        points:
+          walletMap.get(
+            user._id.toString()
+          ) || 0,
+      }));
+
+    return json({
+      success: true,
+      users: results,
+    });
+
+  } catch (error) {
+    console.error(
+      "ADMIN SEARCH USERS ERROR:",
+      error
+    );
+
+    return json({
+      success: false,
+      error: error.message,
+    }, 500);
+  }
+}
