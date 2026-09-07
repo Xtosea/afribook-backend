@@ -741,36 +741,62 @@ export async function adminSearchUsers(request, env, db) {
       }, 403);
     }
 
-    /* ================= READ SEARCH ================= */
+    /* ================= READ QUERY ================= */
 
     const url = new URL(request.url);
 
     const search =
       (url.searchParams.get("search") || "").trim();
 
-    if (search.length < 2) {
-      return json({
-        success: true,
-        users: [],
-      });
-    }
+    const hasSearch = search.length >= 2;
 
-    const regex =
-      new RegExp(
-        search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        "i"
-      );
+    /* ================= PAGINATION ================= */
 
-    /* ================= FIND USERS ================= */
+    const page = Math.max(
+      Number(url.searchParams.get("page") || 1),
+      1
+    );
 
-    const users = await db.collection("users")
-      .find({
+    const limit = Math.min(
+      Math.max(
+        Number(url.searchParams.get("limit") || 20),
+        1
+      ),
+      100
+    );
+
+    const skip = (page - 1) * limit;
+
+    /* ================= BUILD FILTER ================= */
+
+    let filter = {};
+
+    if (hasSearch) {
+      const regex =
+        new RegExp(
+          search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i"
+        );
+
+      filter = {
         $or: [
           { name: regex },
           { email: regex },
           { phone: regex },
         ],
-      })
+      };
+    }
+
+    /* ================= COUNT USERS ================= */
+
+    const total =
+      await db.collection("users")
+        .countDocuments(filter);
+
+    /* ================= FIND USERS ================= */
+
+    const users = await db.collection("users")
+      .find(filter)
       .project({
         _id: 1,
         name: 1,
@@ -779,7 +805,12 @@ export async function adminSearchUsers(request, env, db) {
         profilePic: 1,
         intro: 1,
       })
-      .limit(10)
+      .sort({
+        name: 1,
+        _id: 1,
+      })
+      .skip(hasSearch ? 0 : skip)
+      .limit(hasSearch ? 10 : limit)
       .toArray();
 
     /* ================= GET WALLET POINTS ================= */
@@ -829,6 +860,16 @@ export async function adminSearchUsers(request, env, db) {
     return json({
       success: true,
       users: results,
+      ...(hasSearch
+        ? {}
+        : {
+            pagination: {
+              page,
+              limit,
+              total,
+              totalPages: Math.ceil(total / limit),
+            },
+          }),
     });
 
   } catch (error) {
