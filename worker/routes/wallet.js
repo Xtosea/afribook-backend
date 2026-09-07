@@ -763,9 +763,24 @@ export async function adminAdjustmentHistory(request, env, db) {
 
     /* ================= GET TOTAL ================= */
 
+    const historyFilter =
+      url.searchParams.get("filter") || "all";
+
     const filter = {
       category: "admin_adjustment",
     };
+
+    if (
+      historyFilter === "add"
+    ) {
+      filter["metadata.action"] = "add";
+    }
+
+    if (
+      historyFilter === "deduct"
+    ) {
+      filter["metadata.action"] = "deduct";
+    }
 
     const total =
       await db.collection("transactions")
