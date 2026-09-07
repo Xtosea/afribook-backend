@@ -658,6 +658,29 @@ if (
       );
     }
 
+    // ================= NOTIFICATIONS =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/notifications"
+    ) {
+      return getNotifications(request, env);
+    }
+
+    if (
+      request.method === "PUT" &&
+      url.pathname === "/api/notifications/read"
+    ) {
+      return markNotificationsRead(request, env);
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/notifications/unread-count"
+    ) {
+      return getUnreadNotificationCount(request, env);
+    }
+
     // ================= POSTS =================
 
     // CREATE POST
