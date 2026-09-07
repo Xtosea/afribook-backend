@@ -661,8 +661,8 @@ export async function adminAdjustPoints(request, env, db) {
       type: "POINT_ADJUSTMENT",
       text:
         action === "add"
-          ? `An admin added ${amount} points to your wallet`
-          : `An admin deducted ${amount} points from your wallet`,
+          ? `AfricSocial added ${amount} points to your wallet`
+          : `AfricSocial deducted ${amount} points from your wallet`,
       count: 1,
       read: false,
       createdAt: new Date(),
