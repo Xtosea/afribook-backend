@@ -693,6 +693,289 @@ export async function adminAdjustPoints(request, env, db) {
   }
 }
 
+
+/* ================= ADMIN WALLET ADJUSTMENT HISTORY ================= */
+
+export async function adminAdjustmentHistory(request, env, db) {
+  try {
+    if (!env.JWT_SECRET) {
+      return json({
+        success: false,
+        error: "JWT_SECRET is not configured",
+      }, 500);
+    }
+
+    const token = getToken(request);
+
+    if (!token) {
+      return json({
+        success: false,
+        error: "Authentication required",
+      }, 401);
+    }
+
+    const payload = await verifyJWT(
+      token,
+      env.JWT_SECRET
+    );
+
+    if (!payload.id || !ObjectId.isValid(payload.id)) {
+      return json({
+        success: false,
+        error: "Invalid authentication token",
+      }, 401);
+    }
+
+    const adminUserId = new ObjectId(payload.id);
+
+    /* ================= VERIFY ADMIN ================= */
+
+    const adminUser = await db.collection("users").findOne(
+      { _id: adminUserId },
+      { projection: { role: 1 } }
+    );
+
+    if (adminUser?.role !== "admin") {
+      return json({
+        success: false,
+        error: "Admin access required",
+      }, 403);
+    }
+
+    /* ================= PAGINATION ================= */
+
+    const url = new URL(request.url);
+
+    const page = Math.max(
+      Number(url.searchParams.get("page") || 1),
+      1
+    );
+
+    const limit = Math.min(
+      Math.max(
+        Number(url.searchParams.get("limit") || 20),
+        1
+      ),
+      100
+    );
+
+    const skip = (page - 1) * limit;
+
+    /* ================= GET TOTAL ================= */
+
+    const filter = {
+      category: "admin_adjustment",
+    };
+
+    const total =
+      await db.collection("transactions")
+        .countDocuments(filter);
+
+    /* ================= GET TRANSACTIONS ================= */
+
+    const transactions =
+      await db.collection("transactions")
+        .find(filter)
+        .sort({
+          createdAt: -1,
+          _id: -1,
+        })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+    /* ================= GET USERS ================= */
+
+    const userIds = transactions
+      .map(transaction => transaction.user)
+      .filter(userId => userId && ObjectId.isValid(userId));
+
+    const uniqueUserIds = [
+      ...new Map(
+        userIds.map(userId => [
+          userId.toString(),
+          userId,
+        ])
+      ).values(),
+    ];
+
+    const users =
+      uniqueUserIds.length
+        ? await db.collection("users")
+            .find({
+              _id: {
+                $in: uniqueUserIds,
+              },
+            })
+            .project({
+              _id: 1,
+              name: 1,
+              email: 1,
+              phone: 1,
+              profilePic: 1,
+            })
+            .toArray()
+        : [];
+
+    const userMap =
+      new Map(
+        users.map(user => [
+          user._id.toString(),
+          user,
+        ])
+      );
+
+    /* ================= GET ADMIN USERS ================= */
+
+    const adminIds = transactions
+      .map(transaction =>
+        transaction.metadata?.adminUser
+      )
+      .filter(adminId =>
+        adminId &&
+        ObjectId.isValid(adminId)
+      );
+
+    const uniqueAdminIds = [
+      ...new Set(
+        adminIds.map(adminId =>
+          adminId.toString()
+        )
+      ),
+    ];
+
+    const adminObjectIds =
+      uniqueAdminIds.map(
+        adminId => new ObjectId(adminId)
+      );
+
+    const admins =
+      adminObjectIds.length
+        ? await db.collection("users")
+            .find({
+              _id: {
+                $in: adminObjectIds,
+              },
+            })
+            .project({
+              _id: 1,
+              name: 1,
+              email: 1,
+            })
+            .toArray()
+        : [];
+
+    const adminMap =
+      new Map(
+        admins.map(admin => [
+          admin._id.toString(),
+          admin,
+        ])
+      );
+
+    /* ================= FORMAT RESULTS ================= */
+
+    const results =
+      transactions.map(transaction => {
+        const targetUser =
+          transaction.user
+            ? userMap.get(
+                transaction.user.toString()
+              )
+            : null;
+
+        const adminId =
+          transaction.metadata?.adminUser
+            ? transaction.metadata.adminUser.toString()
+            : "";
+
+        const admin =
+          adminId
+            ? adminMap.get(adminId)
+            : null;
+
+        return {
+          _id: transaction._id.toString(),
+
+          user: targetUser
+            ? {
+                _id: targetUser._id.toString(),
+                name: targetUser.name || "",
+                email: targetUser.email || "",
+                phone: targetUser.phone || "",
+                profilePic: targetUser.profilePic || "",
+              }
+            : {
+                _id: transaction.user
+                  ? transaction.user.toString()
+                  : "",
+                name: "",
+                email: "",
+                phone: "",
+                profilePic: "",
+              },
+
+          action:
+            transaction.metadata?.action || (
+              Number(transaction.points || 0) >= 0
+                ? "add"
+                : "deduct"
+            ),
+
+          points: Number(
+            transaction.points || 0
+          ),
+
+          reason:
+            transaction.description ||
+            transaction.metadata?.reason ||
+            "",
+
+          admin: admin
+            ? {
+                _id: admin._id.toString(),
+                name: admin.name || "",
+                email: admin.email || "",
+              }
+            : {
+                _id: adminId,
+                name: "",
+                email: "",
+              },
+
+          createdAt:
+            transaction.createdAt ||
+            transaction.updatedAt ||
+            null,
+        };
+      });
+
+    return json({
+      success: true,
+      adjustments: results,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(
+          total / limit
+        ),
+      },
+    });
+
+  } catch (error) {
+    console.error(
+      "ADMIN ADJUSTMENT HISTORY ERROR:",
+      error
+    );
+
+    return json({
+      success: false,
+      error: error.message,
+    }, 500);
+  }
+}
+
 /* ================= ADMIN WALLET USER SEARCH ================= */
 
 export async function adminSearchUsers(request, env, db) {

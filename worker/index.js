@@ -8,6 +8,7 @@ import {
   convertPoints,
   getTransactions,
   adminAdjustPoints,
+  adminAdjustmentHistory,
   adminSearchUsers,
 } from "./routes/wallet.js";
 
@@ -259,6 +260,35 @@ if (
       }
     }
 
+
+    // ================= ADMIN WALLET ADJUSTMENT HISTORY =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/admin/wallet/history"
+    ) {
+      try {
+        const database =
+          await getDatabase(env);
+
+        return await adminAdjustmentHistory(
+          request,
+          env,
+          database
+        );
+
+      } catch (error) {
+        console.error(
+          "ADMIN WALLET ADJUSTMENT HISTORY ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
 
     // ================= ADMIN WALLET USER SEARCH =================
 
