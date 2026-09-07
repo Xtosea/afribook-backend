@@ -1,5 +1,88 @@
 import { ObjectId } from "mongodb";
 
+/* ================= WALLET ECONOMY ================= */
+
+const BASE_CURRENCY = "NGN";
+const RATE = 0.5;
+const MIN_CONVERSION_POINTS = 10000;
+
+const SUPPORTED_CURRENCIES = [
+  "NGN",
+  "USD",
+  "GBP",
+  "EUR",
+  "CAD",
+  "AUD",
+  "ZAR",
+  "GHS",
+  "KES",
+];
+
+/* ================= EXCHANGE RATES ================= */
+
+async function getExchangeRates() {
+  const cache = caches.default;
+
+  const cacheKey = new Request(
+    "https://africsocial-internal/exchange-rates/usd"
+  );
+
+  // Try Cloudflare's edge cache first.
+  const cachedResponse = await cache.match(cacheKey);
+
+  if (cachedResponse) {
+    return await cachedResponse.json();
+  }
+
+  const response = await fetch(
+    "https://open.er-api.com/v6/latest/USD"
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Exchange rate API returned ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+
+  if (data.result !== "success" || !data.rates) {
+    throw new Error(
+      "Invalid exchange rate API response"
+    );
+  }
+
+  const exchangeData = {
+    baseCurrency: "USD",
+    rates: data.rates,
+    lastUpdateUnix: data.time_last_update_unix,
+    nextUpdateUnix: data.time_next_update_unix,
+  };
+
+  // Cache until the next scheduled rate update.
+  const cacheSeconds = data.time_next_update_unix
+    ? Math.max(
+        3600,
+        data.time_next_update_unix -
+          Math.floor(Date.now() / 1000)
+      )
+    : 86400;
+
+  const cacheResponse = new Response(
+    JSON.stringify(exchangeData),
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": `public, max-age=${cacheSeconds}`,
+      },
+    }
+  );
+
+  await cache.put(cacheKey, cacheResponse.clone());
+
+  return exchangeData;
+}
+
 function json(data, status = 200) {
   return Response.json(data, {
     status,
@@ -193,8 +276,6 @@ export async function getWallet(request, env, db) {
 }
 /* ================= CONVERT POINTS ================= */
 
-const RATE = 0.5;
-
 export async function convertPoints(request, env, db) {
   try {
     if (!env.JWT_SECRET) {
@@ -269,6 +350,27 @@ export async function convertPoints(request, env, db) {
       await db.collection("wallets").insertOne(wallet);
     }
 
+    // ================= SELECTED CURRENCY =================
+
+    let body = {};
+
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const currency = String(
+      body.currency || BASE_CURRENCY
+    ).toUpperCase();
+
+    if (!SUPPORTED_CURRENCIES.includes(currency)) {
+      return json({
+        success: false,
+        error: `Unsupported currency: ${currency}`,
+      }, 400);
+    }
+
     const points = Number(wallet.points || 0);
 
     // Admins may convert below 10,000 points for testing.
@@ -280,20 +382,62 @@ export async function convertPoints(request, env, db) {
       }, 400);
     }
 
-    if (points < 10000 && !isAdmin) {
+    if (points < MIN_CONVERSION_POINTS && !isAdmin) {
       return json({
         success: false,
-        error: "Minimum 10,000 points required",
+        error: `Minimum ${MIN_CONVERSION_POINTS.toLocaleString()} points required`,
       }, 400);
     }
 
-    const cash = points * RATE;
+    // ================= BASE NGN VALUE =================
 
+    const baseAmount = points * RATE;
+
+    // ================= EXCHANGE RATE =================
+
+    let exchangeData = null;
+    let convertedAmount = baseAmount;
+
+    // NGN is the authoritative base currency.
+    // No external exchange-rate request is needed for NGN.
+    if (currency !== BASE_CURRENCY) {
+      exchangeData = await getExchangeRates();
+
+      const ngnRate = Number(
+        exchangeData.rates[BASE_CURRENCY]
+      );
+
+      const targetRate = Number(
+        exchangeData.rates[currency]
+      );
+
+      if (
+        !Number.isFinite(ngnRate) ||
+        ngnRate <= 0 ||
+        !Number.isFinite(targetRate) ||
+        targetRate <= 0
+      ) {
+        throw new Error(
+          `Exchange rate unavailable for ${currency}`
+        );
+      }
+
+      // ExchangeRate-API uses USD as its base.
+      // Convert NGN -> USD -> selected currency.
+      convertedAmount =
+        (baseAmount / ngnRate) * targetRate;
+    }
+
+    // Rate of selected currency relative to the NGN base value.
+    const effectiveExchangeRate =
+      convertedAmount / baseAmount;
+
+    // Wallet balance remains the authoritative NGN value.
     const newBalance =
-      (wallet.balance || 0) + cash;
+      (wallet.balance || 0) + baseAmount;
 
     const newLifetimeEarned =
-      (wallet.lifetimeEarned || 0) + cash;
+      (wallet.lifetimeEarned || 0) + baseAmount;
 
     await db.collection("wallets").updateOne(
       {
@@ -314,8 +458,8 @@ export async function convertPoints(request, env, db) {
       type: "conversion",
       category: "points_conversion",
       points: -points,
-      amount: cash,
-      currency: "NGN",
+      amount: convertedAmount,
+      currency,
       paymentMethod: "wallet",
       reference: `POINTS-${Date.now()}`,
       gatewayReference: "",
@@ -323,7 +467,22 @@ export async function convertPoints(request, env, db) {
       description: "Converted points to wallet balance",
       metadata: {
         pointsConverted: points,
-        conversionRate: RATE,
+        baseCurrency: BASE_CURRENCY,
+        baseAmount,
+        convertedAmount,
+        effectiveExchangeRate,
+        exchangeRateSource: "ExchangeRate-API Open Access",
+        exchangeRateBase: exchangeData?.baseCurrency || BASE_CURRENCY,
+        exchangeRateUpdatedAt: exchangeData?.lastUpdateUnix
+          ? new Date(
+              exchangeData.lastUpdateUnix * 1000
+            )
+          : null,
+        exchangeRateNextUpdateAt: exchangeData?.nextUpdateUnix
+          ? new Date(
+              exchangeData.nextUpdateUnix * 1000
+            )
+          : null,
       },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -333,7 +492,12 @@ export async function convertPoints(request, env, db) {
       success: true,
       message: "Points converted successfully",
       balance: newBalance,
-      earned: cash,
+      earned: baseAmount,
+      baseCurrency: BASE_CURRENCY,
+      baseAmount,
+      currency,
+      convertedAmount,
+      exchangeRate: effectiveExchangeRate,
       pointsConverted: points,
     });
 
