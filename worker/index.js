@@ -63,6 +63,19 @@ import {
 import {
   imageKitAuth,
 } from "./routes/imagekit.js";
+import {
+  createStory,
+  getStories,
+  getStoryFeed,
+  viewStory,
+  reactToStory,
+  shareStory,
+  replyToStory,
+  getStoryAnalytics,
+  likeStory,
+  markStoryViewed,
+} from "./routes/stories.js";
+
 import { getDatabase } from "./utils/db.js";
 
 import {
@@ -681,7 +694,92 @@ if (
       return getUnreadNotificationCount(request, env);
     }
 
-    // ================= POSTS =================
+    // ================= STORIES =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/stories/feed/foryou"
+) {
+  return getStoryFeed(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  (
+    url.pathname === "/api/stories" ||
+    url.pathname === "/api/storyR2"
+  )
+) {
+  return createStory(request, env);
+}
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/stories"
+) {
+  return getStories(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname.startsWith("/api/stories/view/")
+) {
+  return viewStory(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname.startsWith("/api/stories/react/")
+) {
+  return reactToStory(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname.startsWith("/api/stories/share/")
+) {
+  return shareStory(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname.startsWith("/api/stories/reply/")
+) {
+  return replyToStory(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname.startsWith("/api/stories/like/")
+) {
+  return likeStory(request, env);
+}
+
+
+if (
+  request.method === "GET" &&
+  url.pathname.startsWith("/api/stories/analytics/")
+) {
+  return getStoryAnalytics(request, env);
+}
+
+if (
+  request.method === "PUT" &&
+  url.pathname.startsWith("/api/stories/") &&
+  url.pathname.endsWith("/like")
+) {
+  return likeStory(request, env);
+}
+
+if (
+  request.method === "PUT" &&
+  url.pathname.startsWith("/api/stories/") &&
+  url.pathname.endsWith("/view")
+) {
+  return markStoryViewed(request, env);
+}
+
+// ================= POSTS =================
 
     // CREATE POST
     if (

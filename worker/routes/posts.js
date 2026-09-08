@@ -199,6 +199,51 @@ async function addPoints(db, userId, amount, type) {
 
 /* ================= NOTIFICATION ================= */
 
+async function claimLikeReward(db, collectionName, contentId, userId) {
+  const uid =
+    userId instanceof ObjectId
+      ? userId
+      : new ObjectId(String(userId));
+
+  const result = await db.collection(collectionName).updateOne(
+    {
+      _id: contentId,
+      likeRewardedBy: {
+        $nin: [uid, String(userId)],
+      },
+    },
+    {
+      $addToSet: {
+        likeRewardedBy: uid,
+      },
+      $set: {
+        updatedAt: new Date(),
+      },
+    }
+  );
+
+  return result.modifiedCount === 1;
+}
+
+async function markLikeRewarded(db, collectionName, contentId, userId) {
+  const uid =
+    userId instanceof ObjectId
+      ? userId
+      : new ObjectId(String(userId));
+
+  await db.collection(collectionName).updateOne(
+    { _id: contentId },
+    {
+      $addToSet: {
+        likeRewardedBy: uid,
+      },
+      $set: {
+        updatedAt: new Date(),
+      },
+    }
+  );
+}
+
 async function sendNotification(
   db,
   {
@@ -708,6 +753,16 @@ export async function likePost(
       newLikes = likes.filter(
         id => String(id) !== String(userId)
       );
+
+      // This like existed before the new one-time
+      // reward system. Mark it as already rewarded
+      // so unlike/re-like cannot farm points.
+      await markLikeRewarded(
+        db,
+        "posts",
+        id,
+        userId
+      );
     } else {
       newLikes = [
         ...likes,
@@ -715,16 +770,27 @@ export async function likePost(
       ];
 
       if (post.user) {
-        await addPoints(
-          db,
-          post.user,
-          post.isReel ? 3 : 2,
-          post.isReel
-            ? "reel_like"
-            : "video_like"
-        );
+        const rewardClaimed =
+          await claimLikeReward(
+            db,
+            "posts",
+            id,
+            userId
+          );
+
+        if (rewardClaimed) {
+          await addPoints(
+            db,
+            post.user,
+            1,
+            post.isReel
+              ? "reel_like"
+              : "video_like"
+          );
+        }
 
         if (
+          rewardClaimed &&
           String(post.user) !==
           String(userId)
         ) {
@@ -1114,22 +1180,34 @@ export async function viewPost(
       );
 
     if (!alreadyViewed) {
-      await db.collection("posts").updateOne(
-        { _id: id },
-        {
-          $addToSet: {
-            viewedBy: userId,
+      const viewResult =
+        await db.collection("posts").updateOne(
+          {
+            _id: id,
+            viewedBy: {
+              $nin: [
+                userId,
+                new ObjectId(userId),
+              ],
+            },
           },
-          $inc: {
-            viewsCount: 1,
-          },
-          $set: {
-            updatedAt: new Date(),
-          },
-        }
-      );
+          {
+            $addToSet: {
+              viewedBy: userId,
+            },
+            $inc: {
+              viewsCount: 1,
+            },
+            $set: {
+              updatedAt: new Date(),
+            },
+          }
+        );
 
-      if (post.user) {
+      if (
+        viewResult.modifiedCount === 1 &&
+        post.user
+      ) {
         await addPoints(
           db,
           post.user,
@@ -1560,22 +1638,34 @@ export async function viewReel(
       );
 
     if (!alreadyViewed) {
-      await db.collection("posts").updateOne(
-        { _id: id },
-        {
-          $addToSet: {
-            viewedBy: userId,
+      const viewResult =
+        await db.collection("posts").updateOne(
+          {
+            _id: id,
+            viewedBy: {
+              $nin: [
+                userId,
+                new ObjectId(userId),
+              ],
+            },
           },
-          $inc: {
-            viewsCount: 1,
-          },
-          $set: {
-            updatedAt: new Date(),
-          },
-        }
-      );
+          {
+            $addToSet: {
+              viewedBy: userId,
+            },
+            $inc: {
+              viewsCount: 1,
+            },
+            $set: {
+              updatedAt: new Date(),
+            },
+          }
+        );
 
-      if (reel.user) {
+      if (
+        viewResult.modifiedCount === 1 &&
+        reel.user
+      ) {
         await addPoints(
           db,
           reel.user,
