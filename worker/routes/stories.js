@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getDatabase } from "../utils/db.js";
+import { getDatabase, debugDbOperation } from "../utils/db.js";
 import { authenticate } from "../utils/auth.js";
 
 function corsHeaders() {
@@ -45,19 +45,23 @@ async function getUsersMap(db, ids) {
 
   if (!validIds.length) return new Map();
 
-  const users = await db.collection("users")
-    .find({
-      _id: {
-        $in: validIds.map(id => new ObjectId(id)),
-      },
-    })
-    .project({
-      name: 1,
-      profilePic: 1,
-      verified: 1,
-      verificationBadge: 1,
-    })
-    .toArray();
+  const users = await debugDbOperation(
+  "stories.populate.users",
+  () =>
+    db.collection("users")
+      .find({
+        _id: {
+          $in: validIds.map(id => new ObjectId(id)),
+        },
+      })
+      .project({
+        name: 1,
+        profilePic: 1,
+        verified: 1,
+        verificationBadge: 1,
+      })
+      .toArray()
+);
 
   return new Map(
     users.map(user => [String(user._id), user])
@@ -274,171 +278,21 @@ export async function getStoryFeed(request, env) {
 
     const db = await getDatabase(env);
 
-    const stories = await db
-      .collection("stories")
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    const userMap = await getUsersMap(
-      db,
-      stories.map((story) => story.user)
-    );
-
-    const rankedStories = stories
-      .map((story) => {
-        const reactions = Array.isArray(story.reactions)
-          ? story.reactions.length
-          : 0;
-
-        const replies = Array.isArray(story.replies)
-          ? story.replies.length
-          : 0;
-
-        const shares = story.shares || 0;
-        const views = story.viewsCount || 0;
-
-        const engagementScore =
-          reactions * 1 +
-          replies * 2 +
-          shares * 3;
-
-        const age =
-          Date.now() - new Date(story.createdAt).getTime();
-
-        const recencyBoost =
-          1 / (age / 10000000);
-
-        const score =
-          engagementScore +
-          views * 0.1 +
-          recencyBoost;
-
-        return {
-          ...story,
-          user: userMap.get(String(story.user)) || null,
-          score,
-        };
-      })
-      .sort((a, b) => b.score - a.score)
-      .map(({ score, ...story }) => story);
-
-    return json(rankedStories);
-  } catch (error) {
-    console.error("Feed error:", error);
-
-    if (isAuthError(error)) {
-      return json({ error: error.message }, error.status || 401);
-    }
-
-    return json(
-      { error: "Failed to load feed" },
-      500
-    );
-  }
-}
-
-export async function createStory(request, env) {
-  try {
-    const userId = await authenticate(request, env);
-    const body = await request.json();
-
-    const {
-      media = [],
-      caption = "",
-      text = "",
-      textStyle = {},
-      music = null,
-      stickers = [],
-      backgroundColor = "#000000",
-    } = body;
-
-    if (
-      (!Array.isArray(media) || media.length === 0) &&
-      !text &&
-      !music &&
-      (!Array.isArray(stickers) || stickers.length === 0)
-    ) {
-      return json({
-        error: "Story must contain media, text, music, or stickers",
-      }, 400);
-    }
-
-    const db = await getDatabase(env);
-    const now = new Date();
-
-    const story = {
-      user: new ObjectId(userId),
-      media: Array.isArray(media) ? media : [],
-      caption,
-      text,
-      textStyle: {
-        x: textStyle.x ?? 100,
-        y: textStyle.y ?? 100,
-        fontSize: textStyle.fontSize ?? 24,
-        color: textStyle.color ?? "#ffffff",
-        rotation: textStyle.rotation ?? 0,
-      },
-      music,
-      stickers: Array.isArray(stickers) ? stickers : [],
-      backgroundColor,
-      views: [],
-      viewsCount: 0,
-      reactions: [],
-      replies: [],
-      shares: 0,
-      engagementPoints: 0,
-      expiresAt: new Date(
-        now.getTime() + 24 * 60 * 60 * 1000
-      ),
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const result =
-      await db.collection("stories").insertOne(story);
-
-    story._id = result.insertedId;
-
-    const populated =
-      await populateStories(db, [story]);
-
-    return json(populated[0], 201);
-
-  } catch (err) {
-    console.error("CREATE STORY ERROR:", err);
-
-    if (isAuthError(err)) {
-      return json({
-        error: err.message,
-      }, 401);
-    }
-
-    return json({
-      error: err.message || "Failed to create story",
-    }, 500);
-  }
-}
-
-/* ================= GET STORIES ================= */
-
-export async function getStories(request, env) {
-  try {
-    await authenticate(request, env);
-
-    const db = await getDatabase(env);
-
     const stories =
-      await db.collection("stories")
-        .find({
-          expiresAt: {
-            $gt: new Date(),
-          },
-        })
-        .sort({
-          createdAt: -1,
-        })
-        .toArray();
+      await debugDbOperation(
+        "stories.feed",
+        () =>
+          db.collection("stories")
+            .find({
+              expiresAt: {
+                $gt: new Date(),
+              },
+            })
+            .sort({
+              createdAt: -1,
+            })
+            .toArray()
+      );
 
     const populated =
       await populateStories(db, stories);

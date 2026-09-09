@@ -1,13 +1,18 @@
 import {
+  createRequestId,
+  getRequestInfo,
+  logRequestStart,
+  logRequestEnd,
+  logRequestError,
+  logSlowRequest,
+  addRequestId,
+} from "./utils/debug.js";
+
+
+import {
   register,
   login,
 } from "./routes/auth.js";
-
-import {
-  authenticate,
-} from "./utils/auth.js";
-
-export { SocketRoom } from "./socketRoom.js";
 
 import {
   getWallet,
@@ -46,14 +51,6 @@ import {
   markNotificationsRead,
   getUnreadNotificationCount,
 } from "./routes/notifications.js";
-
-import {
-  sendMessage,
-  getMessages,
-  editMessage,
-  deleteMessageForMe,
-  deleteMessageForEveryone,
-} from "./routes/messages.js";
 
 import {
   createPost,
@@ -113,7 +110,58 @@ function json(data, status = 200) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+    const requestId = createRequestId();
+    const info = getRequestInfo(request, requestId);
+    const startedAt = Date.now();
+
+    logRequestStart(info);
+
+    try {
+      const response = await handleRequest(
+        request,
+        env,
+        ctx
+      );
+
+      const durationMs = Date.now() - startedAt;
+
+      logSlowRequest(
+        info,
+        durationMs
+      );
+
+      logRequestEnd(
+        info,
+        response.status,
+        durationMs
+      );
+
+      return addRequestId(
+        response,
+        requestId
+      );
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+
+      logRequestError(
+        info,
+        error,
+        durationMs
+      );
+
+      return addRequestId(
+        json({
+          error: "Internal server error",
+          requestId,
+        }, 500),
+        requestId
+      );
+    }
+  },
+};
+
+async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
 
     // ================= CORS =================
@@ -123,37 +171,6 @@ export default {
         status: 204,
         headers: corsHeaders(),
       });
-    }
-
-    // ================= WEBSOCKET =================
-
-    if (
-      request.method === "GET" &&
-      url.pathname === "/ws"
-    ) {
-      if (request.headers.get("Upgrade") !== "websocket") {
-        return new Response(
-          "Expected WebSocket upgrade",
-          { status: 426 }
-        );
-      }
-
-      const id = env.SOCKET_ROOM.idFromName("global");
-      const stub = env.SOCKET_ROOM.get(id);
-
-      const socketUrl = new URL(
-        "/connect",
-        request.url
-      );
-
-      socketUrl.search = url.search;
-
-      const socketRequest = new Request(
-        socketUrl,
-        request
-      );
-
-      return await stub.fetch(socketRequest);
     }
 
     // ================= HEALTH =================
@@ -202,48 +219,6 @@ export default {
           database: "mongodb-atlas",
           message: error.message,
         }, 500);
-      }
-    }
-
-    // ================= SOCKET AUTH =================
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/socket-ticket"
-    ) {
-      try {
-        const userId = await authenticate(
-          request,
-          env
-        );
-
-        const id = env.SOCKET_ROOM.idFromName("global");
-        const stub = env.SOCKET_ROOM.get(id);
-
-        const ticketRequest = new Request(
-          new URL("/ticket", request.url),
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userId: userId.toString(),
-            }),
-          }
-        );
-
-        return await stub.fetch(ticketRequest);
-
-      } catch (error) {
-        console.error(
-          "SOCKET TICKET ERROR:",
-          error
-        );
-
-        return json({
-          error: error.message,
-        }, 401);
       }
     }
 
@@ -781,108 +756,6 @@ if (
       return getUnreadNotificationCount(request, env);
     }
 
-    // ================= MESSAGES =================
-
-    // SEND MESSAGE
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/messages"
-    ) {
-      const database = await getDatabase(env);
-
-      return await sendMessage(
-        request,
-        env,
-        database
-      );
-    }
-
-    // GET MESSAGES
-    if (
-      request.method === "GET" &&
-      url.pathname.startsWith("/api/messages/")
-    ) {
-      const parts =
-        url.pathname.split("/").filter(Boolean);
-
-      if (parts.length === 3) {
-        const userId = parts[2];
-        const database = await getDatabase(env);
-
-        return await getMessages(
-          request,
-          env,
-          database,
-          userId
-        );
-      }
-    }
-
-    // EDIT MESSAGE
-    if (
-      request.method === "PUT" &&
-      url.pathname.startsWith("/api/messages/")
-    ) {
-      const parts =
-        url.pathname.split("/").filter(Boolean);
-
-      if (parts.length === 3) {
-        const messageId = parts[2];
-        const database = await getDatabase(env);
-
-        return await editMessage(
-          request,
-          env,
-          database,
-          messageId
-        );
-      }
-    }
-
-    // DELETE MESSAGE FOR ME
-    if (
-      request.method === "DELETE" &&
-      url.pathname.startsWith("/api/messages/") &&
-      url.pathname.endsWith("/me")
-    ) {
-      const parts =
-        url.pathname.split("/").filter(Boolean);
-
-      if (parts.length === 4) {
-        const messageId = parts[2];
-        const database = await getDatabase(env);
-
-        return await deleteMessageForMe(
-          request,
-          env,
-          database,
-          messageId
-        );
-      }
-    }
-
-    // DELETE MESSAGE FOR EVERYONE
-    if (
-      request.method === "DELETE" &&
-      url.pathname.startsWith("/api/messages/") &&
-      url.pathname.endsWith("/everyone")
-    ) {
-      const parts =
-        url.pathname.split("/").filter(Boolean);
-
-      if (parts.length === 4) {
-        const messageId = parts[2];
-        const database = await getDatabase(env);
-
-        return await deleteMessageForEveryone(
-          request,
-          env,
-          database,
-          messageId
-        );
-      }
-    }
-
     // ================= STORIES =================
 
 if (
@@ -1227,5 +1100,4 @@ if (
       service: "africsocial-api",
       message: "Worker is running",
     });
-  },
-};
+}

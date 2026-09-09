@@ -1,3 +1,4 @@
+import { debugDbOperation } from "../utils/db.js";
 import { ObjectId } from "mongodb";
 
 function json(data, status = 200) {
@@ -15,47 +16,51 @@ function json(data, status = 200) {
 
 export async function getLeaderboardTop(request, env, db) {
   try {
-    const topUsers = await db.collection("wallets")
-      .aggregate([
-        {
-          $sort: {
-            points: -1,
-          },
-        },
-        {
-          $limit: 20,
-        },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "userData",
-          },
-        },
-        {
-          $unwind: {
-            path: "$userData",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            userId: "$userData._id",
-            name: "$userData.name",
-            profilePic: "$userData.profilePic",
-            intro: "$userData.intro",
-            points: {
-              $ifNull: ["$points", 0],
+    const topUsers = await debugDbOperation(
+      "leaderboard.top",
+      () =>
+        db.collection("wallets")
+          .aggregate([
+            {
+              $sort: {
+                points: -1,
+              },
             },
-            balance: {
-              $ifNull: ["$balance", 0],
+            {
+              $limit: 20,
             },
-          },
-        },
-      ])
-      .toArray();
+            {
+              $lookup: {
+                from: "users",
+                localField: "user",
+                foreignField: "_id",
+                as: "userData",
+              },
+            },
+            {
+              $unwind: {
+                path: "$userData",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                userId: "$userData._id",
+                name: "$userData.name",
+                profilePic: "$userData.profilePic",
+                intro: "$userData.intro",
+                points: {
+                  $ifNull: ["$points", 0],
+                },
+                balance: {
+                  $ifNull: ["$balance", 0],
+                },
+              },
+            },
+          ])
+          .toArray()
+    );
 
     const formatted = topUsers.map((wallet, index) => ({
       rank: index + 1,
