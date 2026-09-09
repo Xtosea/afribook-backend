@@ -268,6 +268,88 @@ async function sendNotification(
 /* ================= CREATE STORY ================= */
 
 
+export async function createStory(request, env) {
+  try {
+    const userId = await authenticate(request, env);
+    const body = await request.json();
+
+    const {
+      media = [],
+      caption = "",
+      text = "",
+      textStyle = {},
+      music = null,
+      stickers = [],
+      backgroundColor = "#000000",
+    } = body;
+
+    if (
+      (!Array.isArray(media) || media.length === 0) &&
+      !text &&
+      !music &&
+      (!Array.isArray(stickers) || stickers.length === 0)
+    ) {
+      return json({
+        error: "Story must contain media, text, music, or stickers",
+      }, 400);
+    }
+
+    const db = await getDatabase(env);
+    const now = new Date();
+
+    const story = {
+      user: new ObjectId(userId),
+      media: Array.isArray(media) ? media : [],
+      caption,
+      text,
+      textStyle: {
+        x: textStyle.x ?? 100,
+        y: textStyle.y ?? 100,
+        fontSize: textStyle.fontSize ?? 24,
+        color: textStyle.color ?? "#ffffff",
+        rotation: textStyle.rotation ?? 0,
+      },
+      music,
+      stickers: Array.isArray(stickers) ? stickers : [],
+      backgroundColor,
+      views: [],
+      viewsCount: 0,
+      reactions: [],
+      replies: [],
+      shares: 0,
+      engagementPoints: 0,
+      expiresAt: new Date(
+        now.getTime() + 24 * 60 * 60 * 1000
+      ),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const result =
+      await db.collection("stories").insertOne(story);
+
+    story._id = result.insertedId;
+
+    const populated =
+      await populateStories(db, [story]);
+
+    return json(populated[0], 201);
+
+  } catch (err) {
+    console.error("CREATE STORY ERROR:", err);
+
+    if (isAuthError(err)) {
+      return json({
+        error: err.message,
+      }, 401);
+    }
+
+    return json({
+      error: err.message || "Failed to create story",
+    }, 500);
+  }
+}
+
 export async function getStoryFeed(request, env) {
   try {
     const auth = await authenticate(request, env);
@@ -281,6 +363,48 @@ export async function getStoryFeed(request, env) {
     const stories =
       await debugDbOperation(
         "stories.feed",
+        () =>
+          db.collection("stories")
+            .find({
+              expiresAt: {
+                $gt: new Date(),
+              },
+            })
+            .sort({
+              createdAt: -1,
+            })
+            .toArray()
+      );
+
+    const populated =
+      await populateStories(db, stories);
+
+    return json(populated);
+
+  } catch (err) {
+    console.error("GET STORIES ERROR:", err);
+
+    if (isAuthError(err)) {
+      return json({
+        error: err.message,
+      }, 401);
+    }
+
+    return json({
+      error: err.message || "Failed to fetch stories",
+    }, 500);
+  }
+}
+
+export async function getStories(request, env) {
+  try {
+    await authenticate(request, env);
+
+    const db = await getDatabase(env);
+
+    const stories =
+      await debugDbOperation(
+        "stories.get",
         () =>
           db.collection("stories")
             .find({
