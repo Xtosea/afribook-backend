@@ -2,6 +2,7 @@ import { MongoClient } from "mongodb";
 
 let client;
 let db;
+let connectingPromise;
 
 export async function getDatabase(env) {
   const startedAt = Date.now();
@@ -21,39 +22,78 @@ export async function getDatabase(env) {
     return db;
   }
 
+  if (connectingPromise) {
+    console.log("[DB] Waiting for existing MongoDB connection");
+
+    try {
+      await connectingPromise;
+
+      if (client && db) {
+        console.log("[DB] Existing MongoDB connection is ready", {
+          durationMs: Date.now() - startedAt,
+        });
+
+        return db;
+      }
+
+      throw new Error("MongoDB connection completed without a database");
+    } catch (error) {
+      console.error("[DB] Existing MongoDB connection failed", {
+        durationMs: Date.now() - startedAt,
+        name: error?.name || "Error",
+        message: error?.message || String(error),
+      });
+
+      throw error;
+    }
+  }
+
   console.log("[DB] Creating MongoDB client");
 
-  try {
-    client = new MongoClient(env.MONGO_URI);
+  connectingPromise = (async () => {
+    try {
+      const newClient = new MongoClient(env.MONGO_URI, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 10000,
+      });
 
-    console.log("[DB] Connecting to MongoDB...");
+      console.log("[DB] Connecting to MongoDB...");
 
-    await client.connect();
+      await newClient.connect();
 
-    console.log("[DB] MongoDB connected", {
-      durationMs: Date.now() - startedAt,
-    });
+      const newDb = newClient.db();
 
-    db = client.db();
+      client = newClient;
+      db = newDb;
 
-    console.log("[DB] Database ready", {
-      durationMs: Date.now() - startedAt,
-    });
+      console.log("[DB] MongoDB connected", {
+        durationMs: Date.now() - startedAt,
+      });
 
-    return db;
-  } catch (error) {
-    console.error("[DB] MongoDB connection failed", {
-      durationMs: Date.now() - startedAt,
-      name: error?.name || "Error",
-      message: error?.message || String(error),
-      stack: error?.stack || null,
-    });
+      console.log("[DB] Database ready", {
+        durationMs: Date.now() - startedAt,
+      });
 
-    client = undefined;
-    db = undefined;
+      return newDb;
+    } catch (error) {
+      console.error("[DB] MongoDB connection failed", {
+        durationMs: Date.now() - startedAt,
+        name: error?.name || "Error",
+        message: error?.message || String(error),
+        stack: error?.stack || null,
+      });
 
-    throw error;
-  }
+      client = undefined;
+      db = undefined;
+
+      throw error;
+    } finally {
+      connectingPromise = undefined;
+    }
+  })();
+
+  return await connectingPromise;
 }
 
 export async function debugDbOperation(name, operation) {
