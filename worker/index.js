@@ -1,3 +1,5 @@
+import { SocketRoom } from "./socketRoom.js";
+
 import {
   createRequestId,
   getRequestInfo,
@@ -1101,3 +1103,5 @@ if (
       message: "Worker is running",
     });
 }
+
+export { SocketRoom };
