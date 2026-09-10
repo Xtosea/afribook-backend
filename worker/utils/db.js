@@ -2,7 +2,6 @@ import { MongoClient } from "mongodb";
 
 let client;
 let db;
-let connectingPromise;
 
 export async function getDatabase(env) {
   const startedAt = Date.now();
@@ -14,6 +13,7 @@ export async function getDatabase(env) {
     throw new Error("MONGO_URI is not configured");
   }
 
+  // Reuse an already-established MongoDB client.
   if (client && db) {
     console.log("[DB] Reusing existing MongoDB client", {
       durationMs: Date.now() - startedAt,
@@ -22,78 +22,57 @@ export async function getDatabase(env) {
     return db;
   }
 
-  if (connectingPromise) {
-    console.log("[DB] Waiting for existing MongoDB connection");
-
-    try {
-      await connectingPromise;
-
-      if (client && db) {
-        console.log("[DB] Existing MongoDB connection is ready", {
-          durationMs: Date.now() - startedAt,
-        });
-
-        return db;
-      }
-
-      throw new Error("MongoDB connection completed without a database");
-    } catch (error) {
-      console.error("[DB] Existing MongoDB connection failed", {
-        durationMs: Date.now() - startedAt,
-        name: error?.name || "Error",
-        message: error?.message || String(error),
-      });
-
-      throw error;
-    }
-  }
-
   console.log("[DB] Creating MongoDB client");
 
-  connectingPromise = (async () => {
+  const newClient = new MongoClient(env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+    socketTimeoutMS: 10000,
+  });
+
+  try {
+    console.log("[DB] Connecting to MongoDB...");
+
+    await newClient.connect();
+
+    const newDb = newClient.db();
+
+    client = newClient;
+    db = newDb;
+
+    console.log("[DB] MongoDB connected", {
+      durationMs: Date.now() - startedAt,
+    });
+
+    console.log("[DB] Database ready", {
+      durationMs: Date.now() - startedAt,
+    });
+
+    return newDb;
+  } catch (error) {
+    console.error("[DB] MongoDB connection failed", {
+      durationMs: Date.now() - startedAt,
+      name: error?.name || "Error",
+      message: error?.message || String(error),
+      stack: error?.stack || null,
+    });
+
+    // Make sure a failed connection isn't cached.
+    client = undefined;
+    db = undefined;
+
+    // Close the client created by this request.
     try {
-      const newClient = new MongoClient(env.MONGO_URI, {
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
-        socketTimeoutMS: 10000,
+      await newClient.close();
+    } catch (closeError) {
+      console.error("[DB] Failed to close MongoDB client", {
+        name: closeError?.name || "Error",
+        message: closeError?.message || String(closeError),
       });
-
-      console.log("[DB] Connecting to MongoDB...");
-
-      await newClient.connect();
-
-      const newDb = newClient.db();
-
-      client = newClient;
-      db = newDb;
-
-      console.log("[DB] MongoDB connected", {
-        durationMs: Date.now() - startedAt,
-      });
-
-      console.log("[DB] Database ready", {
-        durationMs: Date.now() - startedAt,
-      });
-
-      return newDb;
-    } catch (error) {
-      console.error("[DB] MongoDB connection failed", {
-        durationMs: Date.now() - startedAt,
-        name: error?.name || "Error",
-        message: error?.message || String(error),
-        stack: error?.stack || null,
-      });
-
-      client = undefined;
-      db = undefined;
-
-      throw error;
-    } finally {
-      connectingPromise = undefined;
     }
-  })();
 
-  return await connectingPromise;
+    throw error;
+  }
 }
 
 export async function debugDbOperation(name, operation) {
