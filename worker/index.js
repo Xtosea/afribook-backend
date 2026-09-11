@@ -281,7 +281,7 @@ async function handleRequest(request, env, ctx) {
 
 if (
   request.method === "GET" &&
-  url.pathname === "/api/db-test"
+  url.pathname === "/api/mongodb-ping-test"
 ) {
   try {
     const startedAt = Date.now();
@@ -308,7 +308,6 @@ if (
     );
   }
 }
-
 
     // ================= WALLET =================
 
