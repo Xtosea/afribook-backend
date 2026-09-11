@@ -278,6 +278,38 @@ async function handleRequest(request, env, ctx) {
       }
     }
 
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    await db.command({ ping: 1 });
+
+    return json({
+      ok: true,
+      database: "connected",
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error("DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "failed",
+        error: err?.message || String(err),
+      },
+      500
+    );
+  }
+}
+
+
     // ================= WALLET =================
 
 if (
