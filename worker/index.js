@@ -309,6 +309,46 @@ if (
   }
 }
 
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/posts-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const posts = await db
+      .collection("posts")
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .toArray();
+
+    return json({
+      ok: true,
+      database: "connected",
+      postsFound: posts.length,
+      durationMs: Date.now() - startedAt,
+      sampleIds: posts.map((post) =>
+        post?._id?.toString()
+      ),
+    });
+  } catch (err) {
+    console.error("POSTS DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "failed",
+        error: err?.message || String(err),
+      },
+      500
+    );
+  }
+}
+
+
     // ================= WALLET =================
 
 if (
@@ -357,8 +397,7 @@ if (
 
       } catch (error) {
         console.error(
-          "WALLET TRANSACTIONS ROUTE ERROR:",
-          error
+p          error
         );
 
         return json({
