@@ -434,12 +434,24 @@ export async function createPost(request, env) {
 }
 
 /* ================= GET FEED ================= */
-
 export async function getPosts(request, env) {
   try {
+    const feedStartedAt = Date.now();
+
+    console.log("[FEED] getPosts started");
+
     await authenticate(request, env);
 
+    console.log("[FEED] authentication passed", {
+      durationMs: Date.now() - feedStartedAt,
+    });
+
     const db = await getDatabase(env);
+
+    console.log("[FEED] database ready", {
+      durationMs: Date.now() - feedStartedAt,
+    });
+
     const url = new URL(request.url);
 
     const page =
@@ -506,9 +518,20 @@ export async function getPosts(request, env) {
           .toArray()
     );
 
-    return json(
-      await populatePosts(db, posts)
-    );
+    console.log("[FEED] posts query passed", {
+      postsFound: posts.length,
+      durationMs: Date.now() - feedStartedAt,
+    });
+
+    const populatedPosts =
+      await populatePosts(db, posts);
+
+    console.log("[FEED] populatePosts passed", {
+      postsFound: populatedPosts.length,
+      durationMs: Date.now() - feedStartedAt,
+    });
+
+    return json(populatedPosts);
 
   } catch (err) {
     console.error(
