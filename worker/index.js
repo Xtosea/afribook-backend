@@ -379,6 +379,90 @@ if (
 
 
 
+if (
+request.method === "GET" &&
+url.pathname === "/api/posts-users-db-test"
+) {
+try {
+  const startedAt = Date.now();
+
+  const db = await getDatabase(env);
+
+  const posts = await db
+    .collection("posts")
+    .find({})
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .toArray();
+
+  const userIds = [
+    ...new Set(
+      posts
+        .flatMap((post) => [
+          post.user,
+          post.originalAuthor,
+          ...(Array.isArray(post.taggedFriends)
+            ? post.taggedFriends
+            : []),
+        ])
+        .filter(Boolean)
+        .map(String)
+        .filter((id) => ObjectId.isValid(id))
+    ),
+  ];
+
+  const usersStartedAt = Date.now();
+
+  const users = await db
+    .collection("users")
+    .find({
+      _id: {
+        $in: userIds.map(
+          (id) => new ObjectId(id)
+        ),
+      },
+    })
+    .project({
+      name: 1,
+      profilePic: 1,
+      verified: 1,
+      verificationBadge: 1,
+    })
+    .toArray();
+
+  return json({
+    ok: true,
+    database: "connected",
+    postsFound: posts.length,
+    userIdsFound: userIds.length,
+    usersFound: users.length,
+    usersQueryDurationMs:
+      Date.now() - usersStartedAt,
+    totalDurationMs:
+      Date.now() - startedAt,
+  });
+} catch (err) {
+  console.error(
+    "POSTS USERS DB TEST ERROR:",
+    err
+  );
+
+  return json(
+    {
+      ok: false,
+      database: "failed",
+      error:
+        err?.message ||
+        String(err),
+    },
+    500
+  );
+}
+}
+
+
+
+
     // ================= WALLET TRANSACTION HISTORY =================
 
     if (
@@ -606,7 +690,7 @@ if (
   }
 }
 
-    
+
 
     // ================= USERS =================
 
