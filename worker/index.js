@@ -397,7 +397,7 @@ if (
 
       } catch (error) {
         console.error(
-p          error
+          error
         );
 
         return json({
