@@ -350,6 +350,93 @@ if (
 }
 
 
+  if (
+  request.method === "GET" &&
+  url.pathname === "/api/posts-projection-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    console.log("[PROJECTION TEST] database ready");
+
+    const posts = await db
+      .collection("posts")
+      .find(
+        {},
+        {
+          projection: {
+            _id: 1,
+            user: 1,
+            originalAuthor: 1,
+            isSharedPost: 1,
+            sharedFrom: 1,
+            title: 1,
+            content: 1,
+            media: 1,
+            type: 1,
+            isReel: 1,
+            feeling: 1,
+            location: 1,
+            textColor: 1,
+            backgroundStyle: 1,
+            fontStyle: 1,
+            editor: 1,
+            taggedFriends: 1,
+            tags: 1,
+            category: 1,
+            shares: 1,
+            pinned: 1,
+            sponsored: 1,
+            sponsor: 1,
+            promotionBudget: 1,
+            adClicks: 1,
+            aiScore: 1,
+            viralScore: 1,
+            viral: 1,
+            multiplier: 1,
+            watchTime: 1,
+            engagementPoints: 1,
+            earnings: 1,
+            viewsCount: 1,
+            createdAt: 1,
+            updatedAt: 1
+          }
+        }
+      )
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .toArray();
+
+    console.log("[PROJECTION TEST] query completed", {
+      postsFound: posts.length,
+      durationMs: Date.now() - startedAt,
+    });
+
+    return json({
+      ok: true,
+      postsFound: posts.length,
+      durationMs: Date.now() - startedAt,
+      sampleIds: posts.map(post =>
+        post?._id?.toString()
+      ),
+    });
+
+  } catch (err) {
+    console.error(
+      "[PROJECTION TEST] ERROR:",
+      err
+    );
+
+    return json({
+      ok: false,
+      error: err?.message || String(err),
+      name: err?.name || "Error",
+    }, 500);
+  }
+  }
+
     // ================= WALLET =================
 
 if (
