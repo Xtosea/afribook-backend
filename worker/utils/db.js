@@ -101,16 +101,47 @@ export async function getDatabase(env) {
   }
 
   // Reuse an already-established MongoDB client.
+  // Reuse an existing MongoDB client only after
+  // confirming that the connection is still alive.
   if (client && db) {
     console.log(
-      "[DB] Reusing existing MongoDB client",
+      "[DB] Checking existing MongoDB connection",
       {
         durationMs:
           Date.now() - startedAt,
       }
     );
 
-    return db;
+    try {
+      await db.command(
+        { ping: 1 },
+        { maxTimeMS: 2000 }
+      );
+
+      console.log(
+        "[DB] Existing MongoDB connection is healthy",
+        {
+          durationMs:
+            Date.now() - startedAt,
+        }
+      );
+
+      return db;
+    } catch (error) {
+      console.warn(
+        "[DB] Existing MongoDB connection is stale",
+        {
+          name:
+            error?.name ||
+            "Error",
+          message:
+            error?.message ||
+            String(error),
+        }
+      );
+
+      await resetDatabaseConnection();
+    }
   }
 
   // If another request is already establishing
