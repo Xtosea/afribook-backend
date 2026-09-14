@@ -466,57 +466,53 @@ export async function getPosts(request, env) {
         50
       );
 
-    const posts = await debugDbOperation(
-      "posts.feed",
-      () =>
-        db.collection("posts")
-          .find(
-            {},
-            {
-              projection: {
-                _id: 1,
-                user: 1,
-                originalAuthor: 1,
-                isSharedPost: 1,
-                sharedFrom: 1,
-                title: 1,
-                content: 1,
-                media: 1,
-                type: 1,
-                isReel: 1,
-                feeling: 1,
-                location: 1,
-                textColor: 1,
-                backgroundStyle: 1,
-                fontStyle: 1,
-                editor: 1,
-                taggedFriends: 1,
-                tags: 1,
-                category: 1,
-                shares: 1,
-                pinned: 1,
-                sponsored: 1,
-                sponsor: 1,
-                promotionBudget: 1,
-                adClicks: 1,
-                aiScore: 1,
-                viralScore: 1,
-                viral: 1,
-                multiplier: 1,
-                watchTime: 1,
-                engagementPoints: 1,
-                earnings: 1,
-                viewsCount: 1,
-                createdAt: 1,
-                updatedAt: 1
-              }
-            }
-          )
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .toArray()
-    );
+    const posts = await db.collection("posts")
+      .find(
+        {},
+        {
+          projection: {
+            _id: 1,
+            user: 1,
+            originalAuthor: 1,
+            isSharedPost: 1,
+            sharedFrom: 1,
+            title: 1,
+            content: 1,
+            media: 1,
+            type: 1,
+            isReel: 1,
+            feeling: 1,
+            location: 1,
+            textColor: 1,
+            backgroundStyle: 1,
+            fontStyle: 1,
+            editor: 1,
+            taggedFriends: 1,
+            tags: 1,
+            category: 1,
+            shares: 1,
+            pinned: 1,
+            sponsored: 1,
+            sponsor: 1,
+            promotionBudget: 1,
+            adClicks: 1,
+            aiScore: 1,
+            viralScore: 1,
+            viral: 1,
+            multiplier: 1,
+            watchTime: 1,
+            engagementPoints: 1,
+            earnings: 1,
+            viewsCount: 1,
+            createdAt: 1,
+            updatedAt: 1
+          }
+        }
+      )
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
 
     console.log("[FEED] posts query passed", {
       postsFound: posts.length,
