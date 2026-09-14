@@ -49,23 +49,22 @@ async function getUsersMap(db, ids) {
 
   if (!validIds.length) return new Map();
 
-  const users = await debugDbOperation(
-  "posts.populate.users",
-  () =>
-    db.collection("users")
-      .find({
-        _id: {
-          $in: validIds.map(id => new ObjectId(id)),
-        },
-      })
-      .project({
-        name: 1,
-        profilePic: 1,
-        verified: 1,
-        verificationBadge: 1,
-      })
-      .toArray()
-);
+  const users =
+  await db.collection("users")
+    .find({
+      _id: {
+        $in: validIds.map(
+          id => new ObjectId(id)
+        ),
+      },
+    })
+    .project({
+      name: 1,
+      profilePic: 1,
+      verified: 1,
+      verificationBadge: 1,
+    })
+    .toArray();
 
 return new Map(
   users.map(user => [String(user._id), user])
@@ -472,6 +471,10 @@ export async function getPosts(request, env) {
             durationMs: Date.now() - feedStartedAt,
           });
 
+          console.log("[FEED] posts query started", {
+            durationMs: Date.now() - feedStartedAt,
+          });
+
           const posts =
             await db.collection("posts")
               .find(
@@ -533,6 +536,11 @@ export async function getPosts(request, env) {
                 Date.now() - feedStartedAt,
             }
           );
+
+          console.log("[FEED] populatePosts started", {
+            postsFound: posts.length,
+            durationMs: Date.now() - feedStartedAt,
+          });
 
           const populated =
             await populatePosts(
