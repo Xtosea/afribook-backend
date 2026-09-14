@@ -1,5 +1,9 @@
 import { ObjectId } from "mongodb";
-import { getDatabase, debugDbOperation } from "../utils/db.js";
+import {
+  getDatabase,
+  debugDbOperation,
+  withDatabaseRetry,
+} from "../utils/db.js";
 import { authenticate } from "../utils/auth.js";
 
 function corsHeaders() {
@@ -446,12 +450,6 @@ export async function getPosts(request, env) {
       durationMs: Date.now() - feedStartedAt,
     });
 
-    const db = await getDatabase(env);
-
-    console.log("[FEED] database ready", {
-      durationMs: Date.now() - feedStartedAt,
-    });
-
     const url = new URL(request.url);
 
     const page =
@@ -466,66 +464,95 @@ export async function getPosts(request, env) {
         50
       );
 
-    const posts = await db.collection("posts")
-      .find(
-        {},
-        {
-          projection: {
-            _id: 1,
-            user: 1,
-            originalAuthor: 1,
-            isSharedPost: 1,
-            sharedFrom: 1,
-            title: 1,
-            content: 1,
-            media: 1,
-            type: 1,
-            isReel: 1,
-            feeling: 1,
-            location: 1,
-            textColor: 1,
-            backgroundStyle: 1,
-            fontStyle: 1,
-            editor: 1,
-            taggedFriends: 1,
-            tags: 1,
-            category: 1,
-            shares: 1,
-            pinned: 1,
-            sponsored: 1,
-            sponsor: 1,
-            promotionBudget: 1,
-            adClicks: 1,
-            aiScore: 1,
-            viralScore: 1,
-            viral: 1,
-            multiplier: 1,
-            watchTime: 1,
-            engagementPoints: 1,
-            earnings: 1,
-            viewsCount: 1,
-            createdAt: 1,
-            updatedAt: 1
-          }
-        }
-      )
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
-
-    console.log("[FEED] posts query passed", {
-      postsFound: posts.length,
-      durationMs: Date.now() - feedStartedAt,
-    });
-
     const populatedPosts =
-      await populatePosts(db, posts);
+      await withDatabaseRetry(
+        env,
+        async (db) => {
+          console.log("[FEED] database ready", {
+            durationMs: Date.now() - feedStartedAt,
+          });
 
-    console.log("[FEED] populatePosts passed", {
-      postsFound: populatedPosts.length,
-      durationMs: Date.now() - feedStartedAt,
-    });
+          const posts =
+            await db.collection("posts")
+              .find(
+                {},
+                {
+                  projection: {
+                    _id: 1,
+                    user: 1,
+                    originalAuthor: 1,
+                    isSharedPost: 1,
+                    sharedFrom: 1,
+                    title: 1,
+                    content: 1,
+                    media: 1,
+                    type: 1,
+                    isReel: 1,
+                    feeling: 1,
+                    location: 1,
+                    textColor: 1,
+                    backgroundStyle: 1,
+                    fontStyle: 1,
+                    editor: 1,
+                    taggedFriends: 1,
+                    tags: 1,
+                    category: 1,
+                    shares: 1,
+                    pinned: 1,
+                    sponsored: 1,
+                    sponsor: 1,
+                    promotionBudget: 1,
+                    adClicks: 1,
+                    aiScore: 1,
+                    viralScore: 1,
+                    viral: 1,
+                    multiplier: 1,
+                    watchTime: 1,
+                    engagementPoints: 1,
+                    earnings: 1,
+                    viewsCount: 1,
+                    createdAt: 1,
+                    updatedAt: 1
+                  }
+                }
+              )
+              .sort({
+                createdAt: -1
+              })
+              .skip(
+                (page - 1) * limit
+              )
+              .limit(limit)
+              .toArray();
+
+          console.log(
+            "[FEED] posts query passed",
+            {
+              postsFound: posts.length,
+              durationMs:
+                Date.now() - feedStartedAt,
+            }
+          );
+
+          const populated =
+            await populatePosts(
+              db,
+              posts
+            );
+
+          console.log(
+            "[FEED] populatePosts passed",
+            {
+              postsFound:
+                populated.length,
+              durationMs:
+                Date.now() - feedStartedAt,
+            }
+          );
+
+          return populated;
+        }
+      );
 
     return json(populatedPosts);
 
