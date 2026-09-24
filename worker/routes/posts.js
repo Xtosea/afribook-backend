@@ -1621,7 +1621,6 @@ export async function getReels(
   env
 ) {
   try {
-    const db = await getDatabase(env);
     const url = new URL(request.url);
 
     const page =
@@ -1632,17 +1631,22 @@ export async function getReels(
 
     const limit = 5;
 
-    const reels = await db.collection("posts")
-      .find({
-        isReel: true,
-      })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
+    return await withDatabaseRetry(
+      env,
+      async (db) => {
+        const reels = await db.collection("posts")
+          .find({
+            isReel: true,
+          })
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .toArray();
 
-    return json(
-      await populatePosts(db, reels)
+        return json(
+          await populatePosts(db, reels)
+        );
+      }
     );
 
   } catch (err) {
