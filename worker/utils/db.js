@@ -67,7 +67,6 @@ async function resetDatabaseConnection() {
     console.log(
       "[DB] Stale MongoDB client closed"
     );
-
   } catch (error) {
     console.error(
       "[DB] Failed to close stale MongoDB client",
@@ -100,52 +99,33 @@ export async function getDatabase(env) {
     );
   }
 
-  // Reuse an already-established MongoDB client.
-  // Reuse an existing MongoDB client only after
-  // confirming that the connection is still alive.
+  /*
+   * Reuse an existing MongoDB client.
+   *
+   * We intentionally do NOT ping MongoDB here.
+   * Every request should not perform an extra
+   * database round-trip just to test the connection.
+   *
+   * If the connection has actually become stale,
+   * the real MongoDB operation can fail and
+   * withDatabaseRetry() will recover it.
+   */
   if (client && db) {
     console.log(
-      "[DB] Checking existing MongoDB connection",
+      "[DB] Reusing existing MongoDB connection",
       {
         durationMs:
           Date.now() - startedAt,
       }
     );
 
-    try {
-      await db.command(
-        { ping: 1 },
-        { maxTimeMS: 2000 }
-      );
-
-      console.log(
-        "[DB] Existing MongoDB connection is healthy",
-        {
-          durationMs:
-            Date.now() - startedAt,
-        }
-      );
-
-      return db;
-    } catch (error) {
-      console.warn(
-        "[DB] Existing MongoDB connection is stale",
-        {
-          name:
-            error?.name ||
-            "Error",
-          message:
-            error?.message ||
-            String(error),
-        }
-      );
-
-      await resetDatabaseConnection();
-    }
+    return db;
   }
 
-  // If another request is already establishing
-  // the connection, wait for that same connection.
+  /*
+   * If another request is already establishing
+   * the connection, wait for that same connection.
+   */
   if (connectingPromise) {
     console.log(
       "[DB] Waiting for existing MongoDB connection"
@@ -169,7 +149,6 @@ export async function getDatabase(env) {
       throw new Error(
         "MongoDB connection completed without a database"
       );
-
     } catch (error) {
       console.error(
         "[DB] Existing MongoDB connection failed",
@@ -202,15 +181,18 @@ export async function getDatabase(env) {
           connectTimeoutMS: 5000,
           socketTimeoutMS: 10000,
 
-          // Let the MongoDB driver retry
-          // retryable reads when possible.
+          /*
+           * Allow the MongoDB driver to retry
+           * retryable read operations when supported.
+           */
           retryReads: true,
 
-          // Keep the connection pool controlled
-          // for the Worker environment.
+          /*
+           * Keep the connection pool controlled
+           * for the Cloudflare Worker environment.
+           */
           maxPoolSize: 10,
           minPoolSize: 0,
-          maxIdleTimeMS: 30000,
         }
       );
 
@@ -244,7 +226,6 @@ export async function getDatabase(env) {
       );
 
       return newDb;
-
     } catch (error) {
       console.error(
         "[DB] MongoDB connection failed",
@@ -268,7 +249,6 @@ export async function getDatabase(env) {
 
       try {
         await newClient.close();
-
       } catch (closeError) {
         console.error(
           "[DB] Failed to close MongoDB client",
@@ -289,7 +269,6 @@ export async function getDatabase(env) {
 
   try {
     return await connectingPromise;
-
   } finally {
     connectingPromise = undefined;
   }
@@ -297,9 +276,8 @@ export async function getDatabase(env) {
 
 /*
  * Execute a MongoDB operation with one automatic
- * recovery attempt when the existing connection
- * has become stale or a transient network failure
- * occurs.
+ * recovery attempt when a transient MongoDB/network
+ * failure occurs.
  *
  * The callback receives the active database.
  */
@@ -319,7 +297,6 @@ export async function withDatabaseRetry(
       return await operation(
         database
       );
-
     } catch (error) {
       const transient =
         isTransientMongoError(error);
@@ -338,8 +315,10 @@ export async function withDatabaseRetry(
         }
       );
 
-      // Only reconnect/retry once for
-      // transient MongoDB/network failures.
+      /*
+       * Only reconnect/retry once for
+       * transient MongoDB/network failures.
+       */
       if (
         !transient ||
         attempt >= 2
@@ -353,8 +332,10 @@ export async function withDatabaseRetry(
 
       await resetDatabaseConnection();
 
-      // Small delay gives the runtime/network
-      // a moment before creating a new connection.
+      /*
+       * Small delay before creating the
+       * replacement connection.
+       */
       await new Promise(
         resolve =>
           setTimeout(
@@ -397,7 +378,6 @@ export async function debugDbOperation(
     );
 
     return result;
-
   } catch (error) {
     console.error(
       "[DB OP ERROR]",
