@@ -1329,13 +1329,16 @@ if (
       url.pathname === "/api/leaderboard/top"
     ) {
       try {
-        const database = await getDatabase(env);
-
-        return await getLeaderboardTop(
-          request,
-          env,
-          database
-        );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await getLeaderboardTop(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
       } catch (error) {
         console.error(
