@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getDatabase, debugDbOperation } from "../utils/db.js";
+import { getDatabase, debugDbOperation, withFreshDatabase } from "../utils/db.js";
 import { authenticate } from "../utils/auth.js";
 
 function corsHeaders() {
@@ -400,7 +400,9 @@ export async function getStories(request, env) {
   try {
     await authenticate(request, env);
 
-    const db = await getDatabase(env);
+    return await withFreshDatabase(
+      env,
+      async (db) => {
 
     const stories =
       await debugDbOperation(
@@ -422,6 +424,8 @@ export async function getStories(request, env) {
       await populateStories(db, stories);
 
     return json(populated);
+      }
+    );
 
   } catch (err) {
     console.error("GET STORIES ERROR:", err);
