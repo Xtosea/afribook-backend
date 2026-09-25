@@ -622,14 +622,16 @@ if (
   url.pathname === "/api/admin/wallet/users"
 ) {
   try {
-    const database =
-      await getDatabase(env);
-
-    return await adminSearchUsers(
-      request,
-      env,
-      database
-    );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await adminSearchUsers(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
   } catch (error) {
     console.error(
