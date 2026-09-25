@@ -591,13 +591,15 @@ try {
       url.pathname === "/api/admin/wallet/history"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await adminAdjustmentHistory(
-          request,
+        return await withFreshDatabase(
           env,
-          database
+          async (database) => {
+            return await adminAdjustmentHistory(
+              request,
+              env,
+              database
+            );
+          }
         );
 
       } catch (error) {
