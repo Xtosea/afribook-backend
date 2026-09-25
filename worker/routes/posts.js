@@ -1596,9 +1596,11 @@ export async function getReels(
 
     const limit = 5;
 
-    return await withDatabaseRetry(
-      env,
-      async (db) => {
+    console.log("[REELS] Before withDatabaseRetry");
+
+return await withDatabaseRetry(
+  env,
+  async (db) => {
         console.log("[REELS] Database received");
 
         console.log("[REELS] Starting posts query");
