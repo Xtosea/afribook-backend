@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getDatabase, debugDbOperation, withDatabaseRetry } from "../utils/db.js";
+import { getDatabase, debugDbOperation, withDatabaseRetry, withFreshDatabase } from "../utils/db.js";
 import { authenticate } from "../utils/auth.js";
 
 function corsHeaders() {
@@ -446,7 +446,12 @@ export async function getPosts(request, env) {
       durationMs: Date.now() - feedStartedAt,
     });
 
-    const db = await getDatabase(env);
+
+    return await withFreshDatabase(
+
+      env,
+
+      async (db) => {
 
     console.log("[FEED] database ready", {
       durationMs: Date.now() - feedStartedAt,
@@ -528,6 +533,11 @@ export async function getPosts(request, env) {
     });
 
     return json(populatedPosts);
+
+      }
+
+    );
+
 
   } catch (err) {
     console.error(
