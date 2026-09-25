@@ -444,13 +444,15 @@ if (
   url.pathname === "/api/wallet"
 ) {
   try {
-    const database =
-      await getDatabase(env);
-
-    return await getWallet(
-      request,
+    return await withFreshDatabase(
       env,
-      database
+      async (database) => {
+        return await getWallet(
+          request,
+          env,
+          database
+        );
+      }
     );
 
   } catch (error) {
