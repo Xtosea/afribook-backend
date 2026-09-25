@@ -111,16 +111,25 @@ export async function getDatabase(env) {
    * withDatabaseRetry() will recover it.
    */
   if (client && db) {
-    console.log(
-      "[DB] Reusing existing MongoDB connection",
-      {
-        durationMs:
-          Date.now() - startedAt,
-      }
-    );
+  console.log("[DB] Cached MongoDB connection found — testing liveness");
+
+  try {
+    await db.command({ ping: 1 });
+
+    console.log("[DB] Cached MongoDB connection is alive", {
+      durationMs: Date.now() - startedAt,
+    });
 
     return db;
+  } catch (error) {
+    console.warn("[DB] Cached MongoDB connection is stale", {
+      name: error?.name || "Error",
+      message: error?.message || String(error),
+    });
+
+    await resetDatabaseConnection();
   }
+}
 
   /*
    * If another request is already establishing
