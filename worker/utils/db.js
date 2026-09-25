@@ -276,6 +276,93 @@ export async function getDatabase(env) {
 }
 
 /*
+ * Execute a MongoDB operation using a fresh MongoDB client.
+ *
+ * The client belongs exclusively to this operation:
+ *   create -> connect -> operate -> close
+ *
+ * This avoids reusing a MongoDB client across separate
+ * Cloudflare Worker requests.
+ */
+export async function withFreshDatabase(
+  env,
+  operation
+) {
+  if (!env.MONGO_URI) {
+    throw new Error(
+      "MONGO_URI is not configured"
+    );
+  }
+
+  const startedAt = Date.now();
+
+  console.log(
+    "[DB FRESH] Creating MongoDB client"
+  );
+
+  const freshClient =
+    new MongoClient(
+      env.MONGO_URI,
+      {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 10000,
+        waitQueueTimeoutMS: 5000,
+        retryReads: true,
+        maxPoolSize: 10,
+        minPoolSize: 0,
+      }
+    );
+
+  try {
+    console.log(
+      "[DB FRESH] Connecting to MongoDB..."
+    );
+
+    await freshClient.connect();
+
+    const freshDb =
+      freshClient.db();
+
+    console.log(
+      "[DB FRESH] MongoDB connected",
+      {
+        durationMs:
+          Date.now() - startedAt,
+      }
+    );
+
+    return await operation(
+      freshDb
+    );
+  } finally {
+    try {
+      await freshClient.close();
+
+      console.log(
+        "[DB FRESH] MongoDB client closed",
+        {
+          durationMs:
+            Date.now() - startedAt,
+        }
+      );
+    } catch (closeError) {
+      console.error(
+        "[DB FRESH] Failed to close MongoDB client",
+        {
+          name:
+            closeError?.name ||
+            "Error",
+          message:
+            closeError?.message ||
+            String(closeError),
+        }
+      );
+    }
+  }
+}
+
+/*
  * Execute a MongoDB operation with one automatic
  * recovery attempt when a transient MongoDB/network
  * failure occurs.
