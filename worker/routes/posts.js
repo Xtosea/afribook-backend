@@ -569,7 +569,9 @@ export async function getUserPosts(
       }, 400);
     }
 
-    const db = await getDatabase(env);
+    return await withFreshDatabase(
+      env,
+      async (db) => {
 
     const posts = await db.collection("posts")
       .find({
@@ -578,8 +580,10 @@ export async function getUserPosts(
       .sort({ createdAt: -1 })
       .toArray();
 
-    return json(
+        return json(
       await populatePosts(db, posts)
+        );
+      }
     );
 
   } catch (err) {
