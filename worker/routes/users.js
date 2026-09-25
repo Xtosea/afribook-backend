@@ -184,11 +184,7 @@ async function populateUsers(db, ids) {
       _id: { $in: validIds },
     })
     .project({
-      password: 0,
-      verifyToken: 0,
-      verifyTokenExpiry: 0,
-      resetToken: 0,
-      resetTokenExpiry: 0,
+      _id: 1,
       name: 1,
       profilePic: 1,
       coverPhoto: 1,
