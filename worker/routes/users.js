@@ -288,7 +288,12 @@ export async function getUser(
   } catch (error) {
     console.error(
       "GET USER ERROR:",
-      error
+      {
+        name: error?.name || "Error",
+        message: error?.message || String(error),
+        stack: error?.stack || "No stack",
+        userId,
+      }
     );
 
     return json({
