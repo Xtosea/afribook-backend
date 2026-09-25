@@ -739,14 +739,16 @@ if (
   ) {
     const userId = parts[2];
 
-    const database =
-      await getDatabase(env);
-
-    return await getMutualFriends(
-      request,
+    return await withFreshDatabase(
       env,
-      database,
-      userId
+      async (database) => {
+        return await getMutualFriends(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
     );
   }
 
@@ -780,14 +782,16 @@ if (
   if (parts.length === 3) {
     const userId = parts[2];
 
-    const database =
-      await getDatabase(env);
-
-    return await updateUser(
-      request,
+    return await withFreshDatabase(
       env,
-      database,
-      userId
+      async (database) => {
+        return await updateUser(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
     );
   }
 }
@@ -821,13 +825,17 @@ if (
 
       if (parts.length === 4) {
         const userId = parts[2];
-        const database = await getDatabase(env);
 
-        return await getFollowers(
-          request,
+        return await withFreshDatabase(
           env,
-          database,
-          userId
+          async (database) => {
+            return await getFollowers(
+              request,
+              env,
+              database,
+              userId
+            );
+          }
         );
       }
     }
@@ -843,13 +851,17 @@ if (
 
       if (parts.length === 4) {
         const userId = parts[2];
-        const database = await getDatabase(env);
 
-        return await getFollowing(
-          request,
+        return await withFreshDatabase(
           env,
-          database,
-          userId
+          async (database) => {
+            return await getFollowing(
+              request,
+              env,
+              database,
+              userId
+            );
+          }
         );
       }
     }
