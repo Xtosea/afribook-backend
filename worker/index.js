@@ -754,14 +754,16 @@ if (
   if (parts.length === 3) {
     const userId = parts[2];
 
-    const database =
-      await getDatabase(env);
-
-    return await getUser(
-      request,
+    return await withFreshDatabase(
       env,
-      database,
-      userId
+      async (database) => {
+        return await getUser(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
     );
   }
 }
