@@ -90,7 +90,7 @@ import {
   markStoryViewed,
 } from "./routes/stories.js";
 
-import { getDatabase } from "./utils/db.js";
+import { getDatabase, withFreshDatabase } from "./utils/db.js";
 
 import {
   getLeaderboardTop,
@@ -558,13 +558,15 @@ try {
       url.pathname === "/api/wallet/transactions"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await getTransactions(
-          request,
+        return await withFreshDatabase(
           env,
-          database
+          async (database) => {
+            return await getTransactions(
+              request,
+              env,
+              database
+            );
+          }
         );
 
       } catch (error) {
