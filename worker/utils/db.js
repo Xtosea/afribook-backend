@@ -180,6 +180,7 @@ export async function getDatabase(env) {
           serverSelectionTimeoutMS: 5000,
           connectTimeoutMS: 5000,
           socketTimeoutMS: 10000,
+          waitQueueTimeoutMS: 5000,
 
           /*
            * Allow the MongoDB driver to retry
