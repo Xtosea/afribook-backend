@@ -685,14 +685,16 @@ if (
       url.pathname === "/api/wallet/convert"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await convertPoints(
-          request,
-          env,
-          database
-        );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await convertPoints(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
       } catch (error) {
         console.error(
