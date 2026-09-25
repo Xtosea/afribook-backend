@@ -1608,7 +1608,7 @@ export async function getReels(
 
     console.log("[REELS] Before withDatabaseRetry");
 
-return await withDatabaseRetry(
+return await withFreshDatabase(
   env,
   async (db) => {
         console.log("[REELS] Database received");
