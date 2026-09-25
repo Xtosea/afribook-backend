@@ -653,14 +653,16 @@ if (
       url.pathname === "/api/admin/wallet/points"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await adminAdjustPoints(
-          request,
-          env,
-          database
-        );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await adminAdjustPoints(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
       } catch (error) {
         console.error(
