@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getDatabase } from "../utils/db.js";
+import { withFreshDatabase } from "../utils/db.js";
 import { authenticate } from "../utils/auth.js";
 
 function corsHeaders() {
@@ -32,7 +32,9 @@ function isAuthError(err) {
 export async function getNotifications(request, env) {
   try {
     const userId = await authenticate(request, env);
-    const db = await getDatabase(env);
+    return await withFreshDatabase(
+      env,
+      async (db) => {
 
     const notifications = await db.collection("notifications")
       .find({
@@ -231,7 +233,9 @@ export async function getNotifications(request, env) {
       }
     );
 
-    return json(result);
+        return json(result);
+      }
+    );
 
   } catch (err) {
     console.error(
@@ -260,10 +264,10 @@ export async function markNotificationsRead(
     const userId =
       await authenticate(request, env);
 
-    const db =
-      await getDatabase(env);
-
-    await db.collection("notifications")
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        await db.collection("notifications")
       .updateMany(
         {
           recipient: userId,
@@ -276,10 +280,12 @@ export async function markNotificationsRead(
         }
       );
 
-    return json({
-      message:
-        "Notifications marked as read",
-    });
+        return json({
+          message:
+            "Notifications marked as read",
+        });
+      }
+    );
 
   } catch (err) {
     console.error(
@@ -308,8 +314,9 @@ export async function getUnreadNotificationCount(
     const userId =
       await authenticate(request, env);
 
-    const db =
-      await getDatabase(env);
+    return await withFreshDatabase(
+      env,
+      async (db) => {
 
     const count =
       await db.collection("notifications")
@@ -318,9 +325,11 @@ export async function getUnreadNotificationCount(
           read: false,
         });
 
-    return json({
-      count,
-    });
+        return json({
+          count,
+        });
+      }
+    );
 
   } catch (err) {
     console.error(
