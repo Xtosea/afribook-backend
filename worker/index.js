@@ -1653,6 +1653,42 @@ if (
 
 
 
+
+// ================= MONGODB DRIVER TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/mongodb-driver-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    return json({
+      ok: true,
+      mongodbDriver:
+        "MongoDB driver imported successfully",
+      databaseName: db.databaseName,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "MONGODB DRIVER TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
 // ================= USERS FINDONE TEST =================
 if (
   request.method === "GET" &&
