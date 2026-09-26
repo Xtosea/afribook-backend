@@ -446,6 +446,48 @@ if (
   }
 }
 
+// ================= FRESH DATABASE CALLBACK TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-db-callback-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const posts = await db
+          .collection("posts")
+          .find({})
+          .limit(1)
+          .toArray();
+
+        return json({
+          ok: true,
+          database: "fresh-query-success",
+          postsFound: posts.length,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH DB CALLBACK TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "fresh-query-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
 // ================= FRESH DATABASE TEST =================
 
 if (
