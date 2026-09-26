@@ -231,13 +231,18 @@ export async function getListings(request, env, db) {
       page,
       pages: Math.ceil(total / limit),
     });
-  } catch (err) {
+    } catch (err) {
     console.error("GET MARKETPLACE ERROR:", err);
 
     return json(
       {
         success: false,
         message: "Failed to fetch listings.",
+        debug: {
+          name: err?.name || "UnknownError",
+          message: err?.message || "Unknown error",
+          code: err?.code ?? null,
+        },
       },
       500
     );
@@ -413,7 +418,7 @@ if (
  *
  *  * Premium status is read from the subscriptions
  * collection using the authenticated user's ID.
- *
+ * 
  ============================================================
  */
 
