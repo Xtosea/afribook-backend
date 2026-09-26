@@ -1649,6 +1649,48 @@ if (
   }
 }
 
+
+// ================= MARKETPLACE COUNT TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-count-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const total =
+      await db
+        .collection("marketplaces")
+        .countDocuments({});
+
+    return json({
+      ok: true,
+      database: "cached-connected",
+      collection: "marketplaces",
+      total,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "MARKETPLACE COUNT TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        database: "cached-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
 // ================= MARKETPLACE DB TEST =================
 
 if (
