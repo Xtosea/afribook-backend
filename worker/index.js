@@ -116,6 +116,8 @@ import { getDatabase, withFreshDatabase } from "./utils/db.js";
 
 import { ensureApplicationIndexes } from "./utils/indexes.js";
 import { listProducts } from "./utils/products.js";
+import { getPremiumStatus } from "./utils/premium.js";
+import { authenticate } from "./utils/auth.js";
 import {
   listCurrencies,
   normalizeCurrency,
@@ -295,6 +297,50 @@ async function handleRequest(request, env, ctx) {
           success: false,
           message: "Failed to load product catalog.",
         }, 500);
+      }
+    }
+
+    // GET PREMIUM STATUS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/premium/status"
+    ) {
+      try {
+        const database = await getDatabase(env);
+        const userId = await authenticate(request, env);
+        const status = await getPremiumStatus(
+          database,
+          userId
+        );
+
+        return json({
+          success: true,
+          ...status,
+        });
+      } catch (error) {
+        console.error(
+          "PREMIUM STATUS ROUTE ERROR:",
+          error
+        );
+
+        const message =
+          error?.message === "Authentication required" ||
+          error?.message === "Invalid token" ||
+          error?.message === "Token expired" ||
+          error?.message === "Invalid authentication token" ||
+          error?.message === "Invalid user ID"
+            ? error.message
+            : "Failed to load Premium status.";
+
+        const statusCode =
+          message === "Failed to load Premium status."
+            ? 500
+            : 401;
+
+        return json({
+          success: false,
+          message,
+        }, statusCode);
       }
     }
 
