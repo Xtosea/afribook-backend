@@ -446,6 +446,43 @@ if (
   }
 }
 
+// ================= FRESH DATABASE TEST =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        await db.command({ ping: 1 });
+
+        return json({
+          ok: true,
+          database: "fresh-connected",
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "fresh-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
 if (
   request.method === "GET" &&
   url.pathname === "/api/posts-db-test"
