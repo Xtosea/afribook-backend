@@ -212,6 +212,7 @@ export default {
 
 async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
+    const pathname = url.pathname;
 
     // ================= CORS =================
 
