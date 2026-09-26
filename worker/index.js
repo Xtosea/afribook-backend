@@ -115,6 +115,11 @@ import {
 import { getDatabase, withFreshDatabase } from "./utils/db.js";
 
 import { ensureApplicationIndexes } from "./utils/indexes.js";
+import { listProducts } from "./utils/products.js";
+import {
+  listCurrencies,
+  normalizeCurrency,
+} from "./utils/currencies.js";
 
 import {
   getLeaderboardTop,
@@ -1482,6 +1487,89 @@ if (
       url.pathname === "/api/posts"
     ) {
       return await getPosts(request, env);
+    }
+
+    // ================= PRODUCT CATALOG =================
+
+    // GET PRODUCT CATALOG
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/products"
+    ) {
+      try {
+        const currencyParam =
+          url.searchParams.get("currency") || "NGN";
+
+        const currency = normalizeCurrency(currencyParam);
+
+        if (!currency) {
+          return json({
+            success: false,
+            message: "Unsupported currency.",
+          }, 400);
+        }
+
+        const typeParam =
+          url.searchParams.get("type") || null;
+
+        const allowedTypes = [
+          "premium",
+          "boost",
+          "advertisement",
+        ];
+
+        if (
+          typeParam &&
+          !allowedTypes.includes(typeParam)
+        ) {
+          return json({
+            success: false,
+            message: "Invalid product type.",
+          }, 400);
+        }
+
+        return json({
+          success: true,
+          currency,
+          products: listProducts({
+            type: typeParam,
+            currency,
+          }),
+        });
+      } catch (error) {
+        console.error(
+          "PRODUCT CATALOG ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load product catalog.",
+        }, 500);
+      }
+    }
+
+    // GET SUPPORTED CURRENCIES
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/currencies"
+    ) {
+      try {
+        return json({
+          success: true,
+          currencies: listCurrencies(),
+        });
+      } catch (error) {
+        console.error(
+          "CURRENCY ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load currencies.",
+        }, 500);
+      }
     }
 
     // ================= MARKETPLACE =================
