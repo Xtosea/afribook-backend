@@ -1702,7 +1702,14 @@ if (
     const user =
       await db
         .collection("users")
-        .findOne({});
+        .findOne(
+          {},
+          {
+            projection: {
+              _id: 1,
+            },
+          }
+        );
 
     return json({
       ok: true,
