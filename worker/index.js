@@ -583,6 +583,92 @@ if (
   }
 }
 
+// ================= FRESH MARKETPLACE SELLER TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-seller-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const listings = await db
+          .collection("marketplaces")
+          .find({ status: "Available" })
+          .sort({ createdAt: -1 })
+          .skip(0)
+          .limit(20)
+          .toArray();
+
+        const results = [];
+
+        for (const listing of listings) {
+          let sellerId = null;
+
+          if (
+            listing?.seller &&
+            typeof listing.seller === "object"
+          ) {
+            sellerId = listing.seller._id;
+          } else {
+            sellerId = listing?.seller;
+          }
+
+          let seller = null;
+
+          if (
+            sellerId &&
+            ObjectId.isValid(sellerId.toString())
+          ) {
+            seller = await db.collection("users").findOne(
+              {
+                _id: new ObjectId(sellerId.toString()),
+              },
+              {
+                projection: {
+                  name: 1,
+                  profilePic: 1,
+                },
+              }
+            );
+          }
+
+          results.push({
+            listingId:
+              listing?._id?.toString?.() ||
+              listing?._id ||
+              null,
+            hasSeller: !!listing?.seller,
+            sellerFound: !!seller,
+          });
+        }
+
+        return json({
+          ok: true,
+          listingsFound: listings.length,
+          results,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE SELLER TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
 // ================= FRESH DATABASE TEST =================
 
 if (
