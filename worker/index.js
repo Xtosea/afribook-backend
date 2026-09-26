@@ -1650,6 +1650,48 @@ if (
 }
 
 
+
+// ================= MARKETPLACE COLLECTION TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-collection-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const collections =
+      await db
+        .listCollections({
+          name: "marketplaces",
+        })
+        .toArray();
+
+    return json({
+      ok: true,
+      collectionExists: collections.length > 0,
+      collectionsFound: collections.length,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "MARKETPLACE COLLECTION TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
 // ================= MARKETPLACE COUNT TEST =================
 if (
   request.method === "GET" &&
