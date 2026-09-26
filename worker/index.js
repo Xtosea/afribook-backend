@@ -1609,7 +1609,51 @@ if (
       return await getPosts(request, env);
     }
 
-    // ================= MARKETPLACE =================
+    // ================= MARKETPLACE DB TEST =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const collection = db.collection("marketplaces");
+
+        const listings = await collection
+          .find({ status: "Available" })
+          .limit(1)
+          .toArray();
+
+        return json({
+          ok: true,
+          database: "connected",
+          collection: "marketplaces",
+          listingsFound: listings.length,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("MARKETPLACE DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= MARKETPLACE =================
 
     // GET MY LISTINGS
     if (
