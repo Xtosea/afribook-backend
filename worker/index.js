@@ -583,6 +583,38 @@ if (
   }
 }
 
+// ================= FRESH MARKETPLACE HANDLER TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-handler-test"
+) {
+  try {
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        return await getListings(
+          request,
+          env,
+          db
+        );
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE HANDLER TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
 // ================= FRESH MARKETPLACE SELLER TEST =================
 if (
   request.method === "GET" &&
