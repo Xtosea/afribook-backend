@@ -1652,6 +1652,46 @@ if (
 
 
 
+
+// ================= USERS FINDONE TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/users-findone-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const user =
+      await db
+        .collection("users")
+        .findOne({});
+
+    return json({
+      ok: true,
+      collection: "users",
+      found: !!user,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "USERS FINDONE TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
 // ================= USERS COLLECTION TEST =================
 if (
   request.method === "GET" &&
