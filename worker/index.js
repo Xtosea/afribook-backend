@@ -1609,7 +1609,47 @@ if (
       return await getPosts(request, env);
     }
 
-    // ================= MARKETPLACE DB TEST =================
+    // ================= MARKETPLACE CACHED DB TEST =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-cached-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const listings = await db
+      .collection("marketplaces")
+      .find({ status: "Available" })
+      .limit(1)
+      .toArray();
+
+    return json({
+      ok: true,
+      database: "cached-connected",
+      collection: "marketplaces",
+      listingsFound: listings.length,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error("MARKETPLACE CACHED DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "cached-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= MARKETPLACE DB TEST =================
 
 if (
   request.method === "GET" &&
