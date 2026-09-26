@@ -75,8 +75,30 @@ import {
   viewReel,
 } from "./routes/posts.js";
 import {
+  getListings,
+  getListing,
+  createListing,
+  getMyListings,
+  getSavedListings,
+  toggleSaveListing,
+  updateListing,
+  deleteListing,
+} from "./routes/marketplace.js";
+
+import {
   imageKitAuth,
 } from "./routes/imagekit.js";
+
+import {
+  getMyKycStatus,
+  createKycUploadSignature,
+  submitKyc,
+  getPendingKyc,
+  getAdminKyc,
+  approveKyc,
+  rejectKyc,
+} from "./routes/kyc.js";
+
 import {
   createStory,
   getStories,
@@ -92,9 +114,28 @@ import {
 
 import { getDatabase, withFreshDatabase } from "./utils/db.js";
 
+import { ensureApplicationIndexes } from "./utils/indexes.js";
+
 import {
   getLeaderboardTop,
 } from "./routes/leaderboard.js";
+
+let applicationIndexesPromise = null;
+
+async function ensureIndexes(env) {
+  if (!applicationIndexesPromise) {
+    applicationIndexesPromise = (async () => {
+      const db = await getDatabase(env);
+      await ensureApplicationIndexes(db);
+      return true;
+    })().catch((error) => {
+      applicationIndexesPromise = null;
+      throw error;
+    });
+  }
+
+  return await applicationIndexesPromise;
+}
 
 
 function corsHeaders() {
@@ -190,6 +231,13 @@ async function handleRequest(request, env, ctx) {
         timestamp: new Date().toISOString(),
       });
     }
+
+  // ================= APPLICATION INDEXES =================
+try {
+  await ensureIndexes(env);
+} catch (error) {
+  console.error("APPLICATION INDEX INITIALIZATION ERROR:", error);
+}
 
     // ================= DATABASE TEST =================
 
@@ -722,7 +770,107 @@ if (
   );
 }
 
-    // ================= USERS =================
+
+/* ============================================================
+   KYC ROUTES
+   ============================================================ */
+
+if (
+  request.method === "GET" &&
+  pathname === "/api/kyc/me"
+) {
+  return getMyKycStatus(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  pathname === "/api/kyc/upload-signature"
+) {
+  return createKycUploadSignature(
+    request,
+    env
+  );
+}
+
+if (
+  request.method === "POST" &&
+  pathname === "/api/kyc/submit"
+) {
+  return submitKyc(request, env);
+}
+
+/* ============================================================
+   ADMIN KYC ROUTES
+   ============================================================ */
+
+if (
+  request.method === "GET" &&
+  pathname === "/api/admin/kyc/pending"
+) {
+  return getPendingKyc(request, env);
+}
+
+if (
+  request.method === "GET" &&
+  pathname.startsWith("/api/admin/kyc/")
+) {
+  const parts = pathname.split("/").filter(Boolean);
+
+  /*
+   * /api/admin/kyc/:userId
+   */
+
+  if (
+    parts.length === 4 &&
+    ObjectId.isValid(parts[3])
+  ) {
+    return getAdminKyc(
+      request,
+      env,
+      parts[3]
+    );
+  }
+}
+
+if (
+  request.method === "POST" &&
+  pathname.startsWith("/api/admin/kyc/")
+) {
+  const parts = pathname.split("/").filter(Boolean);
+
+  /*
+   * /api/admin/kyc/:userId/approve
+   */
+
+  if (
+    parts.length === 5 &&
+    ObjectId.isValid(parts[3]) &&
+    parts[4] === "approve"
+  ) {
+    return approveKyc(
+      request,
+      env,
+      parts[3]
+    );
+  }
+
+  /*
+   * /api/admin/kyc/:userId/reject
+   */
+
+  if (
+    parts.length === 5 &&
+    ObjectId.isValid(parts[3]) &&
+    parts[4] === "reject"
+  ) {
+    return rejectKyc(
+      request,
+      env,
+      parts[3]
+    );
+  }
+}
+  // ================= USERS =================
 
 // GET USER PROFILE
 if (
@@ -1334,6 +1482,195 @@ if (
       url.pathname === "/api/posts"
     ) {
       return await getPosts(request, env);
+    }
+
+    // ================= MARKETPLACE =================
+
+    // GET MY LISTINGS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/marketplace/me"
+    ) {
+      try {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getMyListings(
+              request,
+              env,
+              database
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "MARKETPLACE MY LISTINGS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load your listings.",
+        }, 500);
+      }
+    }
+
+    // GET SAVED LISTINGS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/marketplace/saved/me"
+    ) {
+      try {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getSavedListings(
+              request,
+              env,
+              database
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "MARKETPLACE SAVED LISTINGS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load saved listings.",
+        }, 500);
+      }
+    }
+
+    // SAVE / UNSAVE LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/marketplace/") &&
+      url.pathname.endsWith("/save")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await toggleSaveListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // GET ALL LISTINGS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/marketplace"
+    ) {
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await getListings(
+            request,
+            env,
+            database
+          );
+        }
+      );
+    }
+
+    // CREATE LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/marketplace"
+    ) {
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await createListing(
+            request,
+            env,
+            database
+          );
+        }
+      );
+    }
+
+    // UPDATE LISTING
+    if (
+      request.method === "PUT" &&
+      url.pathname.startsWith("/api/marketplace/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 3) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await updateListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // DELETE LISTING
+    if (
+      request.method === "DELETE" &&
+      url.pathname.startsWith("/api/marketplace/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 3) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await deleteListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // GET SINGLE LISTING
+    // Keep this LAST because /me and /saved/me
+    // must not be interpreted as listing IDs.
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/marketplace/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 3) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
     }
 
     // ================= LEADERBOARD =================
