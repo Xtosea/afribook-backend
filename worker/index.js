@@ -1651,6 +1651,46 @@ if (
 
 
 
+
+// ================= USERS COLLECTION TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/users-collection-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const total =
+      await db
+        .collection("users")
+        .countDocuments({});
+
+    return json({
+      ok: true,
+      collection: "users",
+      total,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "USERS COLLECTION TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
 // ================= MARKETPLACE COLLECTION TEST =================
 if (
   request.method === "GET" &&
