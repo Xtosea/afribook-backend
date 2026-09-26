@@ -1,72 +1,123 @@
 import { ObjectId } from "mongodb";
+import {
+  cleanSubscription,
+  isSubscriptionActive,
+} from "./subscriptions.js";
 
-/* ============================================================
-   GET ACTIVE PREMIUM SUBSCRIPTION
-   ============================================================ */
+/*
+ * ============================================================
+ * AFRICSOCIAL PREMIUM STATUS
+ * ============================================================
+ *
+ * Premium status comes ONLY from the subscriptions collection.
+ *
+ * Supported active Premium types:
+ *
+ *   plan: "premium"
+ *   expiresAt: future date
+ *
+ *   plan: "legacy"
+ *   expiresAt: null
+ *
+ * Never use users.isPremium as the authoritative source.
+ */
 
+/**
+ * Safely convert a user ID into ObjectId.
+ */
+function toUserObjectId(userId) {
+  if (!userId) return null;
+
+  if (userId instanceof ObjectId) {
+    return userId;
+  }
+
+  try {
+    return new ObjectId(String(userId));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find the user's currently active Premium subscription.
+ */
 export async function getActivePremiumSubscription(
   db,
   userId
 ) {
-  if (!userId) {
-    return null;
-  }
+  const objectUserId = toUserObjectId(userId);
 
-  let objectUserId;
-
-  try {
-    objectUserId =
-      userId instanceof ObjectId
-        ? userId
-        : new ObjectId(userId);
-  } catch {
+  if (!objectUserId) {
     return null;
   }
 
   const now = new Date();
 
-  return await db
+  /*
+   * Legacy:
+   *   plan = legacy
+   *   status = active
+   *   expiresAt = null
+   *
+   * Normal Premium:
+   *   plan = premium
+   *   status = active
+   *   expiresAt > now
+   */
+  const candidates = await db
     .collection("subscriptions")
-    .findOne({
+    .find({
       user: objectUserId,
-      plan: "premium",
       status: "active",
-      expiresAt: {
-        $gt: now,
-      },
-    });
+      $or: [
+        {
+          plan: "legacy",
+          expiresAt: null,
+        },
+        {
+          plan: "premium",
+          expiresAt: {
+            $gt: now,
+          },
+        },
+      ],
+    })
+    .sort({
+      /*
+       * Legacy is handled explicitly by the filter.
+       * Newest subscription wins among normal subscriptions.
+       */
+      createdAt: -1,
+    })
+    .limit(10)
+    .toArray();
+
+  for (const subscription of candidates) {
+    if (isSubscriptionActive(subscription, now)) {
+      return subscription;
+    }
+  }
+
+  return null;
 }
 
-/* ============================================================
-   CHECK ACTIVE PREMIUM
-   ============================================================ */
-
-export async function hasActivePremium(
-  db,
-  userId
-) {
+/**
+ * Simple boolean Premium check.
+ */
+export async function hasActivePremium(db, userId) {
   const subscription =
-    await getActivePremiumSubscription(
-      db,
-      userId
-    );
+    await getActivePremiumSubscription(db, userId);
 
   return Boolean(subscription);
 }
 
-/* ============================================================
-   GET PREMIUM STATUS
-   ============================================================ */
-
-export async function getPremiumStatus(
-  db,
-  userId
-) {
+/**
+ * Return Premium status for frontend/API use.
+ */
+export async function getPremiumStatus(db, userId) {
   const subscription =
-    await getActivePremiumSubscription(
-      db,
-      userId
-    );
+    await getActivePremiumSubscription(db, userId);
 
   if (!subscription) {
     return {
@@ -77,30 +128,6 @@ export async function getPremiumStatus(
 
   return {
     isPremium: true,
-
-    subscription: {
-      _id:
-        subscription._id
-          ?.toString?.() ||
-        subscription._id,
-
-      plan:
-        subscription.plan,
-
-      status:
-        subscription.status,
-
-      startedAt:
-        subscription.startedAt ||
-        null,
-
-      expiresAt:
-        subscription.expiresAt ||
-        null,
-
-      paymentProvider:
-        subscription.paymentProvider ||
-        null,
-    },
+    subscription: cleanSubscription(subscription),
   };
 }
