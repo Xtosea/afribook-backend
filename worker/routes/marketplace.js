@@ -794,7 +794,10 @@ export async function updateListing(
       );
     }
 
+    const isAdmin = user.role === "admin";
+
     if (
+      !isAdmin &&
       listing.seller?.toString() !==
       user._id.toString()
     ) {
@@ -929,7 +932,10 @@ export async function deleteListing(
       );
     }
 
+    const isAdmin = user.role === "admin";
+
     if (
+      !isAdmin &&
       listing.seller?.toString() !==
       user._id.toString()
     ) {
