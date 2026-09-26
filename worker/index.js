@@ -534,6 +534,55 @@ if (
   }
 }
 
+// ================= FRESH MARKETPLACE QUERY TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-query-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const listings = await db
+          .collection("marketplaces")
+          .find({ status: "Available" })
+          .sort({ createdAt: -1 })
+          .skip(0)
+          .limit(20)
+          .toArray();
+
+        const total = await db
+          .collection("marketplaces")
+          .countDocuments({
+            status: "Available",
+          });
+
+        return json({
+          ok: true,
+          listingsFound: listings.length,
+          total,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE QUERY TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
 // ================= FRESH DATABASE TEST =================
 
 if (
