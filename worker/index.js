@@ -2240,6 +2240,11 @@ if (
     }
 
     // GET ALL LISTINGS
+    console.log("[MARKETPLACE ROUTE CHECK] Reached production marketplace block", {
+      method: request.method,
+      pathname: url.pathname,
+    });
+
     if (
       request.method === "GET" &&
       url.pathname === "/api/marketplace"
