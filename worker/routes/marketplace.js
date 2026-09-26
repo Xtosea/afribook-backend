@@ -380,7 +380,7 @@ export async function createListing(request, env, db) {
  * ============================================================
  * MARKETPLACE SELLER KYC REQUIREMENT
  *
- * Every Marketplace seller must have:
+ * Every non-admin Marketplace seller must have:
  *   1. KYC approved
  *   2. sellerVerified === true
  *
@@ -390,9 +390,12 @@ export async function createListing(request, env, db) {
  * ============================================================
  */
 
+const isAdmin = user.role === "admin";
+
 if (
-  user.kycStatus !== "approved" ||
-  user.sellerVerified !== true
+  !isAdmin &&
+  (user.kycStatus !== "approved" ||
+    user.sellerVerified !== true)
 ) {
   return json(
     {
@@ -422,12 +425,12 @@ if (
  ============================================================
  */
 
-const isPremium = await hasActivePremium(
+const isPremium = isAdmin ? true : await hasActivePremium(
   db,
   user._id
 );
 
-const maxImages = isPremium ? 10 : 1;
+const maxImages = isAdmin ? Infinity : (isPremium ? 10 : 1);
 
 if (normalizedImages.length === 0) {
   return json(
