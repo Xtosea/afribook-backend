@@ -488,6 +488,52 @@ if (
   }
 }
 
+// ================= FRESH MARKETPLACE SIMPLE TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-simple-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const collection = db.collection("marketplaces");
+
+        const count = await collection.countDocuments({});
+
+        const exists = await collection.findOne(
+          {},
+          { projection: { _id: 1 } }
+        );
+
+        return json({
+          ok: true,
+          collection: "marketplaces",
+          count,
+          hasDocument: !!exists,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE SIMPLE TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        collection: "marketplaces",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
 // ================= FRESH DATABASE TEST =================
 
 if (
