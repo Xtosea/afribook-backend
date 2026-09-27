@@ -117,6 +117,10 @@ import { getDatabase, withFreshDatabase } from "./utils/db.js";
 import { ensureApplicationIndexes } from "./utils/indexes.js";
 import { listProducts } from "./utils/products.js";
 import { getPremiumStatus } from "./utils/premium.js";
+import {
+  initializePaystackPayment,
+  verifyPaystackPayment,
+} from "./routes/payments.js";
 import { authenticate } from "./utils/auth.js";
 import {
   listCurrencies,
@@ -342,6 +346,42 @@ async function handleRequest(request, env, ctx) {
           message,
         }, statusCode);
       }
+    }
+
+    // ================= PAYSTACK PAYMENTS =================
+
+    // INITIALIZE PAYSTACK PAYMENT
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/payments/paystack/initialize"
+    ) {
+      const database = await getDatabase(env);
+
+      return initializePaystackPayment(
+        request,
+        env,
+        database
+      );
+    }
+
+    // VERIFY PAYSTACK PAYMENT
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith(
+        "/api/payments/paystack/verify/"
+      )
+    ) {
+      const reference =
+        url.pathname.split("/").pop();
+
+      const database = await getDatabase(env);
+
+      return verifyPaystackPayment(
+        request,
+        env,
+        database,
+        reference
+      );
     }
 
     // GET SUPPORTED CURRENCIES

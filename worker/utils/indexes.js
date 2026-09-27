@@ -33,5 +33,25 @@ export async function ensureApplicationIndexes(db) {
     }
   );
 
+  // ------------------------------------------------------------
+  // PAYMENTS
+  // One Paystack reference must only be processed once.
+  // ------------------------------------------------------------
+  await db.collection("payments").createIndex(
+    { transactionReference: 1 },
+    {
+      unique: true,
+      sparse: true,
+    }
+  );
+
+  await db.collection("payments").createIndex(
+    { user: 1, createdAt: -1 }
+  );
+
+  await db.collection("payments").createIndex(
+    { status: 1, createdAt: -1 }
+  );
+
   return true;
 }
