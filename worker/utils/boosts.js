@@ -57,6 +57,16 @@ function cleanBoost(boost) {
       boost.transactionReference,
     gatewayReference:
       boost.gatewayReference || null,
+    approvedBy:
+      boost.approvedBy?.toString() || null,
+    approvedAt:
+      boost.approvedAt || null,
+    rejectedBy:
+      boost.rejectedBy?.toString() || null,
+    rejectedAt:
+      boost.rejectedAt || null,
+    rejectionReason:
+      boost.rejectionReason || null,
     createdAt: boost.createdAt,
     updatedAt: boost.updatedAt,
   };
@@ -138,6 +148,23 @@ export async function activateVerifiedBoost(
     );
   }
 
+  // Shared posts cannot be boosted.
+  if (post.isSharedPost === true) {
+    throw new Error(
+      "Shared posts cannot be boosted."
+    );
+  }
+
+  // A Boost must contain media.
+  if (
+    !Array.isArray(post.media) ||
+    post.media.length === 0
+  ) {
+    throw new Error(
+      "Only posts with photos or videos can be boosted."
+    );
+  }
+
   const existingActivation =
     await db.collection("boosts").findOne({
       transactionReference:
@@ -153,29 +180,38 @@ export async function activateVerifiedBoost(
     };
   }
 
-  const startedAt = new Date();
+  const createdAt = new Date();
 
+  // Payment is verified, but the Boost must
+  // wait for admin approval before becoming active.
   const boost = {
     user: userId,
     post: postId,
     productId: product.id,
     amount: payment.amount,
     currency: payment.currency,
-    status: "active",
-    startedAt,
-    expiresAt:
-      calculateBoostExpiry(
-        product,
-        startedAt
-      ),
+    status: "pending_approval",
+
+    // These begin only after admin approval.
+    startedAt: null,
+    expiresAt: null,
+
     paymentProvider:
       payment.provider || "paystack",
     transactionReference:
       payment.transactionReference,
     gatewayReference:
       payment.gatewayReference || null,
-    createdAt: startedAt,
-    updatedAt: startedAt,
+
+    approvedBy: null,
+    approvedAt: null,
+
+    rejectedBy: null,
+    rejectedAt: null,
+    rejectionReason: null,
+
+    createdAt,
+    updatedAt: createdAt,
   };
 
   try {
@@ -194,15 +230,15 @@ export async function activateVerifiedBoost(
       {
         $set: {
           activationStatus:
-            "activated",
-          activatedAt: new Date(),
+            "pending_approval",
+          activatedAt: null,
           updatedAt: new Date(),
         },
       }
     );
 
     return {
-      activated: true,
+      activated: false,
       alreadyActivated: false,
       boost:
         cleanBoost(boost),
@@ -217,7 +253,8 @@ export async function activateVerifiedBoost(
 
       if (duplicate) {
         return {
-          activated: true,
+          activated:
+            duplicate.status === "active",
           alreadyActivated: true,
           boost:
             cleanBoost(duplicate),
@@ -227,4 +264,162 @@ export async function activateVerifiedBoost(
 
     throw error;
   }
+}
+
+export async function approveBoost(
+  db,
+  boostId,
+  adminUserId
+) {
+  const objectBoostId =
+    toObjectId(boostId);
+
+  const adminId =
+    toObjectId(adminUserId);
+
+  if (!objectBoostId) {
+    throw new Error(
+      "Invalid Boost ID."
+    );
+  }
+
+  if (!adminId) {
+    throw new Error(
+      "Invalid admin user ID."
+    );
+  }
+
+  const boost =
+    await db.collection("boosts").findOne({
+      _id: objectBoostId,
+    });
+
+  if (!boost) {
+    throw new Error(
+      "Boost not found."
+    );
+  }
+
+  if (
+    boost.status !==
+    "pending_approval"
+  ) {
+    throw new Error(
+      "Only pending Boosts can be approved."
+    );
+  }
+
+  const product =
+    getProduct(boost.productId);
+
+  if (!product) {
+    throw new Error(
+      "Boost product no longer exists."
+    );
+  }
+
+  const startedAt =
+    new Date();
+
+  const expiresAt =
+    calculateBoostExpiry(
+      product,
+      startedAt
+    );
+
+  const result =
+    await db.collection("boosts").findOneAndUpdate(
+      {
+        _id: objectBoostId,
+        status: "pending_approval",
+      },
+      {
+        $set: {
+          status: "active",
+          startedAt,
+          expiresAt,
+          approvedBy: adminId,
+          approvedAt: startedAt,
+          updatedAt: startedAt,
+        },
+      },
+      {
+        returnDocument: "after",
+      }
+    );
+
+  if (!result) {
+    throw new Error(
+      "Boost could not be approved."
+    );
+  }
+
+  return cleanBoost(result);
+}
+
+export async function rejectBoost(
+  db,
+  boostId,
+  adminUserId,
+  rejectionReason
+) {
+  const objectBoostId =
+    toObjectId(boostId);
+
+  const adminId =
+    toObjectId(adminUserId);
+
+  if (!objectBoostId) {
+    throw new Error(
+      "Invalid Boost ID."
+    );
+  }
+
+  if (!adminId) {
+    throw new Error(
+      "Invalid admin user ID."
+    );
+  }
+
+  const reason =
+    String(
+      rejectionReason || ""
+    ).trim();
+
+  if (!reason) {
+    throw new Error(
+      "A rejection reason is required."
+    );
+  }
+
+  const now =
+    new Date();
+
+  const result =
+    await db.collection("boosts").findOneAndUpdate(
+      {
+        _id: objectBoostId,
+        status: "pending_approval",
+      },
+      {
+        $set: {
+          status: "rejected",
+          rejectedBy: adminId,
+          rejectedAt: now,
+          rejectionReason: reason,
+          updatedAt: now,
+        },
+      },
+      {
+        returnDocument: "after",
+      }
+    );
+
+  if (!result) {
+    throw new Error(
+      "Boost not found or is no longer pending approval."
+    );
+  }
+
+  return cleanBoost(result);
 }

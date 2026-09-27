@@ -121,6 +121,12 @@ import {
   initializePaystackPayment,
   verifyPaystackPayment,
 } from "./routes/payments.js";
+
+import {
+  getPendingBoosts,
+  approveBoostAdmin,
+  rejectBoostAdmin,
+} from "./routes/adminBoosts.js";
 import { authenticate } from "./utils/auth.js";
 import {
   listCurrencies,
@@ -1120,6 +1126,102 @@ try {
       } catch (error) {
         console.error(
           "ADMIN WALLET ADJUSTMENT HISTORY ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+    // ================= ADMIN BOOST MANAGEMENT =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/admin/boosts"
+    ) {
+      try {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getPendingBoosts(
+              request,
+              env,
+              database
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADMIN BOOSTS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/admin/boosts/") &&
+      url.pathname.endsWith("/approve")
+    ) {
+      try {
+        const parts = url.pathname.split("/");
+        const boostId = parts[4];
+
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await approveBoostAdmin(
+              request,
+              env,
+              database,
+              boostId
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADMIN BOOST APPROVE ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/admin/boosts/") &&
+      url.pathname.endsWith("/reject")
+    ) {
+      try {
+        const parts = url.pathname.split("/");
+        const boostId = parts[4];
+
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await rejectBoostAdmin(
+              request,
+              env,
+              database,
+              boostId
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADMIN BOOST REJECT ROUTE ERROR:",
           error
         );
 
