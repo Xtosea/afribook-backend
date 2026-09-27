@@ -53,5 +53,33 @@ export async function ensureApplicationIndexes(db) {
     { status: 1, createdAt: -1 }
   );
 
+  // ------------------------------------------------------------
+  // BOOSTS
+  // Fast lookup of active boosts for a post,
+  // user boost history, and payment idempotency.
+  // ------------------------------------------------------------
+  await db.collection("boosts").createIndex(
+    {
+      post: 1,
+      status: 1,
+      expiresAt: 1,
+    }
+  );
+
+  await db.collection("boosts").createIndex(
+    {
+      user: 1,
+      createdAt: -1,
+    }
+  );
+
+  await db.collection("boosts").createIndex(
+    { transactionReference: 1 },
+    {
+      unique: true,
+      sparse: true,
+    }
+  );
+
   return true;
 }

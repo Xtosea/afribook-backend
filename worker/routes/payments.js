@@ -23,6 +23,10 @@ import {
 } from "../utils/paymentActivation.js";
 
 import {
+  activateVerifiedBoost,
+} from "../utils/boosts.js";
+
+import {
   buildSubscriptionRecord,
 } from "../utils/subscriptions.js";
 
@@ -151,13 +155,61 @@ export async function initializePaystackPayment(
       }, 400);
     }
 
-    /*
-     * Current payment layer supports Premium first.
-     * Boost and Advertisement will use the same
-     * payment infrastructure after their activation
-     * handlers are connected.
-     */
-    if (product.type !== "premium") {
+    let targetPostId = null;
+
+    if (product.type === "boost") {
+      const rawTargetPostId =
+        typeof body?.targetPostId === "string"
+          ? body.targetPostId.trim()
+          : "";
+
+      if (!rawTargetPostId) {
+        return json({
+          success: false,
+          code: "TARGET_POST_REQUIRED",
+          message:
+            "A target post or Reel is required for a Boost payment.",
+        }, 400);
+      }
+
+      if (!ObjectId.isValid(rawTargetPostId)) {
+        return json({
+          success: false,
+          code: "INVALID_TARGET_POST",
+          message:
+            "The target post or Reel ID is invalid.",
+        }, 400);
+      }
+
+      targetPostId =
+        new ObjectId(rawTargetPostId);
+
+      const targetPost =
+        await db.collection("posts").findOne({
+          _id: targetPostId,
+        });
+
+      if (!targetPost) {
+        return json({
+          success: false,
+          code: "TARGET_POST_NOT_FOUND",
+          message:
+            "The post or Reel to boost was not found.",
+        }, 404);
+      }
+
+      if (
+        String(targetPost.user) !==
+        String(userId)
+      ) {
+        return json({
+          success: false,
+          code: "TARGET_POST_NOT_OWNED",
+          message:
+            "You can only boost your own content.",
+        }, 403);
+      }
+    } else if (product.type !== "premium") {
       return json({
         success: false,
         code: "PRODUCT_NOT_READY",
@@ -200,6 +252,8 @@ export async function initializePaystackPayment(
       productId: product.id,
 
       productType: product.type,
+
+      targetPostId,
 
       amount,
 
@@ -263,6 +317,12 @@ export async function initializePaystackPayment(
               currency,
               amount,
               transactionReference,
+              ...(targetPostId
+                ? {
+                    targetPostId:
+                      targetPostId.toString(),
+                  }
+                : {}),
             }),
           }
         );
@@ -570,18 +630,25 @@ export async function verifyPaystackPayment(
       }
     );
 
+    const verifiedPayment = {
+      ...payment,
+      status: "paid",
+      gatewayReference:
+        gatewayData.id != null
+          ? String(gatewayData.id)
+          : payment.gatewayReference,
+    };
+
     const activation =
-      await activateVerifiedPayment(
-        db,
-        {
-          ...payment,
-          status: "paid",
-          gatewayReference:
-            gatewayData.id != null
-              ? String(gatewayData.id)
-              : payment.gatewayReference,
-        }
-      );
+      payment.productType === "boost"
+        ? await activateVerifiedBoost(
+            db,
+            verifiedPayment
+          )
+        : await activateVerifiedPayment(
+            db,
+            verifiedPayment
+          );
 
     return json({
       success: true,
@@ -612,8 +679,15 @@ export async function verifyPaystackPayment(
           "paid",
       },
 
-      subscription:
-        activation.subscription,
+      ...(payment.productType === "boost"
+        ? {
+            boost:
+              activation.boost,
+          }
+        : {
+            subscription:
+              activation.subscription,
+          }),
     });
   } catch (error) {
     console.error(
