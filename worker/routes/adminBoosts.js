@@ -292,9 +292,22 @@ export async function getPendingBoosts(
       ).values(),
     ];
 
+    const listingIds = [
+      ...new Map(
+        boosts
+          .map(boost => boost.listing)
+          .filter(Boolean)
+          .map(listingId => [
+            listingId.toString(),
+            listingId,
+          ])
+      ).values(),
+    ];
+
     const [
       users,
       posts,
+      listings,
     ] = await Promise.all([
       userIds.length
         ? db.collection("users")
@@ -331,6 +344,28 @@ export async function getPendingBoosts(
             })
             .toArray()
         : [],
+
+      listingIds.length
+        ? db.collection("marketplaces")
+            .find({
+              _id: {
+                $in: listingIds,
+              },
+            })
+            .project({
+              _id: 1,
+              seller: 1,
+              title: 1,
+              description: 1,
+              price: 1,
+              currency: 1,
+              images: 1,
+              status: 1,
+              location: 1,
+              createdAt: 1,
+            })
+            .toArray()
+        : [],
     ]);
 
     const userMap =
@@ -349,6 +384,14 @@ export async function getPendingBoosts(
         ])
       );
 
+    const listingMap =
+      new Map(
+        listings.map(listing => [
+          listing._id.toString(),
+          listing,
+        ])
+      );
+
     const results =
       boosts.map(boost => {
         const user =
@@ -362,6 +405,13 @@ export async function getPendingBoosts(
           boost.post
             ? postMap.get(
                 boost.post.toString()
+              )
+            : null;
+
+        const listing =
+          boost.listing
+            ? listingMap.get(
+                boost.listing.toString()
               )
             : null;
 
@@ -401,6 +451,31 @@ export async function getPendingBoosts(
                   post.isSharedPost === true,
                 createdAt:
                   post.createdAt || null,
+              }
+            : null,
+
+          listing: listing
+            ? {
+                id: listing._id.toString(),
+                title: listing.title || "",
+                description:
+                  listing.description || "",
+                price:
+                  listing.price ?? 0,
+                currency:
+                  listing.currency || "NGN",
+                images:
+                  Array.isArray(
+                    listing.images
+                  )
+                    ? listing.images
+                    : [],
+                status:
+                  listing.status || "",
+                location:
+                  listing.location || null,
+                createdAt:
+                  listing.createdAt || null,
               }
             : null,
 

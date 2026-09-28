@@ -156,6 +156,7 @@ export async function initializePaystackPayment(
     }
 
     let targetPostId = null;
+    let targetListingId = null;
     let boostConfig = null;
 
     if (product.type === "boost") {
@@ -164,53 +165,110 @@ export async function initializePaystackPayment(
           ? body.targetPostId.trim()
           : "";
 
-      if (!rawTargetPostId) {
+      const rawTargetListingId =
+        typeof body?.targetListingId === "string"
+          ? body.targetListingId.trim()
+          : "";
+
+      if (!rawTargetPostId && !rawTargetListingId) {
         return json({
           success: false,
-          code: "TARGET_POST_REQUIRED",
+          code: "BOOST_TARGET_REQUIRED",
           message:
-            "A target post or Reel is required for a Boost payment.",
+            "A target post, Reel, or Marketplace listing is required for a Boost payment.",
         }, 400);
       }
 
-      if (!ObjectId.isValid(rawTargetPostId)) {
+      if (rawTargetPostId && rawTargetListingId) {
         return json({
           success: false,
-          code: "INVALID_TARGET_POST",
+          code: "MULTIPLE_BOOST_TARGETS",
           message:
-            "The target post or Reel ID is invalid.",
+            "A Boost payment cannot target both a post and a Marketplace listing.",
         }, 400);
       }
 
-      targetPostId =
-        new ObjectId(rawTargetPostId);
+      if (rawTargetPostId) {
+        if (!ObjectId.isValid(rawTargetPostId)) {
+          return json({
+            success: false,
+            code: "INVALID_TARGET_POST",
+            message:
+              "The target post or Reel ID is invalid.",
+          }, 400);
+        }
 
-      const targetPost =
-        await db.collection("posts").findOne({
-          _id: targetPostId,
-        });
+        targetPostId =
+          new ObjectId(rawTargetPostId);
 
-      if (!targetPost) {
-        return json({
-          success: false,
-          code: "TARGET_POST_NOT_FOUND",
-          message:
-            "The post or Reel to boost was not found.",
-        }, 404);
+        const targetPost =
+          await db.collection("posts").findOne({
+            _id: targetPostId,
+          });
+
+        if (!targetPost) {
+          return json({
+            success: false,
+            code: "TARGET_POST_NOT_FOUND",
+            message:
+              "The post or Reel to boost was not found.",
+          }, 404);
+        }
+
+        if (
+          String(targetPost.user) !==
+          String(userId)
+        ) {
+          return json({
+            success: false,
+            code: "TARGET_POST_NOT_OWNED",
+            message:
+              "You can only boost your own content.",
+          }, 403);
+        }
       }
 
-      if (
-        String(targetPost.user) !==
-        String(userId)
-      ) {
-        return json({
-          success: false,
-          code: "TARGET_POST_NOT_OWNED",
-          message:
-            "You can only boost your own content.",
-        }, 403);
+      if (rawTargetListingId) {
+        if (!ObjectId.isValid(rawTargetListingId)) {
+          return json({
+            success: false,
+            code: "INVALID_TARGET_LISTING",
+            message:
+              "The Marketplace listing ID is invalid.",
+          }, 400);
+        }
+
+        targetListingId =
+          new ObjectId(rawTargetListingId);
+
+        const targetListing =
+          await db.collection("marketplaces").findOne({
+            _id: targetListingId,
+          });
+
+        if (!targetListing) {
+          return json({
+            success: false,
+            code: "TARGET_LISTING_NOT_FOUND",
+            message:
+              "The Marketplace listing to boost was not found.",
+          }, 404);
+        }
+
+        if (
+          String(targetListing.seller) !==
+          String(userId)
+        ) {
+          return json({
+            success: false,
+            code: "TARGET_LISTING_NOT_OWNED",
+            message:
+              "You can only boost your own Marketplace listing.",
+          }, 403);
+        }
       }
-       const rawBoostConfig =
+
+      const rawBoostConfig =
        body?.boostConfig;
       if (
         !rawBoostConfig ||
@@ -494,7 +552,8 @@ export async function initializePaystackPayment(
       productType: product.type,
 
       targetPostId,
-        boostConfig,
+      targetListingId,
+      boostConfig,
 
       amount,
 
@@ -562,6 +621,12 @@ export async function initializePaystackPayment(
                 ? {
                     targetPostId:
                       targetPostId.toString(),
+                  }
+                : {}),
+              ...(targetListingId
+                ? {
+                    targetListingId:
+                      targetListingId.toString(),
                   }
                 : {}),
             }),

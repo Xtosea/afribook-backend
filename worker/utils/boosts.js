@@ -45,6 +45,7 @@ function cleanBoost(boost) {
     id: boost._id?.toString() || null,
     user: boost.user?.toString() || null,
     post: boost.post?.toString() || null,
+    listing: boost.listing?.toString() || null,
       boostConfig: boost.boostConfig || null,
     productId: boost.productId,
     amount: boost.amount,
@@ -78,31 +79,21 @@ export async function activateVerifiedBoost(
   payment
 ) {
   if (!payment) {
-    throw new Error(
-      "Payment record is required."
-    );
+    throw new Error("Payment record is required.");
   }
 
   if (payment.status !== "paid") {
-    throw new Error(
-      "Payment has not been verified as paid."
-    );
+    throw new Error("Payment has not been verified as paid.");
   }
 
   if (!payment.transactionReference) {
-    throw new Error(
-      "Payment transaction reference is missing."
-    );
+    throw new Error("Payment transaction reference is missing.");
   }
 
-  const product = getProduct(
-    payment.productId
-  );
+  const product = getProduct(payment.productId);
 
   if (!product) {
-    throw new Error(
-      "Payment product no longer exists."
-    );
+    throw new Error("Payment product no longer exists.");
   }
 
   if (product.type !== "boost") {
@@ -111,59 +102,84 @@ export async function activateVerifiedBoost(
     );
   }
 
-  const userId =
-    toObjectId(payment.user);
+  const userId = toObjectId(payment.user);
 
   if (!userId) {
+    throw new Error("Payment contains an invalid user ID.");
+  }
+
+  const postId = toObjectId(payment.targetPostId);
+  const listingId = toObjectId(payment.targetListingId);
+
+  if (!postId && !listingId) {
     throw new Error(
-      "Payment contains an invalid user ID."
+      "A Boost target post, Reel, or Marketplace listing is required."
     );
   }
 
-  const postId =
-    toObjectId(payment.targetPostId);
-
-  if (!postId) {
+  if (postId && listingId) {
     throw new Error(
-      "Boost target post is missing or invalid."
+      "A Boost payment cannot target both a post and a Marketplace listing."
     );
   }
 
-  const post =
-    await db.collection("posts").findOne({
+  let targetPost = null;
+  let targetListing = null;
+
+  if (postId) {
+    targetPost = await db.collection("posts").findOne({
       _id: postId,
     });
 
-  if (!post) {
-    throw new Error(
-      "The post or Reel to boost was not found."
-    );
+    if (!targetPost) {
+      throw new Error(
+        "The post or Reel to boost was not found."
+      );
+    }
+
+    if (String(targetPost.user) !== String(userId)) {
+      throw new Error(
+        "You can only boost your own content."
+      );
+    }
+
+    // Shared posts cannot be boosted.
+    if (targetPost.isSharedPost === true) {
+      throw new Error(
+        "Shared posts cannot be boosted."
+      );
+    }
+
+    // A Boost must contain media.
+    if (
+      !Array.isArray(targetPost.media) ||
+      targetPost.media.length === 0
+    ) {
+      throw new Error(
+        "Only posts with photos or videos can be boosted."
+      );
+    }
   }
 
-  if (
-    String(post.user) !==
-    String(userId)
-  ) {
-    throw new Error(
-      "You can only boost your own content."
-    );
-  }
+  if (listingId) {
+    targetListing = await db.collection("marketplaces").findOne({
+      _id: listingId,
+    });
 
-  // Shared posts cannot be boosted.
-  if (post.isSharedPost === true) {
-    throw new Error(
-      "Shared posts cannot be boosted."
-    );
-  }
+    if (!targetListing) {
+      throw new Error(
+        "The Marketplace listing to boost was not found."
+      );
+    }
 
-  // A Boost must contain media.
-  if (
-    !Array.isArray(post.media) ||
-    post.media.length === 0
-  ) {
-    throw new Error(
-      "Only posts with photos or videos can be boosted."
-    );
+    if (
+      String(targetListing.seller) !==
+      String(userId)
+    ) {
+      throw new Error(
+        "You can only boost your own Marketplace listing."
+      );
+    }
   }
 
   const existingActivation =
@@ -174,10 +190,10 @@ export async function activateVerifiedBoost(
 
   if (existingActivation) {
     return {
-      activated: true,
+      activated:
+        existingActivation.status === "active",
       alreadyActivated: true,
-      boost:
-        cleanBoost(existingActivation),
+      boost: cleanBoost(existingActivation),
     };
   }
 
@@ -187,9 +203,10 @@ export async function activateVerifiedBoost(
   // wait for admin approval before becoming active.
   const boost = {
     user: userId,
-    post: postId,
+    post: postId || null,
+    listing: listingId || null,
     productId: product.id,
-      boostConfig: payment.boostConfig || null,
+    boostConfig: payment.boostConfig || null,
     amount: payment.amount,
     currency: payment.currency,
     status: "pending_approval",
@@ -218,12 +235,9 @@ export async function activateVerifiedBoost(
 
   try {
     const result =
-      await db.collection("boosts").insertOne(
-        boost
-      );
+      await db.collection("boosts").insertOne(boost);
 
-    boost._id =
-      result.insertedId;
+    boost._id = result.insertedId;
 
     await db.collection("payments").updateOne(
       {
@@ -231,8 +245,7 @@ export async function activateVerifiedBoost(
       },
       {
         $set: {
-          activationStatus:
-            "pending_approval",
+          activationStatus: "pending_approval",
           activatedAt: null,
           updatedAt: new Date(),
         },
@@ -242,8 +255,7 @@ export async function activateVerifiedBoost(
     return {
       activated: false,
       alreadyActivated: false,
-      boost:
-        cleanBoost(boost),
+      boost: cleanBoost(boost),
     };
   } catch (error) {
     if (error?.code === 11000) {
@@ -258,8 +270,7 @@ export async function activateVerifiedBoost(
           activated:
             duplicate.status === "active",
           alreadyActivated: true,
-          boost:
-            cleanBoost(duplicate),
+          boost: cleanBoost(duplicate),
         };
       }
     }
