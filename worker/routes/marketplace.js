@@ -750,6 +750,236 @@ export async function toggleSaveListing(
 }
 
 /* ============================================================
+   LIKE / UNLIKE LISTING
+   POST /api/marketplace/:id/like
+   ============================================================ */
+
+export async function likeListing(
+  request,
+  env,
+  db,
+  id
+) {
+  try {
+    const user = await authenticate(request, env, db);
+
+    if (!user) {
+      return json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        401
+      );
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return json(
+        {
+          success: false,
+          message: "Listing not found.",
+        },
+        404
+      );
+    }
+
+    const listing = await db.collection("marketplaces").findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!listing) {
+      return json(
+        {
+          success: false,
+          message: "Listing not found.",
+        },
+        404
+      );
+    }
+
+    const likes = Array.isArray(listing.likes)
+      ? listing.likes
+      : [];
+
+    const alreadyLiked = likes.some(
+      likedId =>
+        String(likedId) === String(user._id)
+    );
+
+    const newLikes = alreadyLiked
+      ? likes.filter(
+          likedId =>
+            String(likedId) !== String(user._id)
+        )
+      : [...likes, user._id];
+
+    await db.collection("marketplaces").updateOne(
+      { _id: listing._id },
+      {
+        $set: {
+          likes: newLikes,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    return json({
+      success: true,
+      liked: !alreadyLiked,
+      likes: newLikes.map(
+        likedId =>
+          likedId?.toString?.() || likedId
+      ),
+      likeCount: newLikes.length,
+    });
+  } catch (err) {
+    console.error("LIKE MARKETPLACE LISTING ERROR:", err);
+
+    return json(
+      {
+        success: false,
+        message: "Failed to like listing.",
+      },
+      500
+    );
+  }
+}
+
+/* ============================================================
+   REPORT LISTING
+   POST /api/marketplace/:id/report
+   ============================================================ */
+
+export async function reportListing(
+  request,
+  env,
+  db,
+  id
+) {
+  try {
+    const user = await authenticate(request, env, db);
+
+    if (!user) {
+      return json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        401
+      );
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return json(
+        {
+          success: false,
+          message: "Listing not found.",
+        },
+        404
+      );
+    }
+
+    const listing = await db.collection("marketplaces").findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!listing) {
+      return json(
+        {
+          success: false,
+          message: "Listing not found.",
+        },
+        404
+      );
+    }
+
+    let body = {};
+
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const reason = String(body?.reason || "").trim();
+
+    if (!reason) {
+      return json(
+        {
+          success: false,
+          message: "Please provide a reason for the report.",
+        },
+        400
+      );
+    }
+
+    if (reason.length > 500) {
+      return json(
+        {
+          success: false,
+          message: "Report reason is too long.",
+        },
+        400
+      );
+    }
+
+    const reports = Array.isArray(listing.reports)
+      ? listing.reports
+      : [];
+
+    const alreadyReported = reports.some(
+      report =>
+        String(report?.user || "") ===
+        String(user._id)
+    );
+
+    if (alreadyReported) {
+      return json({
+        success: true,
+        reported: true,
+        message: "You have already reported this listing.",
+        reportCount: reports.length,
+      });
+    }
+
+    const report = {
+      user: user._id,
+      reason,
+      createdAt: new Date(),
+    };
+
+    await db.collection("marketplaces").updateOne(
+      { _id: listing._id },
+      {
+        $push: {
+          reports: report,
+        },
+        $set: {
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    return json({
+      success: true,
+      reported: true,
+      message: "Listing reported successfully.",
+      reportCount: reports.length + 1,
+    });
+  } catch (err) {
+    console.error("REPORT MARKETPLACE LISTING ERROR:", err);
+
+    return json(
+      {
+        success: false,
+        message: "Failed to report listing.",
+      },
+      500
+    );
+  }
+}
+
+/* ============================================================
    UPDATE LISTING
    PUT /api/marketplace/:id
    ============================================================ */

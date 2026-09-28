@@ -81,6 +81,8 @@ import {
   getMyListings,
   getSavedListings,
   toggleSaveListing,
+  likeListing,
+  reportListing,
   updateListing,
   deleteListing,
 } from "./routes/marketplace.js";
@@ -2418,6 +2420,56 @@ if (
           env,
           async (database) => {
             return await toggleSaveListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // LIKE / UNLIKE LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/marketplace/") &&
+      url.pathname.endsWith("/like")
+    ) {
+      const parts = url.pathname
+        .split("/")
+        .filter(Boolean);
+
+      if (parts.length === 4) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await likeListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // REPORT LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/marketplace/") &&
+      url.pathname.endsWith("/report")
+    ) {
+      const parts = url.pathname
+        .split("/")
+        .filter(Boolean);
+
+      if (parts.length === 4) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await reportListing(
               request,
               env,
               database,
