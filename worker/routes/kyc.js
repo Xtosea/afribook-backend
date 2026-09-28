@@ -356,7 +356,7 @@ export async function getMyKycStatus(
   env
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const user = await authenticate(
       request,
@@ -418,7 +418,7 @@ export async function createKycUploadSignature(
   env
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const user = await authenticate(
       request,
@@ -606,7 +606,7 @@ export async function submitKyc(
   env
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const user = await authenticate(
       request,
@@ -857,7 +857,7 @@ export async function getPendingKyc(
   env
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const { error } =
       await authenticateAdmin(
@@ -915,7 +915,7 @@ export async function getAdminKyc(
   userId
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const { error } =
       await authenticateAdmin(
@@ -991,7 +991,7 @@ export async function approveKyc(
   userId
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const { user: admin, error } =
       await authenticateAdmin(
@@ -1114,7 +1114,7 @@ export async function rejectKyc(
   userId
 ) {
   try {
-    const db = await getDatabase();
+    const db = await getDatabase(env);
 
     const { user: admin, error } =
       await authenticateAdmin(
