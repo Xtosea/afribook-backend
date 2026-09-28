@@ -134,12 +134,17 @@ function cleanListing(listing) {
 async function populateSeller(db, listing, includeEmail = false) {
   if (!listing?.seller) return listing;
 
-  const sellerId =
-    typeof listing.seller === "object"
-      ? listing.seller._id
-      : listing.seller;
+  const sellerId = listing.seller;
 
-  if (!sellerId || !ObjectId.isValid(sellerId.toString())) {
+  let sellerObjectId;
+
+  if (sellerId instanceof ObjectId) {
+    sellerObjectId = sellerId;
+  } else if (typeof sellerId === "object" && sellerId._id) {
+    sellerObjectId = sellerId._id;
+  } else if (ObjectId.isValid(String(sellerId))) {
+    sellerObjectId = new ObjectId(String(sellerId));
+  } else {
     return listing;
   }
 
@@ -153,7 +158,7 @@ async function populateSeller(db, listing, includeEmail = false) {
   }
 
   const seller = await db.collection("users").findOne(
-    { _id: new ObjectId(sellerId.toString()) },
+      { _id: sellerObjectId },
     { projection }
   );
 
