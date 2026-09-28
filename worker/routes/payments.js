@@ -156,6 +156,7 @@ export async function initializePaystackPayment(
     }
 
     let targetPostId = null;
+    let boostConfig = null;
 
     if (product.type === "boost") {
       const rawTargetPostId =
@@ -209,7 +210,246 @@ export async function initializePaystackPayment(
             "You can only boost your own content.",
         }, 403);
       }
-    } else if (product.type !== "premium") {
+       const rawBoostConfig =
+       body?.boostConfig;
+      if (
+        !rawBoostConfig ||
+        typeof rawBoostConfig !== "object" ||
+        Array.isArray(rawBoostConfig)
+      ) {
+        return json({
+          success: false,
+          code: "BOOST_CONFIG_REQUIRED",
+          message:
+            "Boost configuration is required.",
+        }, 400);
+      }
+
+      const allowedGoals = [
+        "views",
+        "engagement",
+        "profile_visits",
+        "followers",
+      ];
+
+      const allowedAudiences = [
+        "automatic",
+        "custom",
+      ];
+
+      const allowedGenders = [
+        "all",
+        "male",
+        "female",
+      ];
+
+      const normalizedGoal =
+        typeof rawBoostConfig.goal === "string"
+          ? rawBoostConfig.goal.trim()
+          : "";
+
+      const normalizedAudience =
+        typeof rawBoostConfig.audience === "string"
+          ? rawBoostConfig.audience.trim()
+          : "";
+
+      const normalizedDuration =
+        Number(rawBoostConfig.durationDays);
+
+      const normalizedStartMode =
+        typeof rawBoostConfig.startMode === "string"
+          ? rawBoostConfig.startMode.trim()
+          : "";
+
+      if (!allowedGoals.includes(normalizedGoal)) {
+        return json({
+          success: false,
+          code: "INVALID_BOOST_GOAL",
+          message: "Invalid Boost goal.",
+        }, 400);
+      }
+
+      if (
+        !allowedAudiences.includes(
+          normalizedAudience
+        )
+      ) {
+        return json({
+          success: false,
+          code: "INVALID_BOOST_AUDIENCE",
+          message: "Invalid Boost audience.",
+        }, 400);
+      }
+
+      if (
+        !Number.isInteger(normalizedDuration) ||
+        normalizedDuration < 1 ||
+        normalizedDuration > 30
+      ) {
+        return json({
+          success: false,
+          code: "INVALID_BOOST_DURATION",
+          message:
+            "Boost duration must be between 1 and 30 days.",
+        }, 400);
+      }
+
+      if (
+        normalizedStartMode !== "now" &&
+        normalizedStartMode !== "scheduled"
+      ) {
+        return json({
+          success: false,
+          code: "INVALID_BOOST_START_MODE",
+          message: "Invalid Boost start mode.",
+        }, 400);
+      }
+
+      let normalizedTargeting = null;
+
+      if (normalizedAudience === "custom") {
+        const rawTargeting =
+          rawBoostConfig.targeting;
+
+        if (
+          !rawTargeting ||
+          typeof rawTargeting !== "object" ||
+          Array.isArray(rawTargeting)
+        ) {
+          return json({
+            success: false,
+            code: "INVALID_BOOST_TARGETING",
+            message:
+              "Custom audience targeting is required.",
+          }, 400);
+        }
+
+        const targetingGender =
+          typeof rawTargeting.gender === "string"
+            ? rawTargeting.gender.trim()
+            : "all";
+
+        if (
+          !allowedGenders.includes(
+            targetingGender
+          )
+        ) {
+          return json({
+            success: false,
+            code: "INVALID_BOOST_GENDER",
+            message:
+              "Invalid Boost gender targeting.",
+          }, 400);
+        }
+
+        const targetingAgeMin =
+          Number(rawTargeting.ageMin);
+
+        const targetingAgeMax =
+          Number(rawTargeting.ageMax);
+
+        if (
+          !Number.isInteger(targetingAgeMin) ||
+          !Number.isInteger(targetingAgeMax) ||
+          targetingAgeMin < 13 ||
+          targetingAgeMax > 100 ||
+          targetingAgeMin > targetingAgeMax
+        ) {
+          return json({
+            success: false,
+            code: "INVALID_BOOST_AGE_RANGE",
+            message:
+              "Boost age range is invalid.",
+          }, 400);
+        }
+
+        normalizedTargeting = {
+          niche:
+            typeof rawTargeting.niche === "string"
+              ? rawTargeting.niche.trim()
+              : "",
+
+          country:
+            typeof rawTargeting.country === "string"
+              ? rawTargeting.country.trim()
+              : "",
+
+          state:
+            typeof rawTargeting.state === "string"
+              ? rawTargeting.state.trim()
+              : "",
+
+          city:
+            typeof rawTargeting.city === "string"
+              ? rawTargeting.city.trim()
+              : "",
+
+          ageMin: targetingAgeMin,
+          ageMax: targetingAgeMax,
+          gender: targetingGender,
+        };
+      }
+
+      let normalizedScheduledStart = null;
+
+      if (normalizedStartMode === "scheduled") {
+        if (
+          typeof rawBoostConfig.scheduledStart !==
+          "string" ||
+          !rawBoostConfig.scheduledStart.trim()
+        ) {
+          return json({
+            success: false,
+            code: "BOOST_SCHEDULE_REQUIRED",
+            message:
+              "A scheduled Boost start time is required.",
+          }, 400);
+        }
+
+        const parsedScheduledStart =
+          new Date(
+            rawBoostConfig.scheduledStart
+          );
+
+        if (
+          Number.isNaN(
+            parsedScheduledStart.getTime()
+          )
+        ) {
+          return json({
+            success: false,
+            code: "INVALID_BOOST_SCHEDULE",
+            message:
+              "The scheduled Boost start time is invalid.",
+          }, 400);
+        }
+
+        if (
+          parsedScheduledStart.getTime() <=
+          Date.now()
+        ) {
+          return json({
+            success: false,
+            code: "BOOST_SCHEDULE_IN_PAST",
+            message:
+              "The scheduled Boost start time must be in the future.",
+          }, 400);
+        }
+
+        normalizedScheduledStart =
+          parsedScheduledStart;
+      }
+
+      boostConfig = {
+        goal: normalizedGoal,
+        audience: normalizedAudience,
+        targeting: normalizedTargeting,
+        durationDays: normalizedDuration,
+        startMode: normalizedStartMode,
+        scheduledStart: normalizedScheduledStart,
+      };
+
+  } else if (product.type !== "premium") {
       return json({
         success: false,
         code: "PRODUCT_NOT_READY",
@@ -254,6 +494,7 @@ export async function initializePaystackPayment(
       productType: product.type,
 
       targetPostId,
+        boostConfig,
 
       amount,
 
