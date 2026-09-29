@@ -120,6 +120,14 @@ import { ensureApplicationIndexes } from "./utils/indexes.js";
 import { listProducts } from "./utils/products.js";
 import { getPremiumStatus } from "./utils/premium.js";
 import {
+  getAdvertisementProducts,
+  createAdvertisementCampaign,
+  getAdvertisementCampaigns,
+  getAdvertisementCampaign,
+  cancelAdvertisementCampaign,
+} from "./routes/advertisements.js";
+
+import {
   initializePaystackPayment,
   verifyPaystackPayment,
 } from "./routes/payments.js";
@@ -2346,7 +2354,82 @@ if (
   }
 }
 
-// ================= MARKETPLACE =================
+// ================= ADVERTISEMENTS =================
+
+    // GET ADVERTISEMENT PRODUCTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/ads/products"
+    ) {
+      return await getAdvertisementProducts(
+        request,
+        env,
+        await getDatabase(env)
+      );
+    }
+
+    // CREATE ADVERTISEMENT CAMPAIGN
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/ads/campaigns"
+    ) {
+      return await createAdvertisementCampaign(
+        request,
+        env,
+        await getDatabase(env)
+      );
+    }
+
+    // GET MY ADVERTISEMENT CAMPAIGNS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/ads/campaigns"
+    ) {
+      return await getAdvertisementCampaigns(
+        request,
+        env,
+        await getDatabase(env)
+      );
+    }
+
+    // CANCEL ADVERTISEMENT CAMPAIGN
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/ads/campaigns/") &&
+      url.pathname.endsWith("/cancel")
+    ) {
+      const parts = url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 5) {
+        return await cancelAdvertisementCampaign(
+          request,
+          env,
+          await getDatabase(env),
+          parts[3]
+        );
+      }
+    }
+
+    // GET SINGLE ADVERTISEMENT CAMPAIGN
+    // Keep this after /cancel so the cancel URL is not treated as an ID.
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/ads/campaigns/")
+    ) {
+      const parts = url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        return await getAdvertisementCampaign(
+          request,
+          env,
+          await getDatabase(env),
+          parts[3]
+        );
+      }
+    }
+
+    // ================= MARKETPLACE =================
+
 
     // GET MY LISTINGS
     if (

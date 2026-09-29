@@ -23,6 +23,10 @@ import {
 } from "../utils/paymentActivation.js";
 
 import {
+  activateVerifiedAdvertisement,
+} from "../utils/advertisementActivation.js";
+
+import {
   activateVerifiedBoost,
 } from "../utils/boosts.js";
 
@@ -142,7 +146,7 @@ export async function initializePaystackPayment(
 
     const currency = "NGN";
 
-    const amount = getProductPrice(
+    let amount = getProductPrice(
       productId,
       currency
     );
@@ -507,7 +511,128 @@ export async function initializePaystackPayment(
         scheduledStart: normalizedScheduledStart,
       };
 
-  } else if (product.type !== "premium") {
+    } else if (product.type === "advertisement") {
+      const rawAdvertisementCampaignId =
+        typeof body?.advertisementCampaignId === "string"
+          ? body.advertisementCampaignId.trim()
+          : "";
+
+      if (!rawAdvertisementCampaignId) {
+        return json({
+          success: false,
+          code: "ADVERTISEMENT_CAMPAIGN_REQUIRED",
+          message:
+            "An advertisement campaign is required for an Advertisement payment.",
+        }, 400);
+      }
+
+      if (!ObjectId.isValid(rawAdvertisementCampaignId)) {
+        return json({
+          success: false,
+          code: "INVALID_ADVERTISEMENT_CAMPAIGN",
+          message: "The advertisement campaign ID is invalid.",
+        }, 400);
+      }
+
+      const advertisementCampaignId =
+        new ObjectId(rawAdvertisementCampaignId);
+
+      const advertisementCampaign =
+        await db.collection("advertisement_campaigns").findOne({
+          _id: advertisementCampaignId,
+          advertiserId: userId,
+        });
+
+      if (!advertisementCampaign) {
+        return json({
+          success: false,
+          code: "ADVERTISEMENT_CAMPAIGN_NOT_FOUND",
+          message: "Advertisement campaign not found.",
+        }, 404);
+      }
+
+      if (
+        advertisementCampaign.productId !== product.id ||
+        advertisementCampaign.productType !== product.type
+      ) {
+        return json({
+          success: false,
+          code: "ADVERTISEMENT_PRODUCT_MISMATCH",
+          message:
+            "The advertisement campaign does not match the selected product.",
+        }, 400);
+      }
+
+      if (advertisementCampaign.paymentStatus !== "unpaid") {
+        return json({
+          success: false,
+          code: "ADVERTISEMENT_ALREADY_PAID",
+          message:
+            "This advertisement campaign has already been paid for.",
+        }, 400);
+      }
+
+      if (advertisementCampaign.status !== "pending_payment") {
+        return json({
+          success: false,
+          code: "ADVERTISEMENT_NOT_PENDING_PAYMENT",
+          message:
+            "This advertisement campaign is not awaiting payment.",
+        }, 400);
+      }
+
+      const campaignAmount = Number(advertisementCampaign.amount);
+
+      if (
+        !Number.isFinite(campaignAmount) ||
+        campaignAmount <= 0
+      ) {
+        return json({
+          success: false,
+          code: "INVALID_ADVERTISEMENT_AMOUNT",
+          message:
+            "The advertisement campaign has an invalid payment amount.",
+        }, 400);
+      }
+
+      if (product.customAmountAllowed === true) {
+        const minimumAmount = Number(product.minimumAmount || 0);
+
+        if (campaignAmount < minimumAmount) {
+          return json({
+            success: false,
+            code: "INVALID_ADVERTISEMENT_AMOUNT",
+            message:
+              "The Enterprise advertisement amount is below the required minimum.",
+            minimumAmount,
+          }, 400);
+        }
+
+        amount = campaignAmount;
+      } else {
+        const catalogAmount = getProductPrice(
+          productId,
+          currency
+        );
+
+        if (
+          !Number.isFinite(catalogAmount) ||
+          campaignAmount !== catalogAmount
+        ) {
+          return json({
+            success: false,
+            code: "ADVERTISEMENT_AMOUNT_MISMATCH",
+            message:
+              "The advertisement campaign amount does not match the product price.",
+          }, 400);
+        }
+
+        amount = catalogAmount;
+      }
+
+      let advertisementPaymentCampaignId =
+        advertisementCampaignId;
+    } else if (product.type !== "premium") {
       return json({
         success: false,
         code: "PRODUCT_NOT_READY",
@@ -554,6 +679,8 @@ export async function initializePaystackPayment(
       targetPostId,
       targetListingId,
       boostConfig,
+      advertisementCampaignId:
+        advertisementPaymentCampaignId || null,
 
       amount,
 
@@ -627,6 +754,12 @@ export async function initializePaystackPayment(
                 ? {
                     targetListingId:
                       targetListingId.toString(),
+                  }
+                : {}),
+              ...(advertisementPaymentCampaignId
+                ? {
+                    advertisementCampaignId:
+                      advertisementPaymentCampaignId.toString(),
                   }
                 : {}),
             }),
@@ -951,10 +1084,15 @@ export async function verifyPaystackPayment(
             db,
             verifiedPayment
           )
-        : await activateVerifiedPayment(
-            db,
-            verifiedPayment
-          );
+        : payment.productType === "advertisement"
+          ? await activateVerifiedAdvertisement(
+              db,
+              verifiedPayment
+            )
+          : await activateVerifiedPayment(
+              db,
+              verifiedPayment
+            );
 
     return json({
       success: true,
@@ -964,9 +1102,17 @@ export async function verifyPaystackPayment(
         activation.alreadyActivated,
 
       message:
-        activation.alreadyActivated
-          ? "Payment verified successfully. Premium was already activated."
-          : "Payment verified successfully and Premium has been activated.",
+        payment.productType === "advertisement"
+          ? activation.alreadyActivated
+            ? "Payment verified successfully. Advertisement campaign was already activated."
+            : "Payment verified successfully and advertisement campaign has been activated."
+          : payment.productType === "boost"
+            ? activation.alreadyActivated
+              ? "Payment verified successfully. Boost was already activated."
+              : "Payment verified successfully and Boost has been activated."
+            : activation.alreadyActivated
+              ? "Payment verified successfully. Premium was already activated."
+              : "Payment verified successfully and Premium has been activated.",
 
       payment: {
         transactionReference,
@@ -990,10 +1136,15 @@ export async function verifyPaystackPayment(
             boost:
               activation.boost,
           }
-        : {
-            subscription:
-              activation.subscription,
-          }),
+        : payment.productType === "advertisement"
+          ? {
+              campaign:
+                activation.campaign,
+            }
+          : {
+              subscription:
+                activation.subscription,
+            }),
     });
   } catch (error) {
     console.error(
