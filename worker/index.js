@@ -73,10 +73,35 @@ import {
   createReel,
   getReels,
   viewReel,
+    recordReelWatch,
 } from "./routes/posts.js";
+import {
+  getListings,
+  getListing,
+  createListing,
+  getMyListings,
+  getSavedListings,
+  toggleSaveListing,
+  likeListing,
+  reportListing,
+  updateListing,
+  deleteListing,
+} from "./routes/marketplace.js";
+
 import {
   imageKitAuth,
 } from "./routes/imagekit.js";
+
+import {
+  getMyKycStatus,
+  createKycUploadSignature,
+  submitKyc,
+  getPendingKyc,
+  getAdminKyc,
+  approveKyc,
+  rejectKyc,
+} from "./routes/kyc.js";
+
 import {
   createStory,
   getStories,
@@ -90,11 +115,62 @@ import {
   markStoryViewed,
 } from "./routes/stories.js";
 
-import { getDatabase } from "./utils/db.js";
+import { getMusic } from "./routes/music.js";
+import { getStickers } from "./routes/stickers.js";
+import {
+  getStoryMusic,
+  createStoryMusic,
+} from "./routes/storyMusic.js";
+import { getR2SignedUploadUrl, uploadStoryMusicToR2 } from "./routes/r2.js";
+import { getDatabase, withFreshDatabase } from "./utils/db.js";
+
+import { ensureApplicationIndexes } from "./utils/indexes.js";
+import { listProducts } from "./utils/products.js";
+import { getPremiumStatus } from "./utils/premium.js";
+import {
+  getAdvertisementProducts,
+  createAdvertisementCampaign,
+  getAdvertisementCampaigns,
+  getAdvertisementCampaign,
+  cancelAdvertisementCampaign,
+} from "./routes/advertisements.js";
+
+import {
+  initializePaystackPayment,
+  verifyPaystackPayment,
+} from "./routes/payments.js";
+
+import {
+  getPendingBoosts,
+  approveBoostAdmin,
+  rejectBoostAdmin,
+} from "./routes/adminBoosts.js";
+import { authenticate } from "./utils/auth.js";
+import {
+  listCurrencies,
+  normalizeCurrency,
+} from "./utils/currencies.js";
 
 import {
   getLeaderboardTop,
 } from "./routes/leaderboard.js";
+
+let applicationIndexesPromise = null;
+
+async function ensureIndexes(env) {
+  if (!applicationIndexesPromise) {
+    applicationIndexesPromise = (async () => {
+      const db = await getDatabase(env);
+      await ensureApplicationIndexes(db);
+      return true;
+    })().catch((error) => {
+      applicationIndexesPromise = null;
+      throw error;
+    });
+  }
+
+  return await applicationIndexesPromise;
+}
 
 
 function corsHeaders() {
@@ -166,6 +242,7 @@ export default {
 
 async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
+    const pathname = url.pathname;
 
     // ================= CORS =================
 
@@ -174,6 +251,69 @@ async function handleRequest(request, env, ctx) {
         status: 204,
         headers: corsHeaders(),
       });
+    }
+
+    // ============================================================
+    // SOCKET TICKET / WEBSOCKET ROUTING
+    // ============================================================
+
+    if (
+      request.method === "POST" &&
+      pathname === "/api/socket-ticket"
+    ) {
+      try {
+        const userId = await authenticate(request, env);
+
+        const id = env.SOCKET_ROOM.idFromName("global");
+        const stub = env.SOCKET_ROOM.get(id);
+
+        const ticketRequest = new Request(
+          "https://socket-room/ticket",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: userId.toString(),
+            }),
+          }
+        );
+
+        const response = await stub.fetch(ticketRequest);
+
+        const headers = new Headers(response.headers);
+        for (const [key, value] of Object.entries(corsHeaders())) {
+          headers.set(key, value);
+        }
+
+        return new Response(response.body, {
+          status: response.status,
+          headers,
+        });
+      } catch (error) {
+        return json(
+          {
+            error: error?.message || "Authentication failed",
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === "GET" &&
+      pathname === "/ws"
+    ) {
+      const id = env.SOCKET_ROOM.idFromName("global");
+      const stub = env.SOCKET_ROOM.get(id);
+
+      const wsUrl = new URL(request.url);
+      wsUrl.pathname = "/connect";
+
+      const wsRequest = new Request(wsUrl.toString(), request);
+
+      return await stub.fetch(wsRequest);
     }
 
     // ================= HEALTH =================
@@ -190,6 +330,176 @@ async function handleRequest(request, env, ctx) {
         timestamp: new Date().toISOString(),
       });
     }
+
+  // ================= PRODUCT CATALOG =================
+
+    // GET PRODUCT CATALOG
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/products"
+    ) {
+      try {
+        const currencyParam =
+          url.searchParams.get("currency") || "NGN";
+
+        const currency = normalizeCurrency(currencyParam);
+
+        if (!currency) {
+          return json({
+            success: false,
+            message: "Unsupported currency.",
+          }, 400);
+        }
+
+        const typeParam =
+          url.searchParams.get("type") || null;
+
+        const allowedTypes = [
+          "premium",
+          "boost",
+          "advertisement",
+        ];
+
+        if (
+          typeParam &&
+          !allowedTypes.includes(typeParam)
+        ) {
+          return json({
+            success: false,
+            message: "Invalid product type.",
+          }, 400);
+        }
+
+        return json({
+          success: true,
+          currency,
+          products: listProducts({
+            type: typeParam,
+            currency,
+          }),
+        });
+      } catch (error) {
+        console.error(
+          "PRODUCT CATALOG ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load product catalog.",
+        }, 500);
+      }
+    }
+
+    // GET PREMIUM STATUS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/premium/status"
+    ) {
+      try {
+        const database = await getDatabase(env);
+        const userId = await authenticate(request, env);
+        const status = await getPremiumStatus(
+          database,
+          userId
+        );
+
+        return json({
+          success: true,
+          ...status,
+        });
+      } catch (error) {
+        console.error(
+          "PREMIUM STATUS ROUTE ERROR:",
+          error
+        );
+
+        const message =
+          error?.message === "Authentication required" ||
+          error?.message === "Invalid token" ||
+          error?.message === "Token expired" ||
+          error?.message === "Invalid authentication token" ||
+          error?.message === "Invalid user ID"
+            ? error.message
+            : "Failed to load Premium status.";
+
+        const statusCode =
+          message === "Failed to load Premium status."
+            ? 500
+            : 401;
+
+        return json({
+          success: false,
+          message,
+        }, statusCode);
+      }
+    }
+
+    // ================= PAYSTACK PAYMENTS =================
+
+    // INITIALIZE PAYSTACK PAYMENT
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/payments/paystack/initialize"
+    ) {
+      const database = await getDatabase(env);
+
+      return initializePaystackPayment(
+        request,
+        env,
+        database
+      );
+    }
+
+    // VERIFY PAYSTACK PAYMENT
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith(
+        "/api/payments/paystack/verify/"
+      )
+    ) {
+      const reference =
+        url.pathname.split("/").pop();
+
+      const database = await getDatabase(env);
+
+      return verifyPaystackPayment(
+        request,
+        env,
+        database,
+        reference
+      );
+    }
+
+    // GET SUPPORTED CURRENCIES
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/currencies"
+    ) {
+      try {
+        return json({
+          success: true,
+          currencies: listCurrencies(),
+        });
+      } catch (error) {
+        console.error(
+          "CURRENCY ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load currencies.",
+        }, 500);
+      }
+    }
+
+// ================= APPLICATION INDEXES =================
+try {
+  await ensureIndexes(env);
+} catch (error) {
+  console.error("APPLICATION INDEX INITIALIZATION ERROR:", error);
+}
 
     // ================= DATABASE TEST =================
 
@@ -304,6 +614,298 @@ if (
         ok: false,
         database: "failed",
         error: err?.message || String(err),
+      },
+      500
+    );
+  }
+}
+
+// ================= FRESH DATABASE CALLBACK TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-db-callback-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const posts = await db
+          .collection("posts")
+          .find({})
+          .limit(1)
+          .toArray();
+
+        return json({
+          ok: true,
+          database: "fresh-query-success",
+          postsFound: posts.length,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH DB CALLBACK TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "fresh-query-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
+// ================= FRESH MARKETPLACE SIMPLE TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-simple-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const collection = db.collection("marketplaces");
+
+        const count = await collection.countDocuments({});
+
+        const exists = await collection.findOne(
+          {},
+          { projection: { _id: 1 } }
+        );
+
+        return json({
+          ok: true,
+          collection: "marketplaces",
+          count,
+          hasDocument: !!exists,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE SIMPLE TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        collection: "marketplaces",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
+// ================= FRESH MARKETPLACE QUERY TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-query-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const listings = await db
+          .collection("marketplaces")
+          .find({ status: "Available" })
+          .sort({ createdAt: -1 })
+          .skip(0)
+          .limit(20)
+          .toArray();
+
+        const total = await db
+          .collection("marketplaces")
+          .countDocuments({
+            status: "Available",
+          });
+
+        return json({
+          ok: true,
+          listingsFound: listings.length,
+          total,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE QUERY TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
+// ================= FRESH MARKETPLACE HANDLER TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-handler-test"
+) {
+  try {
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        return await getListings(
+          request,
+          env,
+          db
+        );
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE HANDLER TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
+// ================= FRESH MARKETPLACE SELLER TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-marketplace-seller-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const listings = await db
+          .collection("marketplaces")
+          .find({ status: "Available" })
+          .sort({ createdAt: -1 })
+          .skip(0)
+          .limit(20)
+          .toArray();
+
+        const results = [];
+
+        for (const listing of listings) {
+          let sellerId = null;
+
+          if (
+            listing?.seller &&
+            typeof listing.seller === "object"
+          ) {
+            sellerId = listing.seller._id;
+          } else {
+            sellerId = listing?.seller;
+          }
+
+          let seller = null;
+
+          if (
+            sellerId &&
+            ObjectId.isValid(sellerId.toString())
+          ) {
+            seller = await db.collection("users").findOne(
+              {
+                _id: new ObjectId(sellerId.toString()),
+              },
+              {
+                projection: {
+                  name: 1,
+                  profilePic: 1,
+                },
+              }
+            );
+          }
+
+          results.push({
+            listingId:
+              listing?._id?.toString?.() ||
+              listing?._id ||
+              null,
+            hasSeller: !!listing?.seller,
+            sellerFound: !!seller,
+          });
+        }
+
+        return json({
+          ok: true,
+          listingsFound: listings.length,
+          results,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH MARKETPLACE SELLER TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+        stack: err?.stack || null,
+      },
+      500
+    );
+  }
+}
+
+// ================= FRESH DATABASE TEST =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/fresh-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        await db.command({ ping: 1 });
+
+        return json({
+          ok: true,
+          database: "fresh-connected",
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("FRESH DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "fresh-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
       },
       500
     );
@@ -444,13 +1046,15 @@ if (
   url.pathname === "/api/wallet"
 ) {
   try {
-    const database =
-      await getDatabase(env);
-
-    return await getWallet(
-      request,
+    return await withFreshDatabase(
       env,
-      database
+      async (database) => {
+        return await getWallet(
+          request,
+          env,
+          database
+        );
+      }
     );
 
   } catch (error) {
@@ -558,13 +1162,15 @@ try {
       url.pathname === "/api/wallet/transactions"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await getTransactions(
-          request,
+        return await withFreshDatabase(
           env,
-          database
+          async (database) => {
+            return await getTransactions(
+              request,
+              env,
+              database
+            );
+          }
         );
 
       } catch (error) {
@@ -587,18 +1193,116 @@ try {
       url.pathname === "/api/admin/wallet/history"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await adminAdjustmentHistory(
-          request,
+        return await withFreshDatabase(
           env,
-          database
+          async (database) => {
+            return await adminAdjustmentHistory(
+              request,
+              env,
+              database
+            );
+          }
         );
 
       } catch (error) {
         console.error(
           "ADMIN WALLET ADJUSTMENT HISTORY ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+    // ================= ADMIN BOOST MANAGEMENT =================
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/admin/boosts"
+    ) {
+      try {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getPendingBoosts(
+              request,
+              env,
+              database
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADMIN BOOSTS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/admin/boosts/") &&
+      url.pathname.endsWith("/approve")
+    ) {
+      try {
+        const parts = url.pathname.split("/");
+        const boostId = parts[4];
+
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await approveBoostAdmin(
+              request,
+              env,
+              database,
+              boostId
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADMIN BOOST APPROVE ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          error: error.message,
+        }, 500);
+      }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/admin/boosts/") &&
+      url.pathname.endsWith("/reject")
+    ) {
+      try {
+        const parts = url.pathname.split("/");
+        const boostId = parts[4];
+
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await rejectBoostAdmin(
+              request,
+              env,
+              database,
+              boostId
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADMIN BOOST REJECT ROUTE ERROR:",
           error
         );
 
@@ -616,14 +1320,16 @@ if (
   url.pathname === "/api/admin/wallet/users"
 ) {
   try {
-    const database =
-      await getDatabase(env);
-
-    return await adminSearchUsers(
-      request,
-      env,
-      database
-    );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await adminSearchUsers(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
   } catch (error) {
     console.error(
@@ -645,14 +1351,16 @@ if (
       url.pathname === "/api/admin/wallet/points"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await adminAdjustPoints(
-          request,
-          env,
-          database
-        );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await adminAdjustPoints(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
       } catch (error) {
         console.error(
@@ -675,14 +1383,16 @@ if (
       url.pathname === "/api/wallet/convert"
     ) {
       try {
-        const database =
-          await getDatabase(env);
-
-        return await convertPoints(
-          request,
-          env,
-          database
-        );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await convertPoints(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
       } catch (error) {
         console.error(
@@ -710,7 +1420,107 @@ if (
   );
 }
 
-    // ================= USERS =================
+
+/* ============================================================
+   KYC ROUTES
+   ============================================================ */
+
+if (
+  request.method === "GET" &&
+  pathname === "/api/kyc/me"
+) {
+  return getMyKycStatus(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  pathname === "/api/kyc/upload-signature"
+) {
+  return createKycUploadSignature(
+    request,
+    env
+  );
+}
+
+if (
+  request.method === "POST" &&
+  pathname === "/api/kyc/submit"
+) {
+  return submitKyc(request, env);
+}
+
+/* ============================================================
+   ADMIN KYC ROUTES
+   ============================================================ */
+
+if (
+  request.method === "GET" &&
+  pathname === "/api/admin/kyc/pending"
+) {
+  return getPendingKyc(request, env);
+}
+
+if (
+  request.method === "GET" &&
+  pathname.startsWith("/api/admin/kyc/")
+) {
+  const parts = pathname.split("/").filter(Boolean);
+
+  /*
+   * /api/admin/kyc/:userId
+   */
+
+  if (
+    parts.length === 4 &&
+    ObjectId.isValid(parts[3])
+  ) {
+    return getAdminKyc(
+      request,
+      env,
+      parts[3]
+    );
+  }
+}
+
+if (
+  request.method === "POST" &&
+  pathname.startsWith("/api/admin/kyc/")
+) {
+  const parts = pathname.split("/").filter(Boolean);
+
+  /*
+   * /api/admin/kyc/:userId/approve
+   */
+
+  if (
+    parts.length === 5 &&
+    ObjectId.isValid(parts[3]) &&
+    parts[4] === "approve"
+  ) {
+    return approveKyc(
+      request,
+      env,
+      parts[3]
+    );
+  }
+
+  /*
+   * /api/admin/kyc/:userId/reject
+   */
+
+  if (
+    parts.length === 5 &&
+    ObjectId.isValid(parts[3]) &&
+    parts[4] === "reject"
+  ) {
+    return rejectKyc(
+      request,
+      env,
+      parts[3]
+    );
+  }
+}
+  // ================= USERS =================
 
 // GET USER PROFILE
 if (
@@ -727,14 +1537,16 @@ if (
   ) {
     const userId = parts[2];
 
-    const database =
-      await getDatabase(env);
-
-    return await getMutualFriends(
-      request,
+    return await withFreshDatabase(
       env,
-      database,
-      userId
+      async (database) => {
+        return await getMutualFriends(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
     );
   }
 
@@ -742,14 +1554,16 @@ if (
   if (parts.length === 3) {
     const userId = parts[2];
 
-    const database =
-      await getDatabase(env);
-
-    return await getUser(
-      request,
+    return await withFreshDatabase(
       env,
-      database,
-      userId
+      async (database) => {
+        return await getUser(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
     );
   }
 }
@@ -766,14 +1580,16 @@ if (
   if (parts.length === 3) {
     const userId = parts[2];
 
-    const database =
-      await getDatabase(env);
-
-    return await updateUser(
-      request,
+    return await withFreshDatabase(
       env,
-      database,
-      userId
+      async (database) => {
+        return await updateUser(
+          request,
+          env,
+          database,
+          userId
+        );
+      }
     );
   }
 }
@@ -807,13 +1623,17 @@ if (
 
       if (parts.length === 4) {
         const userId = parts[2];
-        const database = await getDatabase(env);
 
-        return await getFollowers(
-          request,
+        return await withFreshDatabase(
           env,
-          database,
-          userId
+          async (database) => {
+            return await getFollowers(
+              request,
+              env,
+              database,
+              userId
+            );
+          }
         );
       }
     }
@@ -829,13 +1649,17 @@ if (
 
       if (parts.length === 4) {
         const userId = parts[2];
-        const database = await getDatabase(env);
 
-        return await getFollowing(
-          request,
+        return await withFreshDatabase(
           env,
-          database,
-          userId
+          async (database) => {
+            return await getFollowing(
+              request,
+              env,
+              database,
+              userId
+            );
+          }
         );
       }
     }
@@ -1009,6 +1833,31 @@ if (
   return getStoryFeed(request, env);
 }
 
+// ================= R2 NATIVE STORY MUSIC UPLOAD =================
+
+if (
+  request.method === "PUT" &&
+  url.pathname === "/api/r2/story-music-upload"
+) {
+  return uploadStoryMusicToR2(request, env);
+}
+
+// ================= R2 SIGNED UPLOAD =================
+
+if (
+  request.method === "OPTIONS" &&
+  url.pathname === "/api/r2/signed-url"
+) {
+  return getR2SignedUploadUrl(request, env);
+}
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/r2/signed-url"
+) {
+  return getR2SignedUploadUrl(request, env);
+}
+
 if (
   request.method === "POST" &&
   (
@@ -1161,6 +2010,17 @@ if (
       }
     }
 
+    // RECORD CREATOR QUALIFYING REEL WATCH
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/posts/reels/watch"
+    ) {
+      return await recordReelWatch(
+        request,
+        env
+      );
+    }
+
     // POST-SPECIFIC ROUTES
     if (
       url.pathname.startsWith("/api/posts/")
@@ -1310,6 +2170,616 @@ if (
       return await getPosts(request, env);
     }
 
+    // ================= MARKETPLACE CACHED DB TEST =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-cached-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const listings = await db
+      .collection("marketplaces")
+      .find({ status: "Available" })
+      .limit(1)
+      .toArray();
+
+    return json({
+      ok: true,
+      database: "cached-connected",
+      collection: "marketplaces",
+      listingsFound: listings.length,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error("MARKETPLACE CACHED DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "cached-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+
+
+
+
+
+// ================= MONGODB DRIVER TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/mongodb-driver-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    return json({
+      ok: true,
+      mongodbDriver:
+        "MongoDB driver imported successfully",
+      databaseName: db.databaseName,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "MONGODB DRIVER TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= USERS FINDONE TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/users-findone-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const user =
+      await db
+        .collection("users")
+        .findOne(
+          {},
+          {
+            projection: {
+              _id: 1,
+            },
+          }
+        );
+
+    return json({
+      ok: true,
+      collection: "users",
+      found: !!user,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "USERS FINDONE TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= USERS COLLECTION TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/users-collection-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const total =
+      await db
+        .collection("users")
+        .countDocuments({});
+
+    return json({
+      ok: true,
+      collection: "users",
+      total,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "USERS COLLECTION TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= MARKETPLACE COLLECTION TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-collection-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const collections =
+      await db
+        .listCollections({
+          name: "marketplaces",
+        })
+        .toArray();
+
+    return json({
+      ok: true,
+      collectionExists: collections.length > 0,
+      collectionsFound: collections.length,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "MARKETPLACE COLLECTION TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= MARKETPLACE COUNT TEST =================
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-count-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    const db = await getDatabase(env);
+
+    const total =
+      await db
+        .collection("marketplaces")
+        .countDocuments({});
+
+    return json({
+      ok: true,
+      database: "cached-connected",
+      collection: "marketplaces",
+      total,
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error(
+      "MARKETPLACE COUNT TEST ERROR:",
+      err
+    );
+
+    return json(
+      {
+        ok: false,
+        database: "cached-failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= MARKETPLACE DB TEST =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/marketplace-db-test"
+) {
+  try {
+    const startedAt = Date.now();
+
+    return await withFreshDatabase(
+      env,
+      async (db) => {
+        const collection = db.collection("marketplaces");
+
+        const listings = await collection
+          .find({ status: "Available" })
+          .limit(1)
+          .toArray();
+
+        return json({
+          ok: true,
+          database: "connected",
+          collection: "marketplaces",
+          listingsFound: listings.length,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("MARKETPLACE DB TEST ERROR:", err);
+
+    return json(
+      {
+        ok: false,
+        database: "failed",
+        error: err?.message || String(err),
+        name: err?.name || "UnknownError",
+        code: err?.code ?? null,
+      },
+      500
+    );
+  }
+}
+
+// ================= ADVERTISEMENTS =================
+
+    // GET ADVERTISEMENT PRODUCTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/ads/products"
+    ) {
+      return await getAdvertisementProducts(
+        request,
+        env,
+        await getDatabase(env)
+      );
+    }
+
+    // CREATE ADVERTISEMENT CAMPAIGN
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/ads/campaigns"
+    ) {
+      return await createAdvertisementCampaign(
+        request,
+        env,
+        await getDatabase(env)
+      );
+    }
+
+    // GET MY ADVERTISEMENT CAMPAIGNS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/ads/campaigns"
+    ) {
+      return await getAdvertisementCampaigns(
+        request,
+        env,
+        await getDatabase(env)
+      );
+    }
+
+    // CANCEL ADVERTISEMENT CAMPAIGN
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/ads/campaigns/") &&
+      url.pathname.endsWith("/cancel")
+    ) {
+      const parts = url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 5) {
+        return await cancelAdvertisementCampaign(
+          request,
+          env,
+          await getDatabase(env),
+          parts[3]
+        );
+      }
+    }
+
+    // GET SINGLE ADVERTISEMENT CAMPAIGN
+    // Keep this after /cancel so the cancel URL is not treated as an ID.
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/ads/campaigns/")
+    ) {
+      const parts = url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        return await getAdvertisementCampaign(
+          request,
+          env,
+          await getDatabase(env),
+          parts[3]
+        );
+      }
+    }
+
+    // ================= MARKETPLACE =================
+
+
+    // GET MY LISTINGS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/marketplace/me"
+    ) {
+      try {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getMyListings(
+              request,
+              env,
+              database
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "MARKETPLACE MY LISTINGS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load your listings.",
+        }, 500);
+      }
+    }
+
+    // GET SAVED LISTINGS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/marketplace/saved/me"
+    ) {
+      try {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getSavedListings(
+              request,
+              env,
+              database
+            );
+          }
+        );
+      } catch (error) {
+        console.error(
+          "MARKETPLACE SAVED LISTINGS ROUTE ERROR:",
+          error
+        );
+
+        return json({
+          success: false,
+          message: "Failed to load saved listings.",
+        }, 500);
+      }
+    }
+
+    // SAVE / UNSAVE LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/marketplace/") &&
+      url.pathname.endsWith("/save")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 4) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await toggleSaveListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // LIKE / UNLIKE LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/marketplace/") &&
+      url.pathname.endsWith("/like")
+    ) {
+      const parts = url.pathname
+        .split("/")
+        .filter(Boolean);
+
+      if (parts.length === 4) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await likeListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // REPORT LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname.startsWith("/api/marketplace/") &&
+      url.pathname.endsWith("/report")
+    ) {
+      const parts = url.pathname
+        .split("/")
+        .filter(Boolean);
+
+      if (parts.length === 4) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await reportListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // GET ALL LISTINGS
+    console.log("[MARKETPLACE ROUTE CHECK] Reached production marketplace block", {
+      method: request.method,
+      pathname: url.pathname,
+    });
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/marketplace"
+    ) {
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await getListings(
+            request,
+            env,
+            database
+          );
+        }
+      );
+    }
+
+    // CREATE LISTING
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/marketplace"
+    ) {
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await createListing(
+            request,
+            env,
+            database
+          );
+        }
+      );
+    }
+
+    // UPDATE LISTING
+    if (
+      request.method === "PUT" &&
+      url.pathname.startsWith("/api/marketplace/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 3) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await updateListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // DELETE LISTING
+    if (
+      request.method === "DELETE" &&
+      url.pathname.startsWith("/api/marketplace/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 3) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await deleteListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
+    // GET SINGLE LISTING
+    // Keep this LAST because /me and /saved/me
+    // must not be interpreted as listing IDs.
+    if (
+      request.method === "GET" &&
+      url.pathname.startsWith("/api/marketplace/")
+    ) {
+      const parts =
+        url.pathname.split("/").filter(Boolean);
+
+      if (parts.length === 3) {
+        return await withFreshDatabase(
+          env,
+          async (database) => {
+            return await getListing(
+              request,
+              env,
+              database,
+              parts[2]
+            );
+          }
+        );
+      }
+    }
+
     // ================= LEADERBOARD =================
 
     if (
@@ -1317,13 +2787,16 @@ if (
       url.pathname === "/api/leaderboard/top"
     ) {
       try {
-        const database = await getDatabase(env);
-
-        return await getLeaderboardTop(
-          request,
-          env,
-          database
-        );
+      return await withFreshDatabase(
+        env,
+        async (database) => {
+          return await getLeaderboardTop(
+            request,
+            env,
+            database
+          );
+        }
+      );
 
       } catch (error) {
         console.error(
@@ -1337,7 +2810,41 @@ if (
       }
     }
 
-    // ================= DEFAULT =================
+    // ================= MUSIC =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/music"
+) {
+  return getMusic(request, env);
+}
+
+// ================= STICKERS =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/stickers"
+) {
+  return getStickers(request, env);
+}
+
+// ================= STORY MUSIC =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/story-music"
+) {
+  return getStoryMusic(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname === "/api/story-music-admin"
+) {
+  return createStoryMusic(request, env);
+}
+
+// ================= DEFAULT =================
 
     return json({
       status: "ok",
