@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://africsocial-dev-frontend.vercel.app"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "headers": [
+          "Content-Type",
+          "x-amz-checksum-crc32",
+          "x-amz-sdk-checksum-algorithm",
+          "x-amz-content-sha256"
+        ]
+      },
+      "exposeHeaders": [
+        "ETag"
+      ],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}
