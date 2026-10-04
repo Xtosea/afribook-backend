@@ -73,6 +73,7 @@ import {
   createReel,
   getReels,
   viewReel,
+    recordReelWatch,
 } from "./routes/posts.js";
 import {
   getListings,
@@ -114,6 +115,13 @@ import {
   markStoryViewed,
 } from "./routes/stories.js";
 
+import { getMusic } from "./routes/music.js";
+import { getStickers } from "./routes/stickers.js";
+import {
+  getStoryMusic,
+  createStoryMusic,
+} from "./routes/storyMusic.js";
+import { getR2SignedUploadUrl, uploadStoryMusicToR2 } from "./routes/r2.js";
 import { getDatabase, withFreshDatabase } from "./utils/db.js";
 
 import { ensureApplicationIndexes } from "./utils/indexes.js";
@@ -243,6 +251,69 @@ async function handleRequest(request, env, ctx) {
         status: 204,
         headers: corsHeaders(),
       });
+    }
+
+    // ============================================================
+    // SOCKET TICKET / WEBSOCKET ROUTING
+    // ============================================================
+
+    if (
+      request.method === "POST" &&
+      pathname === "/api/socket-ticket"
+    ) {
+      try {
+        const userId = await authenticate(request, env);
+
+        const id = env.SOCKET_ROOM.idFromName("global");
+        const stub = env.SOCKET_ROOM.get(id);
+
+        const ticketRequest = new Request(
+          "https://socket-room/ticket",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: userId.toString(),
+            }),
+          }
+        );
+
+        const response = await stub.fetch(ticketRequest);
+
+        const headers = new Headers(response.headers);
+        for (const [key, value] of Object.entries(corsHeaders())) {
+          headers.set(key, value);
+        }
+
+        return new Response(response.body, {
+          status: response.status,
+          headers,
+        });
+      } catch (error) {
+        return json(
+          {
+            error: error?.message || "Authentication failed",
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === "GET" &&
+      pathname === "/ws"
+    ) {
+      const id = env.SOCKET_ROOM.idFromName("global");
+      const stub = env.SOCKET_ROOM.get(id);
+
+      const wsUrl = new URL(request.url);
+      wsUrl.pathname = "/connect";
+
+      const wsRequest = new Request(wsUrl.toString(), request);
+
+      return await stub.fetch(wsRequest);
     }
 
     // ================= HEALTH =================
@@ -1762,6 +1833,31 @@ if (
   return getStoryFeed(request, env);
 }
 
+// ================= R2 NATIVE STORY MUSIC UPLOAD =================
+
+if (
+  request.method === "PUT" &&
+  url.pathname === "/api/r2/story-music-upload"
+) {
+  return uploadStoryMusicToR2(request, env);
+}
+
+// ================= R2 SIGNED UPLOAD =================
+
+if (
+  request.method === "OPTIONS" &&
+  url.pathname === "/api/r2/signed-url"
+) {
+  return getR2SignedUploadUrl(request, env);
+}
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/r2/signed-url"
+) {
+  return getR2SignedUploadUrl(request, env);
+}
+
 if (
   request.method === "POST" &&
   (
@@ -1912,6 +2008,17 @@ if (
           parts[4]
         );
       }
+    }
+
+    // RECORD CREATOR QUALIFYING REEL WATCH
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/posts/reels/watch"
+    ) {
+      return await recordReelWatch(
+        request,
+        env
+      );
     }
 
     // POST-SPECIFIC ROUTES
@@ -2703,7 +2810,41 @@ if (
       }
     }
 
-    // ================= DEFAULT =================
+    // ================= MUSIC =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/music"
+) {
+  return getMusic(request, env);
+}
+
+// ================= STICKERS =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/stickers"
+) {
+  return getStickers(request, env);
+}
+
+// ================= STORY MUSIC =================
+
+if (
+  request.method === "GET" &&
+  url.pathname === "/api/story-music"
+) {
+  return getStoryMusic(request, env);
+}
+
+if (
+  request.method === "POST" &&
+  url.pathname === "/api/story-music-admin"
+) {
+  return createStoryMusic(request, env);
+}
+
+// ================= DEFAULT =================
 
     return json({
       status: "ok",
