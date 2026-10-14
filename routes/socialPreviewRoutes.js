@@ -31,10 +31,10 @@ router.get("/post/:id", async (req, res) => {
 
 
   const FRONTEND_URL =
-  "https://africsocial.globelynks.com";
+  "https://africsocial.com";
 
 const BACKEND_URL =
-  "https://afribook-backend.onrender.com";
+  "https://africsocial-api.xto1971.workers.dev";
 
     const post =
       await Post.findById(req.params.id)
