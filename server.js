@@ -108,10 +108,10 @@ app.set("trust proxy", 1);
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_BACKUP_URL,
-  "https://africsocial.globelynks.com",
+  "https://africsocial.com",
    "https://africbook.globelynks.com",
-  "https://africimage.globelynks.com",
-  "https://afribook.globelynks.com",
+  
+  
 
 
 ];
