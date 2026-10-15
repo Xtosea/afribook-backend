@@ -252,7 +252,7 @@ router.post(
       await user.save();
 
       const resetUrl =
-        `https://africsocial.globelynks.com/reset-password/${token}`;
+        `https://africsocial.com/reset-password/${token}`;
 
       await sendEmail({
         to: user.email,
