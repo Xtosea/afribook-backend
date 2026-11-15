@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "africsocial-api",
+  "name": "africsocial-api-dev",
   "main": "worker/index.js",
 
   "compatibility_date": "2026-08-15",
@@ -10,11 +10,14 @@
   ],
 
   "workers_dev": true,
+  "vars": {
+    "REELS_R2_BUCKET_NAME": "africbook"
+  },
 
   "r2_buckets": [
     {
       "binding": "MEDIA_BUCKET",
-      "bucket_name": "africa"
+      "bucket_name": "africbook"
     }
   ],
 
