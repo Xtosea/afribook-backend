@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 import { getDatabase } from "../utils/db.js";
 import { createPostAccessChecker } from "../utils/postAccess.js";
 
-const FRONTEND_URL = "https://dev.africsocial.com";
+const FRONTEND_URL = "https://africsocial.com";
 
 function escapeHtml(value = "") {
   return String(value)
@@ -67,7 +67,7 @@ export async function getSocialPreview(request, env) {
 
     if (!post) {
       return htmlResponse(
-        "<!DOCTYPE html><html><head><title>Post not found</title></head><body><h2>This post is unavailable.</h2><a href=\"https://dev.africsocial.com\">Visit AfricSocial</a></body></html>",
+        "<!DOCTYPE html><html><head><title>Post not found</title></head><body><h2>This post is unavailable.</h2><a href=\"https://africsocial.com\">Visit AfricSocial</a></body></html>",
         404,
         "no-store"
       );
@@ -77,7 +77,7 @@ export async function getSocialPreview(request, env) {
     const access = createPostAccessChecker(db, null);
     if (!(await access.canViewPost(post))) {
       return htmlResponse(
-        "<!DOCTYPE html><html><head><title>Post unavailable</title></head><body><h2>This post is unavailable.</h2><a href=\"https://dev.africsocial.com\">Visit AfricSocial</a></body></html>",
+        "<!DOCTYPE html><html><head><title>Post unavailable</title></head><body><h2>This post is unavailable.</h2><a href=\"https://africsocial.com\">Visit AfricSocial</a></body></html>",
         404,
         "no-store"
       );
